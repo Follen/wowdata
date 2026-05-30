@@ -12,3 +12,10 @@ func TestSourceKindValidation(t *testing.T) {
 		t.Fatalf("bad source kind should be invalid")
 	}
 }
+
+func TestCachePaths(t *testing.T) {
+	paths := NewCachePaths("user_data", "wow-123")
+	if paths.Root != "user_data/casc/wow-123" {
+		t.Fatalf("root = %q", paths.Root)
+	}
+}
