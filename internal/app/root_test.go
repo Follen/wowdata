@@ -1,9 +1,12 @@
 package app
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestResponseEnvelopeSuccess(t *testing.T) {
@@ -64,6 +67,76 @@ func TestRootHelp(t *testing.T) {
 		if !strings.Contains(stdout, want) {
 			t.Fatalf("root help missing %q:\n%s", want, stdout)
 		}
+	}
+}
+
+func TestCascInfoHelp(t *testing.T) {
+	stdout, stderr, err := executeCommand(t, "casc", "info", "--help")
+	if err != nil {
+		t.Fatalf("casc info --help returned error: %v stderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, "Show current build and cache state") {
+		t.Fatalf("casc info help missing description:\n%s", stdout)
+	}
+}
+
+func TestCascProductsHelp(t *testing.T) {
+	stdout, stderr, err := executeCommand(t, "casc", "products", "--help")
+	if err != nil {
+		t.Fatalf("casc products --help returned error: %v stderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, "List available products and builds") {
+		t.Fatalf("casc products help missing description:\n%s", stdout)
+	}
+}
+
+func TestWarmupHelp(t *testing.T) {
+	stdout, stderr, err := executeCommand(t, "warmup", "--help")
+	if err != nil {
+		t.Fatalf("warmup --help returned error: %v stderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, "Initialize local or remote WoW data context") {
+		t.Fatalf("warmup help missing description:\n%s", stdout)
+	}
+}
+
+func TestCascInfoReturnsNotImplemented(t *testing.T) {
+	stdout, stderr, err := executeCommand(t, "casc", "info")
+	if err != nil {
+		t.Fatalf("casc info returned error: %v stderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, `"ok": false`) {
+		t.Fatalf("expected ok=false:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, `"not_implemented"`) {
+		t.Fatalf("expected not_implemented:\n%s", stdout)
+	}
+}
+
+func TestHandlerInjectionSeam(t *testing.T) {
+	// Create a Service with a custom handler for casc info
+	svc := &Service{
+		Casc: func(cmd *cobra.Command, args []string) error {
+			resp := NewSuccessResponse("casc", map[string]any{"injected": true})
+			return writeJSON(cmd.OutOrStdout(), resp)
+		},
+	}
+
+	cmd := NewRootCommandWithService(svc)
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"casc", "info"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("casc info returned error: %v stderr=%s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"ok": true`) {
+		t.Fatalf("expected ok=true from injected handler:\n%s", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), `"injected": true`) {
+		t.Fatalf("expected injected data from injected handler:\n%s", stdout.String())
 	}
 }
 

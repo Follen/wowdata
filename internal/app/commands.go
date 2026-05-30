@@ -2,16 +2,27 @@ package app
 
 import "github.com/spf13/cobra"
 
+// Service holds injected handlers for command groups.
+// Each field is a handler that, when non-nil, replaces the not_implemented
+// fallback for that group. Future phases set fields to wire real CASC/HTTP
+// logic without touching the command tree definition.
+type Service struct {
+	Warmup func(cmd *cobra.Command, args []string) error
+	Casc   func(cmd *cobra.Command, args []string) error
+	// Future phases add more fields here (DB2, Spell, Encounter, etc.)
+}
+
 type commandSpec struct {
 	use     string
 	short   string
 	example string
+	group   string // command group name for handler dispatch (e.g. "warmup", "casc")
 	child   []commandSpec
 }
 
-func registerCommands(root *cobra.Command) {
+func registerCommands(root *cobra.Command, svc *Service) {
 	specs := []commandSpec{
-		{use: "warmup", short: "Initialize local or remote WoW data context.", example: "  wowdata warmup --source remote --region cn --product wow"},
+		{use: "warmup", short: "Initialize local or remote WoW data context.", example: "  wowdata warmup --source remote --region cn --product wow", group: "warmup"},
 		{use: "db2", short: "Query DB2 tables.", example: "  wowdata db2 rows SpellName --id 123", child: []commandSpec{
 			{use: "schema <table>", short: "Print parsed schema metadata.", example: "  wowdata db2 schema SpellName"},
 			{use: "rows <table>", short: "Fetch rows by ID, fields, filter, and limit.", example: "  wowdata db2 rows SpellName --id 123 --limit 1"},
@@ -39,10 +50,10 @@ func registerCommands(root *cobra.Command) {
 		{use: "icon", short: "Export BLP textures.", example: "  wowdata icon export --file-data-id 789 --format png", child: []commandSpec{
 			{use: "export", short: "Export BLP as PNG or WebP.", example: "  wowdata icon export --file-data-id 789 --format png --mipmap 0"},
 		}},
-		{use: "casc", short: "Inspect CASC source state.", example: "  wowdata casc info", child: []commandSpec{
-			{use: "info", short: "Show current build and cache state.", example: "  wowdata casc info"},
-			{use: "products", short: "List available products and builds.", example: "  wowdata casc products --source remote --region cn"},
-			{use: "diagnose", short: "Inspect CDN, archive, root, encoding, cache, and TACT state.", example: "  wowdata casc diagnose"},
+		{use: "casc", short: "Inspect CASC source state.", example: "  wowdata casc info", group: "casc", child: []commandSpec{
+			{use: "info", short: "Show current build and cache state.", example: "  wowdata casc info", group: "casc"},
+			{use: "products", short: "List available products and builds.", example: "  wowdata casc products --source remote --region cn", group: "casc"},
+			{use: "diagnose", short: "Inspect CDN, archive, root, encoding, cache, and TACT state.", example: "  wowdata casc diagnose", group: "casc"},
 		}},
 		{use: "item", short: "Query item metadata and assets.", example: "  wowdata item get --item-id 19019", child: []commandSpec{
 			{use: "get", short: "Return item summary and slot information.", example: "  wowdata item get --item-id 19019"},
@@ -68,20 +79,40 @@ func registerCommands(root *cobra.Command) {
 	}
 
 	for _, spec := range specs {
-		root.AddCommand(buildCommand(spec))
+		root.AddCommand(buildCommand(spec, svc))
 	}
 }
 
-func buildCommand(spec commandSpec) *cobra.Command {
+func buildCommand(spec commandSpec, svc *Service) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          spec.use,
 		Short:        spec.short,
 		Example:      spec.example,
 		SilenceUsage: true,
-		RunE:         notImplementedHandler(spec.use),
+		RunE:         resolveHandler(spec, svc),
 	}
 	for _, child := range spec.child {
-		cmd.AddCommand(buildCommand(child))
+		cmd.AddCommand(buildCommand(child, svc))
 	}
 	return cmd
+}
+
+// resolveHandler returns the injected Service handler for this command's group,
+// or falls back to notImplementedHandler when no handler is registered.
+func resolveHandler(spec commandSpec, svc *Service) func(cmd *cobra.Command, args []string) error {
+	handler := notImplementedHandler(spec.use)
+	if svc == nil {
+		return handler
+	}
+	switch spec.group {
+	case "warmup":
+		if svc.Warmup != nil {
+			return svc.Warmup
+		}
+	case "casc":
+		if svc.Casc != nil {
+			return svc.Casc
+		}
+	}
+	return handler
 }

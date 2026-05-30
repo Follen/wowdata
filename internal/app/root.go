@@ -9,6 +9,10 @@ import (
 )
 
 func NewRootCommand() *cobra.Command {
+	return NewRootCommandWithService(nil)
+}
+
+func NewRootCommandWithService(svc *Service) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wowdata",
 		Short: "Query and export World of Warcraft data from local clients or remote CDN builds.",
@@ -22,7 +26,7 @@ func NewRootCommand() *cobra.Command {
 		SilenceErrors: true,
 	}
 
-	registerCommands(cmd)
+	registerCommands(cmd, svc)
 	return cmd
 }
 
