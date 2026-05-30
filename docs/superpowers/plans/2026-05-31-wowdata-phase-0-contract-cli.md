@@ -385,6 +385,7 @@ func TestAllPlannedCommandHelp(t *testing.T) {
 		{"item"}, {"item", "get"}, {"item", "models"}, {"item", "geosets"}, {"item", "textures"},
 		{"creature"}, {"creature", "display"}, {"creature", "model"},
 		{"decor"}, {"decor", "list"}, {"decor", "get"},
+		{"video"}, {"video", "demux"},
 		{"golden"}, {"golden", "capture"}, {"golden", "compare"},
 	}
 
@@ -474,6 +475,9 @@ func registerCommands(root *cobra.Command) {
 		{use: "decor", short: "Query decor data.", example: "  wowdata decor list", child: []commandSpec{
 			{use: "list", short: "List decor entries.", example: "  wowdata decor list --limit 50"},
 			{use: "get", short: "Query decor item by ID or model fileDataID.", example: "  wowdata decor get --id 123"},
+		}},
+		{use: "video", short: "Process video container data from WoW files.", example: "  wowdata video demux --input movie.avi --output frames", child: []commandSpec{
+			{use: "demux", short: "Replicate the Node VP9 AVI demuxer capability.", example: "  wowdata video demux --input movie.avi --output frames"},
 		}},
 		{use: "golden", short: "Capture and compare golden fixtures.", example: "  wowdata golden compare --fixture warmup/remote-cn-wow.json", child: []commandSpec{
 			{use: "capture", short: "Capture Node baseline or Go command output.", example: "  wowdata golden capture --name db2-spellname-123 -- wowdata db2 rows SpellName --id 123"},
@@ -662,17 +666,19 @@ This inventory is the required parity checklist for the Go `wowdata` CLI.
 - legacy creature display lookup by model path
 - decor list and lookup by ID or model fileDataID
 - equipment slot and item slot naming helpers
-- VP9 AVI demuxer if retained as a meaningful data capability
+- VP9 AVI demuxer
 
 ## Difference Policy
 
-Any Node behavior not replicated must be listed in an implementation note as an intentional difference with:
+Any non-business Node behavior not replicated must be listed in an implementation note as an intentional difference with:
 
 - original Node behavior
 - Go replacement behavior
 - reason for the difference
 - affected commands
 - test coverage proving the new behavior
+
+Business capabilities must not be skipped. MCP transport is the only excluded capability surface.
 ```
 
 - [ ] **Step 2: Verify inventory mentions required parity language**
@@ -799,7 +805,7 @@ Expected: clean working tree after commits.
 ## Self-Review Checklist
 
 - The plan does not port CASC/DB2/BLP parsing in Phase 0.
-- The complete command tree from the spec is represented.
+- The complete command tree from the spec is represented, including `video demux`.
 - `--help` is tested for every planned command and subcommand.
 - JSON envelope is tested before command handlers use it.
 - Node capability parity is documented before implementation phases begin.

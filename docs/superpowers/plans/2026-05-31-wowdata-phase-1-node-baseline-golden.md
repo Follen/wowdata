@@ -84,6 +84,7 @@ git commit -m "test: add node capability scanner"
     "item",
     "creature",
     "decor",
+    "video",
     "errors"
   ],
   "fixtures": []
@@ -120,7 +121,8 @@ The Node implementation is the source of truth for capability parity until Go `w
 - Capture business output, not incidental console noise.
 - Include command args, region, product, build, cache state, and fixture name.
 - Store generated artifact hashes instead of large binaries.
-- Record intentional differences before accepting a Go mismatch.
+- Record only non-business intentional differences before accepting a Go mismatch.
+- Reject any missing business capability except MCP transport itself.
 
 ## Required First Fixtures
 

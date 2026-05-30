@@ -1,10 +1,10 @@
-# wowdata Phase 6 BLP and Icon Export Implementation Plan
+# wowdata Phase 6 BLP, Icon Export, and Video Demux Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement BLP decode and icon export to PNG/WebP with Node-equivalent mask, mipmap, and quality behavior.
+**Goal:** Implement BLP decode, icon export to PNG/WebP, and VP9 AVI demuxing with Node-equivalent mask, mipmap, quality, and demux behavior.
 
-**Architecture:** Port BLP parsing into a focused package, then route `icon export` through CASC file access and artifact output helpers. Use content hashes for golden verification.
+**Architecture:** Port BLP parsing and VP9 AVI demuxing into focused packages, then route `icon export` and `video demux` through file access and artifact output helpers. Use content hashes and frame metadata for golden verification.
 
 **Tech Stack:** Go, image packages, PNG encoding, WebP dependency decision, binary parsing, artifact hash fixtures.
 
@@ -14,6 +14,8 @@
 
 - Create: `internal/blp/blp.go`
 - Create: `internal/blp/blp_test.go`
+- Create: `internal/video/vp9_avi_demuxer.go`
+- Create: `internal/video/vp9_avi_demuxer_test.go`
 - Create: `internal/export/icon.go`
 - Create: `internal/export/icon_test.go`
 - Modify: `internal/app/commands.go`
@@ -41,8 +43,8 @@
 
 ### Task 4: Implement WebP Export
 
-- [ ] Choose Go WebP dependency or document intentional difference if WebP cannot be supported without unacceptable dependency cost.
-- [ ] Add WebP fixture if implemented.
+- [ ] Choose and integrate a Go WebP encoder dependency.
+- [ ] Add WebP fixture coverage.
 - [ ] Keep `--format webp` help and error behavior explicit.
 
 ### Task 5: Wire CLI Command
@@ -50,4 +52,19 @@
 - [ ] Replace `icon export` stub.
 - [ ] Add tests for PNG, cached output, bad fileDataID, bad format.
 - [ ] Update golden manifest.
-- [ ] Commit: `git commit -m "feat: add blp icon export"`
+
+### Task 6: Port VP9 AVI Demuxer
+
+- [ ] Port `core/casc/vp9-avi-demuxer.js`.
+- [ ] Parse AVI headers needed by the Node implementation.
+- [ ] Find chunks by FourCC.
+- [ ] Parse `movi` frames with remainder behavior matching Node.
+- [ ] Add fixtures for valid header, missing chunk, and partial frame remainder.
+- [ ] Compare frame counts and frame metadata with Node fixture output.
+
+### Task 7: Wire Video CLI Command
+
+- [ ] Replace `video demux` stub.
+- [ ] Add command tests for input path, output path, missing file, and JSON metadata response.
+- [ ] Update golden manifest with `video/demux-*` fixtures.
+- [ ] Commit: `git commit -m "feat: add blp icon export and video demux"`

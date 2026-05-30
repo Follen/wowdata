@@ -22,7 +22,7 @@
 
 - [ ] Port trigger graph traversal from Node `batchSpellInfo`.
 - [ ] Port description reference regex behavior.
-- [ ] Preserve `seedCount`, `totalCount`, `chainDepth`, `triggers`, `descRefs`, and `spells` semantics unless documented as intentional differences.
+- [ ] Preserve `seedCount`, `totalCount`, `chainDepth`, `triggers`, `descRefs`, and `spells` business semantics.
 - [ ] Compare with Node fixture.
 
 ### Task 2: Implement Aura Detection

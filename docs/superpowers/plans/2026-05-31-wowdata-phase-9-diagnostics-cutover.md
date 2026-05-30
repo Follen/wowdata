@@ -4,7 +4,7 @@
 
 **Goal:** Finish diagnostics, run full parity verification, update documentation, and retire Node as the normal runtime.
 
-**Architecture:** Add user-facing diagnostics after all core capabilities exist, then perform a full golden sweep. Cutover only after the CLI replaces normal Node workflows and documented intentional differences are accepted.
+**Architecture:** Add user-facing diagnostics after all core capabilities exist, then perform a full golden sweep. Cutover only after the CLI replaces normal Node workflows and every business capability is equivalent except MCP transport itself.
 
 **Tech Stack:** Go, golden compare runner, README docs, release checklist.
 
@@ -32,7 +32,7 @@
 
 - [ ] Replace `golden capture` stub with fixture capture.
 - [ ] Replace `golden compare` stub with semantic JSON comparison.
-- [ ] Fail when a Node capability has no Go CLI equivalent.
+- [ ] Fail when a Node capability has no Go CLI equivalent, except MCP transport itself.
 - [ ] Store diff JSON for mismatches.
 
 ### Task 3: Full Parity Sweep
@@ -40,7 +40,7 @@
 - [ ] Run all Go tests.
 - [ ] Run all CLI help commands.
 - [ ] Run golden compare for every fixture in the manifest.
-- [ ] Update `docs/wowdata/intentional-differences.md` for accepted differences only.
+- [ ] Update `docs/wowdata/intentional-differences.md` for accepted non-business differences only.
 
 ### Task 4: Documentation Cutover
 

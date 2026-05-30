@@ -67,6 +67,7 @@
 - `item`
 - `creature`
 - `decor`
+- `video`
 - `golden`
 
 计划中的子命令：
@@ -100,6 +101,7 @@
 - `wowdata creature model`：查询 creature model fileDataID 和 display 变体
 - `wowdata decor list`：列出 decor 条目
 - `wowdata decor get`：按 ID 或 model fileDataID 查询 decor item
+- `wowdata video demux`：复刻 Node VP9 AVI demuxer 能力，按输入文件导出或描述视频帧信息
 - `wowdata golden capture`：把 Node 基线或 Go 命令输出捕获为 fixture
 - `wowdata golden compare`：把 Go 命令输出和已捕获基线做对照
 
@@ -133,6 +135,7 @@ CLI 不能复制业务逻辑；它只做参数解析、调用服务和格式化�
 - `internal/blp`：纹理解码与导出
 - `internal/listfile`：文件名和扩展名查询
 - `internal/wowdata`：item、creature、decor、spell 和 encounter 业务服务
+- `internal/video`：VP9 AVI demuxer 业务能力
 - `internal/golden`：fixture 捕获和对照
 - `cmd/wowdata`：二进制入口
 

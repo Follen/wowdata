@@ -24,8 +24,8 @@
    - DBD parser, WDC/DBC readers, DB2 query helpers, schema/rows/search/foreign-key/stream.
 6. `2026-05-31-wowdata-phase-5-listfile-file-export.md`
    - listfile load/search/extension, CASC file lookup/get/exists/encoding/export.
-7. `2026-05-31-wowdata-phase-6-blp-icon-export.md`
-   - BLP decode, PNG/WebP export, icon command parity, artifact hash verification.
+7. `2026-05-31-wowdata-phase-6-blp-icon-video-export.md`
+   - BLP decode, PNG/WebP export, icon command parity, VP9 AVI demuxer parity, artifact hash verification.
 8. `2026-05-31-wowdata-phase-7-spell-encounter.md`
    - spell chains, aura/summon detection, encounter section trees.
 9. `2026-05-31-wowdata-phase-8-items-creatures-decor.md`
@@ -42,6 +42,6 @@ Do not start a later phase until the previous phase passes its verification comm
 The rewrite is complete only when:
 
 - every planned CLI command is implemented
-- every Node capability in `docs/wowdata/capability-inventory.md` has an equivalent CLI command or documented intentional difference
+- every Node capability in `docs/wowdata/capability-inventory.md` has an equivalent CLI command, except MCP transport itself
 - golden comparison passes for every published command and representative error path
 - normal usage no longer depends on Node
