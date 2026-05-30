@@ -142,6 +142,8 @@ func NewReader(data []byte) (*Reader, error) {
 	return newReader(data, nil, false)
 }
 
+func NewReaderFromBytes(data []byte) (*Reader, error) { return NewReader(data) }
+
 func NewReaderWithKeys(data []byte, keys KeyProvider) (*Reader, error) {
 	return newReader(data, keys, false)
 }

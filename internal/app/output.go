@@ -1,6 +1,11 @@
 package app
 
-import "github.com/spf13/cobra"
+import (
+	"encoding/json"
+	"io"
+
+	"github.com/spf13/cobra"
+)
 
 type Response struct {
 	OK       bool           `json:"ok"`
@@ -37,7 +42,32 @@ func NewErrorResponse(command string, code string, message string) Response {
 	}
 }
 
-// PlaceholderHandler returns a handler that writes a success placeholder for a command group.
+type ResponseWriter struct {
+	w io.Writer
+}
+
+func NewResponseWriter(w io.Writer) *ResponseWriter {
+	return &ResponseWriter{w: w}
+}
+
+func (rw *ResponseWriter) Success(command string, data any) error {
+	return rw.write(NewSuccessResponse(command, data))
+}
+
+func (rw *ResponseWriter) Error(command, code, message string) error {
+	return rw.write(NewErrorResponse(command, code, message))
+}
+
+func (rw *ResponseWriter) write(resp Response) error {
+	return writeJSON(rw.w, resp)
+}
+
+func writeJSON(w io.Writer, resp Response) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(resp)
+}
+
 func PlaceholderHandler(label string) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		resp := NewSuccessResponse(label, map[string]interface{}{
@@ -47,5 +77,4 @@ func PlaceholderHandler(label string) func(cmd *cobra.Command, args []string) er
 	}
 }
 
-// Ensure imports
 var _ = (*cobra.Command)(nil)

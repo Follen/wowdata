@@ -1,9 +1,7 @@
 package app
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 
 	"github.com/spf13/cobra"
 )
@@ -28,12 +26,6 @@ func NewRootCommandWithService(svc *Service) *cobra.Command {
 
 	registerCommands(cmd, svc)
 	return cmd
-}
-
-func writeJSON(w io.Writer, resp Response) error {
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(resp)
 }
 
 func notImplementedHandler(commandName string) func(cmd *cobra.Command, args []string) error {
