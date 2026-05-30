@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -45,5 +46,23 @@ func TestResponseEnvelopeError(t *testing.T) {
 	}
 	if resp.Error.Code != "not_implemented" {
 		t.Fatalf("error code = %q", resp.Error.Code)
+	}
+}
+
+func TestRootHelp(t *testing.T) {
+	stdout, stderr, err := executeCommand(t, "--help")
+	if err != nil {
+		t.Fatalf("help returned error: %v stderr=%s", err, stderr)
+	}
+	for _, want := range []string{
+		"wowdata",
+		"warmup",
+		"db2",
+		"golden",
+		"Examples:",
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("root help missing %q:\n%s", want, stdout)
+		}
 	}
 }
