@@ -11,10 +11,10 @@ func NewSpellHandler(svc *wowdata.SpellService) func(cmd *cobra.Command, args []
 		parent := cmd.Parent()
 		use := ""
 		if parent != nil {
-			use = cmd.Use
+			use = cmd.Name()
 		}
 
-		if use == "info" || cmd.Use == "info" {
+		if use == "info" || cmd.Name() == "info" {
 			spellID, _ := cmd.Flags().GetUint32("spell-id")
 			maxDepth, _ := cmd.Flags().GetInt("max-depth")
 			if maxDepth <= 0 {
@@ -25,14 +25,14 @@ func NewSpellHandler(svc *wowdata.SpellService) func(cmd *cobra.Command, args []
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
-		if use == "auras" || cmd.Use == "auras" {
+		if use == "auras" || cmd.Name() == "auras" {
 			spellID, _ := cmd.Flags().GetUint32("spell-id")
 			result := svc.DetectAuras(spellID)
 			resp := NewSuccessResponse("spell auras", result)
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
-		if use == "summons" || cmd.Use == "summons" {
+		if use == "summons" || cmd.Name() == "summons" {
 			spellID, _ := cmd.Flags().GetUint32("spell-id")
 			npcID, _ := cmd.Flags().GetUint32("npc-id")
 			summons := svc.DetectSummons(spellID, npcID)

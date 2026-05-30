@@ -11,10 +11,10 @@ func NewItemHandler(svc *wowdata.ItemService) func(cmd *cobra.Command, args []st
 		parent := cmd.Parent()
 		use := ""
 		if parent != nil {
-			use = cmd.Use
+			use = cmd.Name()
 		}
 
-		if use == "get" || cmd.Use == "get" {
+		if use == "get" || cmd.Name() == "get" {
 			itemID, _ := cmd.Flags().GetUint32("item-id")
 			item := svc.GetItem(itemID)
 			if item == nil {
@@ -24,7 +24,7 @@ func NewItemHandler(svc *wowdata.ItemService) func(cmd *cobra.Command, args []st
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
-		if use == "models" || cmd.Use == "models" {
+		if use == "models" || cmd.Name() == "models" {
 			itemID, _ := cmd.Flags().GetUint32("item-id")
 			raceID, _ := cmd.Flags().GetInt("race-id")
 			gender, _ := cmd.Flags().GetInt("gender")
@@ -33,7 +33,7 @@ func NewItemHandler(svc *wowdata.ItemService) func(cmd *cobra.Command, args []st
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
-		if use == "geosets" || cmd.Use == "geosets" {
+		if use == "geosets" || cmd.Name() == "geosets" {
 			itemID, _ := cmd.Flags().GetUint32("item-id")
 			result := svc.GetItemGeosets(itemID)
 			resp := NewSuccessResponse("item geosets", map[string]interface{}{
@@ -43,7 +43,7 @@ func NewItemHandler(svc *wowdata.ItemService) func(cmd *cobra.Command, args []st
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
-		if use == "textures" || cmd.Use == "textures" {
+		if use == "textures" || cmd.Name() == "textures" {
 			itemID, _ := cmd.Flags().GetUint32("item-id")
 			result := svc.GetItemTextures(itemID)
 			resp := NewSuccessResponse("item textures", map[string]interface{}{

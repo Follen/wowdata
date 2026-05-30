@@ -11,10 +11,10 @@ func NewDecorHandler(svc *wowdata.DecorService) func(cmd *cobra.Command, args []
 		parent := cmd.Parent()
 		use := ""
 		if parent != nil {
-			use = cmd.Use
+			use = cmd.Name()
 		}
 
-		if use == "list" || cmd.Use == "list" {
+		if use == "list" || cmd.Name() == "list" {
 			limit, _ := cmd.Flags().GetInt("limit")
 			all := svc.ListAll()
 			if limit > 0 && limit < len(all) {
@@ -27,7 +27,7 @@ func NewDecorHandler(svc *wowdata.DecorService) func(cmd *cobra.Command, args []
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
-		if use == "get" || cmd.Use == "get" {
+		if use == "get" || cmd.Name() == "get" {
 			id, _ := cmd.Flags().GetUint32("id")
 			modelFDID, _ := cmd.Flags().GetUint32("model-file-data-id")
 

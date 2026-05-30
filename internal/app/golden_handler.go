@@ -14,10 +14,10 @@ func NewGoldenHandler() func(cmd *cobra.Command, args []string) error {
 		parent := cmd.Parent()
 		use := ""
 		if parent != nil {
-			use = cmd.Use
+			use = cmd.Name()
 		}
 
-		if use == "capture" || cmd.Use == "capture" {
+		if use == "capture" || cmd.Name() == "capture" {
 			name, _ := cmd.Flags().GetString("name")
 			if name == "" {
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("golden capture", "missing_argument", "--name is required"))
@@ -31,7 +31,7 @@ func NewGoldenHandler() func(cmd *cobra.Command, args []string) error {
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
-		if use == "compare" || cmd.Use == "compare" {
+		if use == "compare" || cmd.Name() == "compare" {
 			fixture, _ := cmd.Flags().GetString("fixture")
 			all, _ := cmd.Flags().GetBool("all")
 

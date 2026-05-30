@@ -14,10 +14,10 @@ func NewFileHandler(lf *listfile.Listfile, fs *casc.FileService) func(cmd *cobra
 		parent := cmd.Parent()
 		use := ""
 		if parent != nil {
-			use = cmd.Use
+			use = cmd.Name()
 		}
 
-		if use == "lookup" || cmd.Use == "lookup" {
+		if use == "lookup" || cmd.Name() == "lookup" {
 			id, _ := cmd.Flags().GetUint32("file-data-id")
 			name := lf.GetByID(id)
 			resp := NewSuccessResponse("file lookup", map[string]interface{}{
@@ -28,7 +28,7 @@ func NewFileHandler(lf *listfile.Listfile, fs *casc.FileService) func(cmd *cobra
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
-		if use == "search" || cmd.Use == "search" {
+		if use == "search" || cmd.Name() == "search" {
 			query, _ := cmd.Flags().GetString("query")
 			results := lf.GetFilteredEntries(query)
 			resp := NewSuccessResponse("file search", map[string]interface{}{
@@ -39,7 +39,7 @@ func NewFileHandler(lf *listfile.Listfile, fs *casc.FileService) func(cmd *cobra
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
-		if use == "extension" || cmd.Use == "extension" {
+		if use == "extension" || cmd.Name() == "extension" {
 			ext, _ := cmd.Flags().GetString("extension")
 			results := lf.GetFilenamesByExtension(ext)
 			resp := NewSuccessResponse("file extension", map[string]interface{}{
@@ -50,7 +50,7 @@ func NewFileHandler(lf *listfile.Listfile, fs *casc.FileService) func(cmd *cobra
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
-		if use == "exists" || cmd.Use == "exists" {
+		if use == "exists" || cmd.Name() == "exists" {
 			id, _ := cmd.Flags().GetUint32("file-data-id")
 			filename, _ := cmd.Flags().GetString("filename")
 			exists := false
@@ -67,7 +67,7 @@ func NewFileHandler(lf *listfile.Listfile, fs *casc.FileService) func(cmd *cobra
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
-		if use == "encoding" || cmd.Use == "encoding" {
+		if use == "encoding" || cmd.Name() == "encoding" {
 			id, _ := cmd.Flags().GetUint32("file-data-id")
 			info, err := fs.GetEncodingInfo(id)
 			if err != nil {
@@ -77,7 +77,7 @@ func NewFileHandler(lf *listfile.Listfile, fs *casc.FileService) func(cmd *cobra
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
-		if use == "get" || cmd.Use == "get" {
+		if use == "get" || cmd.Name() == "get" {
 			id, _ := cmd.Flags().GetUint32("file-data-id")
 			outPath, _ := cmd.Flags().GetString("output")
 			if outPath != "" {
@@ -95,7 +95,7 @@ func NewFileHandler(lf *listfile.Listfile, fs *casc.FileService) func(cmd *cobra
 			}
 		}
 
-		if use == "export" || cmd.Use == "export" {
+		if use == "export" || cmd.Name() == "export" {
 			id, _ := cmd.Flags().GetUint32("file-data-id")
 			outPath, _ := cmd.Flags().GetString("output")
 			if outPath == "" {

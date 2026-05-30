@@ -11,10 +11,10 @@ func NewCreatureHandler(svc *wowdata.CreatureService) func(cmd *cobra.Command, a
 		parent := cmd.Parent()
 		use := ""
 		if parent != nil {
-			use = cmd.Use
+			use = cmd.Name()
 		}
 
-		if use == "display" || cmd.Use == "display" {
+		if use == "display" || cmd.Name() == "display" {
 			displayID, _ := cmd.Flags().GetUint32("display-id")
 			result := svc.GetDisplayByID(displayID)
 			if result == nil {
@@ -24,7 +24,7 @@ func NewCreatureHandler(svc *wowdata.CreatureService) func(cmd *cobra.Command, a
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
-		if use == "model" || cmd.Use == "model" {
+		if use == "model" || cmd.Name() == "model" {
 			fdid, _ := cmd.Flags().GetUint32("file-data-id")
 			displays := svc.GetCreatureDisplaysByFileDataID(fdid)
 			resp := NewSuccessResponse("creature model", map[string]interface{}{

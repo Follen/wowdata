@@ -20,7 +20,7 @@ func NewDB2Handler() func(cmd *cobra.Command, args []string) error {
 }
 
 func (s *DB2Service) dispatch(cmd *cobra.Command, args []string) error {
-	use := cmd.Use
+	use := cmd.Name()
 	switch {
 	case containsWord(cmd.CommandPath(), "db2 schema") || containsWord(use, "schema"):
 		return s.handleSchema(cmd, args)
