@@ -1,52 +1,52 @@
-# wowdata CLI Rewrite Design
+# wowdata CLI 重写设计
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **给自动化执行者：** 必须使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 按任务逐步实现。本计划使用复选框（`- [ ]`）跟踪进度。
 
-**Goal:** Rewrite the current WoW data tooling as a single Go CLI called `wowdata` that exposes all existing business capabilities with stable, script-friendly output.
+**目标：** 将当前的魔兽世界数据工具重写为一个名为 `wowdata` 的 Go CLI，暴露全部现有业务能力，并保持稳定、适合脚本调用的输出。
 
-**Architecture:** Build one shared Go core for CASC, DB2/WDC/DBC, BLTE, BLP, listfile, item, creature, decor, and diagnostics logic. Put a thin CLI layer on top that routes subcommands to the shared services and prints deterministic JSON by default. Use Node as the behavior baseline until Go passes golden-output comparison for every exposed command.
+**架构：** 用一套共享的 Go 核心实现 CASC、DB2/WDC/DBC、BLTE、BLP、listfile、item、creature、decor 和诊断逻辑；CLI 层只负责子命令路由，并默认输出确定性的 JSON。先把 Node 版作为行为基线，直到 Go 版对所有暴露命令都通过黄金样本对照。
 
-**Tech Stack:** Go, standard library, Cobra or a similar CLI library, JSON output, filesystem cache, HTTP client, binary parsing, fixture-based golden tests.
+**技术栈：** Go、标准库、Cobra 或同类 CLI 库、JSON 输出、文件系统缓存、HTTP 客户端、二进制解析、基于 fixture 的黄金测试。
 
 ---
 
-## Scope
+## 范围
 
-`wowdata` will replace the current Node implementation as the primary executable.
-It must expose every meaningful capability already present in the repo, not only the current MCP tools.
+`wowdata` 将替代当前 Node 实现，成为主执行程序。
+它必须暴露仓库里现有的所有有意义能力，而不只是当前的 MCP 工具。
 
-Included capability groups:
+包含的能力组：
 
-- warmup and source selection for local client or remote CDN
-- DB2 schema, row, filter, foreign-key, and search access
-- spell chains, aura detection, and summon detection
-- encounter section trees and related spell IDs
-- file lookup, search, extension queries, raw fetch, and export
-- icon extraction from BLP to PNG and WebP
-- CASC diagnostics, encoding/root/build inspection, and file existence checks
-- item, model, geoset, texture, creature, and decor queries
-- golden capture and comparison utilities for regression testing
+- 本地客户端或远程 CDN 的 warmup 和数据源选择
+- DB2 的 schema、行、过滤、外键和搜索访问
+- 技能链、光环检测和召唤检测
+- Encounter 章节树和关联 SpellID
+- 文件 lookup、search、extension 查询、原始读取和导出
+- 将 BLP 图标导出为 PNG 和 WebP
+- CASC 诊断、encoding/root/build 检查、文件存在性检查
+- item、model、geoset、texture、creature 和 decor 查询
+- 用于回归测试的黄金样本捕获和对照工具
 
-## Non-Goals
+## 非目标
 
-- No MCP server in the first release.
-- No partial rewrite that leaves the Node runtime as the main product.
-- No behavioral redesign that changes business meaning just to simplify implementation.
-- No GUI.
+- 第一版不做 MCP server。
+- 不做只保留 Node 运行时的半吊子重写。
+- 不为了实现简单而改变业务语义。
+- 不做 GUI。
 
-## CLI Shape
+## CLI 形态
 
-The binary name is `wowdata`.
+二进制名称是 `wowdata`。
 
-Required top-level behavior:
+必须具备的顶层行为：
 
 - `wowdata --help`
 - `wowdata <command> --help`
-- stable exit codes
-- machine-readable JSON output for normal command results
-- human-readable error text on stderr
+- 稳定的退出码
+- 正常结果默认输出机器可读 JSON
+- 错误信息输出到 stderr
 
-Planned command groups:
+计划中的命令分组：
 
 - `warmup`
 - `db2`
@@ -60,149 +60,149 @@ Planned command groups:
 - `decor`
 - `golden`
 
-Planned subcommands:
+计划中的子命令：
 
-- `wowdata warmup`: initialize source, region, product/build, listfile, DBD manifest, and optional DB2 table preload
-- `wowdata db2 schema <table>`: print parsed DBD/WDC schema metadata
-- `wowdata db2 rows <table>`: fetch rows by IDs, field selection, filter, and limit
-- `wowdata db2 search <table>`: case-insensitive field search
-- `wowdata db2 foreign-key <table>`: query relationship rows by foreign key
-- `wowdata db2 stream <table>`: stream rows as JSON lines for large tables
-- `wowdata spell info`: recursively inspect trigger chains and description references
-- `wowdata spell auras`: detect spell aura presence
-- `wowdata spell summons`: detect NPC summons from spell effects
-- `wowdata encounter get`: return a JournalEncounter section tree and related SpellIDs
-- `wowdata file lookup`: resolve fileDataID to filename
-- `wowdata file search`: search listfile entries
-- `wowdata file extension`: list files by extension
-- `wowdata file get`: fetch a raw CASC file by fileDataID or filename
-- `wowdata file exists`: test whether a fileDataID or filename exists
-- `wowdata file encoding`: inspect content key and encoding key metadata
-- `wowdata file export`: write raw CASC files to disk
-- `wowdata icon export`: export BLP textures to PNG or WebP with mask, mipmap, and quality flags
-- `wowdata casc info`: show selected build, build key, region, source, locale, and cache paths
-- `wowdata casc products`: list available products/builds for a source
-- `wowdata casc diagnose`: inspect CDN host, archive, root, encoding, cache, and TACT key status
-- `wowdata item get`: return item summary and slot information
-- `wowdata item models`: return item model fileDataIDs, race/gender selection, and textures
-- `wowdata item geosets`: return item geoset and helmet-hide data
-- `wowdata item textures`: return character texture fileDataIDs
-- `wowdata creature display`: query creature display metadata by display ID or fileDataID
-- `wowdata creature model`: query creature model fileDataID and display variants
-- `wowdata decor list`: list decor items
-- `wowdata decor get`: query decor item by ID or model fileDataID
-- `wowdata golden capture`: capture Node baseline or Go command output into fixtures
-- `wowdata golden compare`: compare Go command output against captured baselines
+- `wowdata warmup`：初始化 source、region、product/build、listfile、DBD manifest，并可选预热 DB2 表
+- `wowdata db2 schema <table>`：输出解析后的 DBD/WDC schema 元数据
+- `wowdata db2 rows <table>`：按 ID、字段选择、过滤和 limit 获取行
+- `wowdata db2 search <table>`：按字段做不区分大小写的搜索
+- `wowdata db2 foreign-key <table>`：按外键查询关联行
+- `wowdata db2 stream <table>`：以 JSON lines 流式输出大表数据
+- `wowdata spell info`：递归查看触发链和描述引用
+- `wowdata spell auras`：检测技能是否带 aura
+- `wowdata spell summons`：检测技能效果中的 NPC 召唤
+- `wowdata encounter get`：返回 JournalEncounter 的章节树和相关 SpellID
+- `wowdata file lookup`：把 fileDataID 解析为文件名
+- `wowdata file search`：搜索 listfile 条目
+- `wowdata file extension`：按扩展名列出文件
+- `wowdata file get`：按 fileDataID 或文件名获取原始 CASC 文件
+- `wowdata file exists`：检查 fileDataID 或文件名是否存在
+- `wowdata file encoding`：查看 content key 和 encoding key 元数据
+- `wowdata file export`：把原始 CASC 文件写到磁盘
+- `wowdata icon export`：将 BLP 导出为 PNG 或 WebP，支持 mask、mipmap 和 quality 参数
+- `wowdata casc info`：显示当前 build、build key、region、source、locale 和缓存路径
+- `wowdata casc products`：列出某个 source 可用的 products/builds
+- `wowdata casc diagnose`：检查 CDN host、archive、root、encoding、cache 和 TACT key 状态
+- `wowdata item get`：返回 item 概要和装备槽信息
+- `wowdata item models`：返回 item 的 model fileDataID、race/gender 选择和 textures
+- `wowdata item geosets`：返回 item 的 geoset 和 helmet-hide 数据
+- `wowdata item textures`：返回角色 texture fileDataID
+- `wowdata creature display`：按 display ID 或 fileDataID 查询 creature display 元数据
+- `wowdata creature model`：查询 creature model fileDataID 和 display 变体
+- `wowdata decor list`：列出 decor 条目
+- `wowdata decor get`：按 ID 或 model fileDataID 查询 decor item
+- `wowdata golden capture`：把 Node 基线或 Go 命令输出捕获为 fixture
+- `wowdata golden compare`：把 Go 命令输出和已捕获基线做对照
 
-Example intent:
+示例意图：
 
 - `wowdata warmup --source remote --region cn --product wow`
 - `wowdata db2 rows SpellName --id 123`
 - `wowdata file lookup --file-data-id 456`
 - `wowdata icon export --file-data-id 789 --format png`
 
-## Data Model
+## 数据模型
 
-The Go core should keep explicit runtime state for:
+Go 核心需要显式维护的运行时状态包括：
 
-- selected source: local or remote
-- region and product/build context
-- build cache and downloaded manifest data
-- loaded listfile and DBD manifest state
-- cache paths and output paths
-- current warmup status and diagnostics
+- 当前数据源：local 或 remote
+- region 和 product/build 上下文
+- build cache 和已下载的 manifest 数据
+- 已加载的 listfile 和 DBD manifest 状态
+- 缓存路径和输出路径
+- 当前 warmup 状态和诊断信息
 
-The CLI must not duplicate business logic; it only parses flags, calls services, and formats output.
+CLI 不能复制业务逻辑；它只做参数解析、调用服务和格式化输出。
 
-## Implementation Boundaries
+## 实现边界
 
-Suggested package split:
+建议的包划分：
 
-- `internal/app`: command wiring and lifecycle
-- `internal/casc`: local/remote source loading, build config, archives, encoding, root, caches
-- `internal/db2`: DB2/WDC/DBC readers and query helpers
-- `internal/blp`: texture decode/export
-- `internal/listfile`: filename and extension lookup
-- `internal/wowdata`: item, creature, decor, spell, and encounter business services
-- `internal/golden`: fixture capture and comparison
-- `cmd/wowdata`: binary entrypoint
+- `internal/app`：命令装配和生命周期
+- `internal/casc`：本地/远程 source 加载、build 配置、archives、encoding、root、cache
+- `internal/db2`：DB2/WDC/DBC 读取器和查询辅助
+- `internal/blp`：纹理解码与导出
+- `internal/listfile`：文件名和扩展名查询
+- `internal/wowdata`：item、creature、decor、spell 和 encounter 业务服务
+- `internal/golden`：fixture 捕获和对照
+- `cmd/wowdata`：二进制入口
 
-The command layer should depend on interfaces, not concrete parser internals.
+命令层应该依赖接口，而不是依赖具体解析器内部实现。
 
-## Output Contract
+## 输出契约
 
-Default command output should be JSON with a stable envelope:
+默认命令输出应为 JSON，并且结构稳定：
 
 - `ok`
 - `command`
 - `data`
 - `warnings`
-- `error` on failures
+- 失败时使用 `error`
 
-This keeps scripting simple and makes Node-vs-Go comparisons precise.
+这样既方便脚本调用，也方便做 Node 和 Go 的对照。
 
-## Help Design
+## 帮助设计
 
-`--help` must be useful without prior context.
+`--help` 必须在没有上下文时也能读懂。
 
-Required help content:
+帮助内容至少要包括：
 
-- what `wowdata` does
-- how to warm up local or remote sources
-- list of command groups
-- one-line examples for common workflows
-- note that some commands may take time on first use
+- `wowdata` 是做什么的
+- 如何 warmup 本地或远程数据源
+- 命令分组列表
+- 常用工作流的简短示例
+- 某些命令首次执行可能比较慢的提示
 
-Each command help page must include:
+每个命令的帮助页都必须包含：
 
-- purpose
-- required arguments
-- important optional flags
-- JSON output shape summary
-- at least one example
-- whether warmup or an active build context is required
+- 目的
+- 必填参数
+- 重要可选 flag
+- JSON 输出结构摘要
+- 至少一个示例
+- 是否需要 warmup 或活动 build 上下文
 
-Help output is part of the product surface. Tests should verify that `wowdata --help` and every planned `wowdata <command> --help` command returns exit code 0.
+帮助输出本身就是产品的一部分。测试应该验证 `wowdata --help` 和每一个计划中的 `wowdata <command> --help` 都返回退出码 0。
 
-## Regression Strategy
+## 回归策略
 
-Before replacing Node, capture golden outputs from the current implementation.
+在替换 Node 之前，先从当前实现捕获黄金输出。
 
-Golden coverage should include:
+黄金覆盖应包含：
 
-- representative warmup flows
-- every exposed command
-- error paths for missing args and uninitialized state
-- sample local and remote source behavior
-- file export outputs and cache reuse
+- 有代表性的 warmup 流程
+- 每一个暴露命令
+- 缺少参数和未初始化状态的错误路径
+- 本地和远程 source 的样例行为
+- 文件导出输出和缓存复用
 
-Comparison rules:
+对照规则：
 
-- compare semantic JSON fields, not raw formatting
-- compare file existence and exported content hashes for generated artifacts
-- keep expected divergences documented if the Go CLI intentionally improves formatting
+- 比较语义 JSON 字段，而不是原始排版
+- 比较生成产物的文件存在性和导出内容哈希
+- 如果 Go CLI 有意改进格式，必须把预期差异记录清楚
 
-## Migration Plan
+## 迁移计划
 
-1. Freeze current Node behavior with fixtures.
-2. Implement Go core packages.
-3. Implement `wowdata` CLI help and command tree.
-4. Port the currently exposed tools first.
-5. Port the unexposed business capabilities.
-6. Run golden comparisons until parity is reached.
-7. Replace the Node entrypoint with the Go binary.
-8. Retire Node source files only after the Go release is stable.
+1. 用 fixture 冻结当前 Node 行为。
+2. 实现 Go 核心包。
+3. 实现 `wowdata` CLI 的帮助和命令树。
+4. 先迁移当前已经暴露的工具。
+5. 再迁移当前没有暴露的业务能力。
+6. 持续做黄金对照，直到达到一致。
+7. 用 Go 二进制替换 Node 入口。
+8. 只有在 Go 版稳定后，才退役 Node 源文件。
 
-## Risks
+## 风险
 
-- CASC and DB2 parsing are the highest-risk areas because they encode implicit WoW-specific behavior.
-- Output drift is likely unless golden fixtures are captured early.
-- Some legacy Node behavior may be accidental; those cases must be explicitly classified instead of copied blindly.
+- CASC 和 DB2 解析风险最高，因为它们编码了很多 WoW 特有的隐式行为。
+- 如果不尽早抓黄金样本，输出漂移的概率会很高。
+- 某些旧 Node 行为可能只是历史遗留的副作用；这些情况不能默认照抄，必须单独分类。
 
-## Acceptance Criteria
+## 验收标准
 
-- `wowdata --help` works.
-- Every intended capability is reachable from a CLI command.
-- Warmup works for both local and remote sources.
-- Golden comparisons pass for the published command set.
-- The Node version is no longer required for normal use.
+- `wowdata --help` 可用。
+- 所有计划中的能力都能通过 CLI 命令访问。
+- 本地和远程 source 的 warmup 都可用。
+- 已发布命令集的黄金对照全部通过。
+- 正常使用不再依赖 Node 版本。
