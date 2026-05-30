@@ -92,7 +92,7 @@ class BLPImage {
 	 * @returns {string}
 	 */
 	getDataURL(mask = 0b1111, mipmap = 0) {
-		return this.toCanvas(mask, mipmap).toDataURL();
+		throw new Error('Canvas preview is not available in headless MCP mode.');
 	}
 
 	/**
@@ -101,19 +101,7 @@ class BLPImage {
 	 * @param {number} mipmap
 	 */
 	toCanvas(mask = 0b1111, mipmap = 0) {
-		const canvas = document.createElement('canvas');
-
-		if (mipmap == 0) {
-			canvas.width = this.width;
-			canvas.height = this.height;
-		} else {
-			const scale = Math.pow(2, mipmap);
-			canvas.width = this.width / scale;
-			canvas.height = this.height / scale;
-		}
-
-		this.drawToCanvas(canvas, mipmap, mask);
-		return canvas;
+		throw new Error('Canvas preview is not available in headless MCP mode.');
 	}
 
 	/**
@@ -219,18 +207,7 @@ class BLPImage {
 	 * @param {number} mask
 	 */
 	drawToCanvas(canvas, mipmap = 0, mask = 0b1111) {
-		this._prepare(mipmap);
-
-		const ctx = canvas.getContext('2d');
-		const canvasData = ctx.createImageData(this.scaledWidth, this.scaledHeight);
-
-		switch (this.encoding) {
-			case 1: this._getUncompressed(canvasData.data, mask); break;
-			case 2: this._getCompressed(canvasData.data, mask); break;
-			case 3: this._marshalBGRA(canvasData.data, mask); break;
-		}
-
-		ctx.putImageData(canvasData, 0, 0);
+		throw new Error('Canvas preview is not available in headless MCP mode.');
 	}
 
 	/**

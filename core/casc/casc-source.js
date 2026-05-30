@@ -176,6 +176,7 @@ class CASC {
 			// try dbd manifest first for db2 files
 			if (fileName.startsWith('DBFilesClient/') && fileName.endsWith('.db2')) {
 				const table_name = fileName.substring(14, fileName.length - 4);
+				await dbd_manifest.prepareManifest();
 				fileDataID = dbd_manifest.getByTableName(table_name);
 			}
 
@@ -243,6 +244,7 @@ class CASC {
 			// try dbd manifest first for db2 files
 			if (fileName.startsWith('DBFilesClient/') && fileName.endsWith('.db2')) {
 				const table_name = fileName.substring(14, fileName.length - 4);
+				await dbd_manifest.prepareManifest();
 				fileDataID = dbd_manifest.getByTableName(table_name);
 			}
 

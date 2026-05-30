@@ -289,10 +289,6 @@ class CASCRemote extends CASC {
 
 		core.view.casc = this;
 
-		await this.prepareListfile();
-		await this.prepareDBDManifest();
-		await this.loadListfile(this.build.BuildConfig);
-
 		core.hideLoadingScreen();
 	}
 

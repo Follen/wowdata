@@ -78,6 +78,32 @@ const listfile_check_cache_expiry = (last_modified) => {
 	return true;
 };
 
+const validate_legacy_listfile_cache = (data) => {
+	if (!data || data.byteLength === 0)
+		return false;
+
+	const oldOffset = data.offset;
+	try {
+		data.seek(0);
+		const lines = data.readLines();
+		let validLines = 0;
+		for (const line of lines) {
+			if (/^\d+;.+/.test(line)) {
+				validLines++;
+				if (validLines >= 10)
+					return true;
+			}
+		}
+
+		return validLines > 0;
+	} catch (e) {
+		log.write('Cached listfile validation failed: %s', e.message);
+		return false;
+	} finally {
+		data.seek(oldOffset);
+	}
+};
+
 // region binary
 const listfile_preload_binary = async () => {
 	try {
@@ -361,6 +387,11 @@ const listfile_preload_legacy = async () => {
 			try {
 				cached = await BufferWrapper.readFile(cache_file);
 				last_modified = (await fsp.stat(cache_file)).mtime.getTime();
+				if (!validate_legacy_listfile_cache(cached)) {
+					log.write('Cached listfile is malformed, refreshing.');
+					cached = null;
+					last_modified = 0;
+				}
 			} catch (e) {
 				// No cached file
 			}

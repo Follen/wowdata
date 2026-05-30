@@ -69,7 +69,7 @@ const timeEnd = (label, ...params) => {
  * Open the runtime log in the users external editor.
  */
 const openRuntimeLog = () => {
-	nw.Shell.openItem(constants.RUNTIME_LOG);
+	return constants.RUNTIME_LOG;
 };
 
 /**

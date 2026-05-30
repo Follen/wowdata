@@ -6,11 +6,33 @@
 const core = require('../core');
 const log = require('../log');
 const generics = require('../generics');
+const constants = require('../constants');
+const fsp = require('fs').promises;
+const path = require('path');
 
 let is_preloaded = false;
 let preload_promise = null;
 let table_to_id = new Map();
 let id_to_table = new Map();
+
+const manifest_cache_file = path.join(constants.CACHE.DIR_DBD, 'dbd-manifest.json');
+
+function ingestManifest(manifest_data) {
+	if (!Array.isArray(manifest_data))
+		throw new Error('DBD manifest cache is not an array');
+
+	table_to_id = new Map();
+	id_to_table = new Map();
+	for (const entry of manifest_data) {
+		if (entry.tableName && entry.db2FileDataID) {
+			table_to_id.set(entry.tableName, entry.db2FileDataID);
+			id_to_table.set(entry.db2FileDataID, entry.tableName);
+		}
+	}
+
+	if (table_to_id.size === 0)
+		throw new Error('DBD manifest contains no table mappings');
+}
 
 /**
  * preload the dbd manifest from configured urls
@@ -21,18 +43,23 @@ function preload() {
 
 	preload_promise = (async () => {
 		try {
+			try {
+				const cached = await generics.readJSON(manifest_cache_file, false);
+				ingestManifest(cached);
+				log.write('loaded cached dbd manifest with %d entries', table_to_id.size);
+				is_preloaded = true;
+				return;
+			} catch (e) {
+				log.write('cached dbd manifest unavailable or invalid: %s', e.message);
+			}
+
 			const dbd_filename_url = core.view.config.dbdFilenameURL;
 			const dbd_filename_fallback_url = core.view.config.dbdFilenameFallbackURL;
-
 			const raw = await generics.downloadFile([dbd_filename_url, dbd_filename_fallback_url]);
 			const manifest_data = raw.readJSON();
-
-			for (const entry of manifest_data) {
-				if (entry.tableName && entry.db2FileDataID) {
-					table_to_id.set(entry.tableName, entry.db2FileDataID);
-					id_to_table.set(entry.db2FileDataID, entry.tableName);
-				}
-			}
+			ingestManifest(manifest_data);
+			await fsp.mkdir(path.dirname(manifest_cache_file), { recursive: true });
+			await fsp.writeFile(manifest_cache_file, raw.raw);
 
 			log.write('preloaded dbd manifest with %d entries', table_to_id.size);
 			is_preloaded = true;
@@ -50,6 +77,9 @@ function preload() {
 async function prepareManifest() {
 	if (is_preloaded)
 		return true;
+
+	if (preload_promise === null)
+		preload();
 
 	await preload_promise;
 	return true;
