@@ -9,7 +9,7 @@ import "github.com/spf13/cobra"
 type Service struct {
 	Warmup func(cmd *cobra.Command, args []string) error
 	Casc   func(cmd *cobra.Command, args []string) error
-	// Future phases add more fields here (DB2, Spell, Encounter, etc.)
+	DB2    func(cmd *cobra.Command, args []string) error
 }
 
 type commandSpec struct {
@@ -23,12 +23,12 @@ type commandSpec struct {
 func registerCommands(root *cobra.Command, svc *Service) {
 	specs := []commandSpec{
 		{use: "warmup", short: "Initialize local or remote WoW data context.", example: "  wowdata warmup --source remote --region cn --product wow", group: "warmup"},
-		{use: "db2", short: "Query DB2 tables.", example: "  wowdata db2 rows SpellName --id 123", child: []commandSpec{
-			{use: "schema <table>", short: "Print parsed schema metadata.", example: "  wowdata db2 schema SpellName"},
-			{use: "rows <table>", short: "Fetch rows by ID, fields, filter, and limit.", example: "  wowdata db2 rows SpellName --id 123 --limit 1"},
-			{use: "search <table>", short: "Search a field case-insensitively.", example: "  wowdata db2 search SpellName --field Name_lang --query fire"},
-			{use: "foreign-key <table>", short: "Query rows by foreign key relationship.", example: "  wowdata db2 foreign-key SpellEffect --field SpellID --value 123"},
-			{use: "stream <table>", short: "Stream large table rows as JSON lines.", example: "  wowdata db2 stream SpellEffect --limit 100"},
+		{use: "db2", short: "Query DB2 tables.", example: "  wowdata db2 rows SpellName --id 123", group: "db2", child: []commandSpec{
+			{use: "schema <table>", short: "Print parsed schema metadata.", example: "  wowdata db2 schema SpellName", group: "db2"},
+			{use: "rows <table>", short: "Fetch rows by ID, fields, filter, and limit.", example: "  wowdata db2 rows SpellName --id 123 --limit 1", group: "db2"},
+			{use: "search <table>", short: "Search a field case-insensitively.", example: "  wowdata db2 search SpellName --field Name_lang --query fire", group: "db2"},
+			{use: "foreign-key <table>", short: "Query rows by foreign key relationship.", example: "  wowdata db2 foreign-key SpellEffect --field SpellID --value 123", group: "db2"},
+			{use: "stream <table>", short: "Stream large table rows as JSON lines.", example: "  wowdata db2 stream SpellEffect --limit 100", group: "db2"},
 		}},
 		{use: "spell", short: "Inspect spell relationships.", example: "  wowdata spell info --spell-id 123", child: []commandSpec{
 			{use: "info", short: "Inspect spell trigger chains and description references.", example: "  wowdata spell info --spell-id 123 --max-depth 5"},
@@ -112,6 +112,10 @@ func resolveHandler(spec commandSpec, svc *Service) func(cmd *cobra.Command, arg
 	case "casc":
 		if svc.Casc != nil {
 			return svc.Casc
+		}
+	case "db2":
+		if svc.DB2 != nil {
+			return svc.DB2
 		}
 	}
 	return handler
