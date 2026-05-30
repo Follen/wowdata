@@ -10,6 +10,15 @@
 
 ---
 
+## Hard Constraints
+
+- Do not leave `TODO`, `TBD`, placeholder text, fake implementations, empty functions, unconditional success paths, or "fill this in later" work in any plan output or implementation.
+- Do not mark a capability complete until it has real behavior, tests, and golden coverage where Node parity applies.
+- Do not skip hard parser/export behavior by returning mock JSON, static fixtures, or hand-written sample data.
+- Do not weaken Node parity. Every non-MCP Node business capability must have an equivalent `wowdata` CLI path.
+- Phase 0 may introduce explicit `not_implemented` command responses only as a temporary command-surface scaffold. Later phases must remove those responses for their owned commands before claiming completion.
+- If an agent cannot implement a capability, it must stop and report the blocker instead of silently substituting a placeholder.
+
 ## Plan Order
 
 1. `2026-05-31-wowdata-phase-0-contract-cli.md`
