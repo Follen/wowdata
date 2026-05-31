@@ -1,0 +1,24 @@
+{
+  "name": "item/textures-7517-classic-era",
+  "command": "wowdata",
+  "args": [
+    "--auto-warmup",
+    "--source",
+    "remote",
+    "--region",
+    "us",
+    "--product",
+    "wow_classic_era",
+    "--listfile=false",
+    "--dbd-manifest=true",
+    "--tables",
+    "Item,ItemSparse,ItemModifiedAppearance,ItemAppearance,ItemDisplayInfo,ItemDisplayInfoMaterialRes,TextureFileData",
+    "item",
+    "textures",
+    "--item-id",
+    "7517"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"item textures\",\n  \"data\": {\n    \"itemID\": 7517,\n    \"textures\": [\n      {\n        \"fileDataID\": 151296,\n        \"section\": 0\n      },\n      {\n        \"fileDataID\": 148893,\n        \"section\": 1\n      },\n      {\n        \"fileDataID\": 162971,\n        \"section\": 3\n      },\n      {\n        \"fileDataID\": 160308,\n        \"section\": 4\n      }\n    ]\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

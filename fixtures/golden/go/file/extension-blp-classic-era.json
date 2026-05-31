@@ -1,0 +1,30 @@
+{
+  "name": "file/extension-blp-classic-era",
+  "command": "go",
+  "args": [
+    "run",
+    "./cmd/wowdata",
+    "--auto-warmup",
+    "--source",
+    "remote",
+    "--region",
+    "us",
+    "--product",
+    "wow_classic_era",
+    "--listfile=true",
+    "--listfile-format",
+    "text",
+    "--dbd-manifest=true",
+    "--tables",
+    "",
+    "file",
+    "extension",
+    "--extension",
+    "blp",
+    "--limit",
+    "3"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"file extension\",\n  \"data\": {\n    \"extension\": \"blp\",\n    \"files\": [\n      \"alternate/dungeons/textures/decoration/jlo_udercity_container.blp [834434]\",\n      \"alternate/dungeons/textures/decoration/jlo_udercity_skull.blp [835327]\",\n      \"alternate/dungeons/textures/decoration/mm_aos_skull_03.blp [834505]\"\n    ],\n    \"returned\": 3,\n    \"total\": 103683\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

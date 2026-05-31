@@ -1,0 +1,15 @@
+{
+  "name": "casc/products-remote-us",
+  "command": "wowdata",
+  "args": [
+    "casc",
+    "products",
+    "--source",
+    "remote",
+    "--region",
+    "us"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"casc products\",\n  \"data\": {\n    \"source\": \"remote\",\n    \"products\": [\n      {\n        \"label\": \"World of Warcraft 12.0.5.67823\",\n        \"buildIndex\": 0\n      },\n      {\n        \"label\": \"PTR: World of Warcraft 12.0.5.67602\",\n        \"buildIndex\": 1\n      },\n      {\n        \"label\": \"Beta: World of Warcraft 12.0.7.67808\",\n        \"buildIndex\": 2\n      },\n      {\n        \"label\": \"World of Warcraft Classic 5.5.3.67509\",\n        \"buildIndex\": 3\n      },\n      {\n        \"label\": \"World of Warcraft Classic Era 1.15.8.67156\",\n        \"buildIndex\": 5\n      }\n    ]\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

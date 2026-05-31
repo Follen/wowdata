@@ -1,0 +1,24 @@
+{
+  "name": "encounter/get-1-classic-era",
+  "command": "wowdata",
+  "args": [
+    "--auto-warmup",
+    "--source",
+    "remote",
+    "--region",
+    "us",
+    "--product",
+    "wow_classic_era",
+    "--listfile=false",
+    "--dbd-manifest=true",
+    "--tables",
+    "JournalEncounterSection",
+    "encounter",
+    "get",
+    "--journal-encounter-id",
+    "1"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"encounter get\",\n  \"data\": {\n    \"journalEncounterID\": 1,\n    \"sectionCount\": 0,\n    \"spellCount\": 0,\n    \"spellIds\": [],\n    \"sections\": []\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

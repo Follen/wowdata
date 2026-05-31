@@ -1,0 +1,24 @@
+{
+  "name": "decor/list-classic-era",
+  "command": "wowdata",
+  "args": [
+    "--auto-warmup",
+    "--source",
+    "remote",
+    "--region",
+    "us",
+    "--product",
+    "wow_classic_era",
+    "--listfile=false",
+    "--dbd-manifest=true",
+    "--tables",
+    "HouseDecor",
+    "decor",
+    "list",
+    "--limit",
+    "1"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"decor list\",\n  \"data\": {\n    \"count\": 0,\n    \"items\": []\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

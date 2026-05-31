@@ -1,0 +1,15 @@
+{
+  "name": "spell/info-without-warmup",
+  "command": "wowdata",
+  "args": [
+    "spell",
+    "info",
+    "--spell-id",
+    "123",
+    "--max-depth",
+    "5"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": false,\n  \"command\": \"spell info\",\n  \"data\": null,\n  \"warnings\": [],\n  \"error\": {\n    \"code\": \"not_ready\",\n    \"message\": \"CASC 未就绪，请先调用 wow_warmup\"\n  }\n}\n",
+  "stderr": ""
+}

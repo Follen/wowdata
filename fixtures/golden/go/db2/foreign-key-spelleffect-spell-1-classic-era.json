@@ -1,0 +1,29 @@
+{
+  "name": "db2/foreign-key-spelleffect-spell-1-classic-era",
+  "command": "go",
+  "args": [
+    "run",
+    "./cmd/wowdata",
+    "--auto-warmup",
+    "--source",
+    "remote",
+    "--region",
+    "us",
+    "--product",
+    "wow_classic_era",
+    "--listfile=false",
+    "--dbd-manifest=true",
+    "--tables",
+    "SpellEffect",
+    "db2",
+    "foreign-key",
+    "SpellEffect",
+    "--field",
+    "SpellID",
+    "--value",
+    "1"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"db2 foreign-key\",\n  \"data\": {\n    \"count\": 0,\n    \"mode\": \"foreign-key\",\n    \"rows\": [],\n    \"table\": \"SpellEffect\"\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

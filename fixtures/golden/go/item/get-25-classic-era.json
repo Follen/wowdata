@@ -1,0 +1,24 @@
+{
+  "name": "item/get-25-classic-era",
+  "command": "wowdata",
+  "args": [
+    "--auto-warmup",
+    "--source",
+    "remote",
+    "--region",
+    "us",
+    "--product",
+    "wow_classic_era",
+    "--listfile=false",
+    "--dbd-manifest=true",
+    "--tables",
+    "Item,ItemSparse",
+    "item",
+    "get",
+    "--item-id",
+    "25"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"item get\",\n  \"data\": {\n    \"id\": 25,\n    \"name\": \"Worn Shortsword\",\n    \"inventoryType\": 21,\n    \"classID\": 2,\n    \"subclassID\": 7,\n    \"quality\": 1,\n    \"slotName\": \"Main Hand\"\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

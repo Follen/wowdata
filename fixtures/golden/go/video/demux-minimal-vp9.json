@@ -1,0 +1,13 @@
+{
+  "name": "video/demux-minimal-vp9",
+  "command": "wowdata",
+  "args": [
+    "video",
+    "demux",
+    "--input",
+    "fixtures/golden/inputs/minimal-vp9.avi"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"video demux\",\n  \"data\": {\n    \"frameCount\": 2,\n    \"frameRate\": 30.00030000300003,\n    \"frames\": [\n      {\n        \"type\": \"key\",\n        \"timestamp\": 0,\n        \"duration\": 33333,\n        \"size\": 100\n      },\n      {\n        \"type\": \"key\",\n        \"timestamp\": 33333,\n        \"duration\": 33333,\n        \"size\": 80\n      }\n    ],\n    \"height\": 1080,\n    \"input\": \"fixtures/golden/inputs/minimal-vp9.avi\",\n    \"width\": 1920\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}
