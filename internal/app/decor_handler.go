@@ -15,6 +15,12 @@ func NewDecorHandler(svc *wowdata.DecorService) func(cmd *cobra.Command, args []
 		}
 
 		if use == "list" || cmd.Name() == "list" {
+			if !svc.RuntimeReady() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("decor list", "not_ready", warmupRequiredMessage))
+			}
+			if !svc.Ready() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("decor list", "not_ready", "HouseDecor table is not loaded; run warmup with --tables HouseDecor"))
+			}
 			limit, _ := cmd.Flags().GetInt("limit")
 			all := svc.ListAll()
 			if limit > 0 && limit < len(all) {
@@ -28,6 +34,12 @@ func NewDecorHandler(svc *wowdata.DecorService) func(cmd *cobra.Command, args []
 		}
 
 		if use == "get" || cmd.Name() == "get" {
+			if !svc.RuntimeReady() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("decor get", "not_ready", warmupRequiredMessage))
+			}
+			if !svc.Ready() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("decor get", "not_ready", "HouseDecor table is not loaded; run warmup with --tables HouseDecor"))
+			}
 			id, _ := cmd.Flags().GetUint32("id")
 			modelFDID, _ := cmd.Flags().GetUint32("model-file-data-id")
 

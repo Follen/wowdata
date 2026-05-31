@@ -1,0 +1,21 @@
+{
+  "name": "casc/diagnose-remote-classic-era",
+  "command": "wowdata",
+  "args": [
+    "--auto-warmup",
+    "--source",
+    "remote",
+    "--region",
+    "us",
+    "--product",
+    "wow_classic_era",
+    "--listfile=false",
+    "--dbd-manifest=false",
+    "--tables=",
+    "casc",
+    "diagnose"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"casc diagnose\",\n  \"data\": {\n    \"ok\": true,\n    \"source\": \"remote\",\n    \"checks\": [\n      {\n        \"name\": \"source\",\n        \"status\": \"ok\",\n        \"detail\": \"remote\"\n      },\n      {\n        \"name\": \"region\",\n        \"status\": \"ok\",\n        \"detail\": \"us\"\n      },\n      {\n        \"name\": \"product\",\n        \"status\": \"ok\",\n        \"detail\": \"wow_classic_era\"\n      },\n      {\n        \"name\": \"cache_path\",\n        \"status\": \"ok\",\n        \"detail\": \"cache/casc/20e35f5a4823e522736fcb683d0f0d3d\"\n      },\n      {\n        \"name\": \"go_runtime\",\n        \"status\": \"ok\",\n        \"detail\": \"go1.26.0\"\n      },\n      {\n        \"name\": \"cache_dir\",\n        \"status\": \"ok\",\n        \"detail\": \"cache directory exists\"\n      },\n      {\n        \"name\": \"build_key\",\n        \"status\": \"ok\",\n        \"detail\": \"20e35f5a4823e522736fcb683d0f0d3d\"\n      },\n      {\n        \"name\": \"archives\",\n        \"status\": \"ok\",\n        \"detail\": \"4633211\"\n      },\n      {\n        \"name\": \"root\",\n        \"status\": \"ok\",\n        \"detail\": \"159067\"\n      },\n      {\n        \"name\": \"encoding\",\n        \"status\": \"ok\",\n        \"detail\": \"219445\"\n      },\n      {\n        \"name\": \"tact_keys\",\n        \"status\": \"ok\",\n        \"detail\": \"19598\"\n      }\n    ]\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

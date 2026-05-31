@@ -3,7 +3,7 @@ package casc
 type ContentFlag uint32
 
 const (
-	ContentLowViolence  ContentFlag = 1 << 0
-	ContentNoNameHash   ContentFlag = 1 << 1
-	ContentEncrypted    ContentFlag = 1 << 2
+	ContentLowViolence ContentFlag = 0x80
+	ContentNoNameHash  ContentFlag = 0x10000000
+	ContentEncrypted   ContentFlag = 0x08000000
 )

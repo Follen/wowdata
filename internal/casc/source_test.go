@@ -14,8 +14,8 @@ func TestSourceKindValidation(t *testing.T) {
 }
 
 func TestCachePaths(t *testing.T) {
-	paths := NewCachePaths("user_data", "wow-123")
-	if paths.Root != "user_data/casc/wow-123" {
+	paths := NewCachePaths("cache", "wow-123")
+	if paths.Root != "cache/casc/wow-123" {
 		t.Fatalf("root = %q", paths.Root)
 	}
 }

@@ -1,0 +1,26 @@
+{
+  "name": "file/export-134400-classic-era",
+  "command": "go",
+  "args": [
+    "run",
+    "./cmd/wowdata",
+    "--auto-warmup",
+    "--source",
+    "remote",
+    "--region",
+    "us",
+    "--product",
+    "wow_classic_era",
+    "--listfile=false",
+    "--dbd-manifest=true",
+    "file",
+    "export",
+    "--file-data-id",
+    "134400",
+    "--output",
+    "fixtures/golden/go/file/export-134400-classic-era.blp"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"file export\",\n  \"data\": {\n    \"ok\": true,\n    \"path\": \"fixtures/golden/go/file/export-134400-classic-era.blp\",\n    \"size\": 3916,\n    \"sha256\": \"294097a0b2cde0e08fda4609cd397d2f2e6d93d4ec16908bff72a8afbb4a9d72\",\n    \"overwrite\": false\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

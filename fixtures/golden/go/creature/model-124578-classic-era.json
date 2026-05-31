@@ -1,0 +1,24 @@
+{
+  "name": "creature/model-124578-classic-era",
+  "command": "wowdata",
+  "args": [
+    "--auto-warmup",
+    "--source",
+    "remote",
+    "--region",
+    "us",
+    "--product",
+    "wow_classic_era",
+    "--listfile=false",
+    "--dbd-manifest=true",
+    "--tables",
+    "CreatureDisplayInfo,CreatureModelData,CreatureDisplayInfoGeosetData",
+    "creature",
+    "model",
+    "--file-data-id",
+    "124578"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"creature model\",\n  \"data\": {\n    \"displays\": [\n      {\n        \"ID\": 21,\n        \"modelID\": 22,\n        \"textures\": [\n          124577\n        ]\n      },\n      {\n        \"ID\": 22,\n        \"modelID\": 22,\n        \"textures\": [\n          124577\n        ]\n      },\n      {\n        \"ID\": 74,\n        \"modelID\": 22,\n        \"textures\": [\n          124577\n        ]\n      },\n      {\n        \"ID\": 86,\n        \"modelID\": 22,\n        \"textures\": [\n          124577\n        ]\n      },\n      {\n        \"ID\": 87,\n        \"modelID\": 22,\n        \"textures\": [\n          124577\n        ]\n      },\n      {\n        \"ID\": 88,\n        \"modelID\": 22,\n        \"textures\": [\n          124577\n        ]\n      },\n      {\n        \"ID\": 101,\n        \"modelID\": 22,\n        \"textures\": [\n          124577\n        ]\n      },\n      {\n        \"ID\": 106,\n        \"modelID\": 22,\n        \"textures\": [\n          124577\n        ]\n      },\n      {\n        \"ID\": 126,\n        \"modelID\": 22,\n        \"textures\": [\n          124577\n        ]\n      },\n      {\n        \"ID\": 218,\n        \"modelID\": 22,\n        \"textures\": [\n          124577\n        ]\n      },\n      {\n        \"ID\": 561,\n        \"modelID\": 22,\n        \"textures\": []\n      }\n    ],\n    \"fileDataID\": 124578\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

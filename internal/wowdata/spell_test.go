@@ -2,6 +2,14 @@ package wowdata
 
 import "testing"
 
+type spellDB2TestStore struct {
+	rows map[string][]map[string]interface{}
+}
+
+func (s spellDB2TestStore) Rows(table string, ids []uint32, fields []string, filter string, limit int) ([]map[string]interface{}, error) {
+	return s.rows[table], nil
+}
+
 func TestSpellTraversal(t *testing.T) {
 	svc := NewSpellService()
 	svc.SetTriggers(map[uint32][]uint32{
@@ -13,17 +21,11 @@ func TestSpellTraversal(t *testing.T) {
 	if info.ChainDepth < 2 {
 		t.Fatalf("chainDepth = %d", info.ChainDepth)
 	}
-	found400 := false
-	for _, n := range info.Spells {
-		if n.SpellID == 400 {
-			found400 = true
-			if n.ParentID != 200 {
-				t.Fatal("wrong parent for 400")
-			}
-		}
-	}
-	if !found400 {
+	if _, ok := info.Spells[400]; !ok {
 		t.Fatal("spell 400 not found in chain")
+	}
+	if len(info.Triggers[200]) != 1 || info.Triggers[200][0] != 400 {
+		t.Fatalf("wrong trigger chain: %#v", info.Triggers)
 	}
 }
 
@@ -83,6 +85,23 @@ func TestSummonDetection(t *testing.T) {
 	}
 }
 
+func TestSummonDetectionUsesFirstDB2ArrayMiscValue(t *testing.T) {
+	svc := NewSpellService()
+	svc.SetEffects(map[uint32][]map[string]interface{}{
+		100: {
+			{"Effect": uint32(28), "EffectMiscValue": []uint32{12345, 61}, "EffectIndex": uint32(0)},
+		},
+	})
+
+	summons := svc.DetectSummons(100, 12345)
+	if len(summons) != 1 {
+		t.Fatalf("expected array EffectMiscValue to match npcID, got %#v", summons)
+	}
+	if summons[0].NPCID != 12345 {
+		t.Fatalf("npcID = %d", summons[0].NPCID)
+	}
+}
+
 func TestNoTriggers(t *testing.T) {
 	svc := NewSpellService()
 	info := svc.GetSpellInfo(1, 5)
@@ -91,5 +110,43 @@ func TestNoTriggers(t *testing.T) {
 	}
 	if info.ChainDepth != 0 {
 		t.Fatal("chain depth should be 0")
+	}
+}
+
+func TestRowIntSliceConvertsFloatArrays(t *testing.T) {
+	for name, row := range map[string]map[string]interface{}{
+		"float32":   {"RangeMax": []float32{25, 25}},
+		"interface": {"RangeMax": []interface{}{float32(25), float32(25)}},
+	} {
+		got := rowIntSlice(row, "RangeMax")
+		if len(got) != 2 || got[0] != 25 || got[1] != 25 {
+			t.Fatalf("%s rowIntSlice float array = %#v", name, got)
+		}
+	}
+}
+
+func TestSpellServiceUsesDB2SpellEffectRows(t *testing.T) {
+	svc := NewSpellServiceWithDB2(spellDB2TestStore{rows: map[string][]map[string]interface{}{
+		"SpellEffect": {
+			{"SpellID": uint32(100), "EffectTriggerSpell": uint32(200)},
+			{"SpellID": uint32(200), "Effect": uint32(64), "EffectMiscValue": uint32(300)},
+			{"SpellID": uint32(100), "Effect": uint32(6)},
+			{"SpellID": uint32(100), "Effect": uint32(28), "EffectMiscValue": uint32(12345), "EffectIndex": uint32(1)},
+		},
+	}})
+
+	info := svc.GetSpellInfo(100, 5)
+	if info.ChainDepth != 3 {
+		t.Fatalf("chainDepth = %d, want 3", info.ChainDepth)
+	}
+	if len(info.Triggers[100]) != 1 || info.Triggers[100][0] != 200 || len(info.Triggers[200]) != 1 || info.Triggers[200][0] != 300 {
+		t.Fatalf("triggers = %#v", info.Triggers)
+	}
+	if aura := svc.DetectAuras(100); !aura.HasAura || aura.NoAura {
+		t.Fatalf("aura result = %#v", aura)
+	}
+	summons := svc.DetectSummons(100, 12345)
+	if len(summons) != 1 || summons[0].NPCID != 12345 || summons[0].EffectIndex != 1 {
+		t.Fatalf("summons = %#v", summons)
 	}
 }

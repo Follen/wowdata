@@ -15,8 +15,20 @@ func NewCreatureHandler(svc *wowdata.CreatureService) func(cmd *cobra.Command, a
 		}
 
 		if use == "display" || cmd.Name() == "display" {
+			if !svc.RuntimeReady() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("creature display", "not_ready", warmupRequiredMessage))
+			}
+			if !svc.Ready() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("creature display", "not_ready", "CreatureDisplayInfo and CreatureModelData tables are not loaded; run warmup with creature tables"))
+			}
 			displayID, _ := cmd.Flags().GetUint32("display-id")
-			result := svc.GetDisplayByID(displayID)
+			fdid, _ := cmd.Flags().GetUint32("file-data-id")
+			var result *wowdata.CreatureDisplayInfo
+			if displayID > 0 {
+				result = svc.GetDisplayByID(displayID)
+			} else if fdid > 0 {
+				result = svc.GetDisplayByFileDataID(fdid)
+			}
 			if result == nil {
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("creature display", "not_found", "display not found"))
 			}
@@ -25,12 +37,17 @@ func NewCreatureHandler(svc *wowdata.CreatureService) func(cmd *cobra.Command, a
 		}
 
 		if use == "model" || cmd.Name() == "model" {
+			if !svc.RuntimeReady() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("creature model", "not_ready", warmupRequiredMessage))
+			}
+			if !svc.Ready() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("creature model", "not_ready", "CreatureDisplayInfo and CreatureModelData tables are not loaded; run warmup with creature tables"))
+			}
 			fdid, _ := cmd.Flags().GetUint32("file-data-id")
 			displays := svc.GetCreatureDisplaysByFileDataID(fdid)
 			resp := NewSuccessResponse("creature model", map[string]interface{}{
 				"fileDataID": fdid,
-				"displays":   displays,
-				"count":      len(displays),
+				"displays":   creatureModelDisplaysResponse(displays),
 			})
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
@@ -40,4 +57,18 @@ func NewCreatureHandler(svc *wowdata.CreatureService) func(cmd *cobra.Command, a
 		})
 		return writeJSON(cmd.OutOrStdout(), resp)
 	}
+}
+
+func creatureModelDisplaysResponse(displays []wowdata.CreatureDisplayInfo) []map[string]interface{} {
+	out := make([]map[string]interface{}, 0, len(displays))
+	for _, display := range displays {
+		textures := make([]uint32, 0, len(display.Textures))
+		textures = append(textures, display.Textures...)
+		out = append(out, map[string]interface{}{
+			"ID":       display.DisplayID,
+			"modelID":  display.ModelID,
+			"textures": textures,
+		})
+	}
+	return out
 }

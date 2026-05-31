@@ -73,7 +73,7 @@ func TestAddKeyDuplicateNoOverwrite(t *testing.T) {
 	kr.AddKey("0123456789abcdef", "ffeeddccbbaa99887766554433221100")
 
 	key, _ := kr.GetKey("0123456789abcdef")
-	// Node behavior: if keyName already has same key, skip; if different, overwrite
+	// legacy behavior: if keyName already has same key, skip; if different, overwrite
 	if key != "ffeeddccbbaa99887766554433221100" {
 		t.Fatalf("should overwrite with new key, got %s", key)
 	}
@@ -104,7 +104,7 @@ func TestLoadKeysFromJSON(t *testing.T) {
 func TestLoadKeysSkipsInvalid(t *testing.T) {
 	kr := NewKeyRing()
 	data := map[string]string{
-		"invalid":           "00112233445566778899aabbccddeeff",
+		"invalid":          "00112233445566778899aabbccddeeff",
 		"0123456789abcdef": "22334455667788990011223344556677",
 		"deadbeefdeadbeef": "ffeeddccbbaa99887766554433221100",
 	}

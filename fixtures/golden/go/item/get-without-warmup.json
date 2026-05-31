@@ -1,0 +1,13 @@
+{
+  "name": "item/get-without-warmup",
+  "command": "wowdata",
+  "args": [
+    "item",
+    "get",
+    "--item-id",
+    "19019"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": false,\n  \"command\": \"item get\",\n  \"data\": null,\n  \"warnings\": [],\n  \"error\": {\n    \"code\": \"not_ready\",\n    \"message\": \"CASC 未就绪，请先调用 wow_warmup\"\n  }\n}\n",
+  "stderr": ""
+}

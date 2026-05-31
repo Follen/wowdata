@@ -1,0 +1,11 @@
+{
+  "name": "casc/info-without-warmup",
+  "command": "wowdata",
+  "args": [
+    "casc",
+    "info"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": false,\n  \"command\": \"casc info\",\n  \"data\": null,\n  \"warnings\": [],\n  \"error\": {\n    \"code\": \"not_ready\",\n    \"message\": \"CASC 未就绪，请先调用 wow_warmup\"\n  }\n}\n",
+  "stderr": ""
+}

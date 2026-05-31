@@ -27,6 +27,16 @@ func NewDBCReader(fileName, buildID string) *DBCReader {
 	}
 }
 
+func NewDBCReaderFromBytes(fileName, buildID string, data []byte, schema []SchemaField) (*DBCReader, error) {
+	reader := NewDBCReader(fileName, buildID)
+	reader.Data = data
+	reader.Schema = schema
+	if err := reader.Parse(); err != nil {
+		return nil, err
+	}
+	return reader, nil
+}
+
 func (r *DBCReader) Parse() error {
 	data := r.Data
 	if len(data) < 20 {
@@ -90,16 +100,22 @@ func (r *DBCReader) readRecord(ofs int64) map[string]interface{} {
 	out := make(map[string]interface{})
 
 	byteOfs := int64(0)
+	read := func(n int64) ([]byte, bool) {
+		if n < 0 || byteOfs+n > int64(r.RecordSize) || ofs+byteOfs+n > int64(len(r.Data)) {
+			return nil, false
+		}
+		data := r.Data[ofs+byteOfs : ofs+byteOfs+n]
+		byteOfs += n
+		return data, true
+	}
 	for _, sf := range r.Schema {
 		switch sf.Type {
 		case FieldString:
-			if byteOfs+4 > int64(r.RecordSize) {
-				out[sf.Name] = ""
-				byteOfs += 4
-				continue
+			data, ok := read(4)
+			if !ok {
+				return nil
 			}
-			offset := binary.LittleEndian.Uint32(r.Data[ofs+byteOfs:])
-			byteOfs += 4
+			offset := binary.LittleEndian.Uint32(data)
 			if offset == 0 {
 				out[sf.Name] = ""
 			} else {
@@ -107,35 +123,64 @@ func (r *DBCReader) readRecord(ofs int64) map[string]interface{} {
 			}
 
 		case FieldInt32:
-			out[sf.Name] = int32(binary.LittleEndian.Uint32(r.Data[ofs+byteOfs:]))
-			byteOfs += 4
+			data, ok := read(4)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = int32(binary.LittleEndian.Uint32(data))
 		case FieldUInt32:
-			out[sf.Name] = binary.LittleEndian.Uint32(r.Data[ofs+byteOfs:])
-			byteOfs += 4
+			data, ok := read(4)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = binary.LittleEndian.Uint32(data)
 		case FieldInt8:
-			out[sf.Name] = int8(r.Data[ofs+byteOfs])
-			byteOfs += 1
+			data, ok := read(1)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = int8(data[0])
 		case FieldUInt8:
-			out[sf.Name] = r.Data[ofs+byteOfs]
-			byteOfs += 1
+			data, ok := read(1)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = data[0]
 		case FieldInt16:
-			out[sf.Name] = int16(binary.LittleEndian.Uint16(r.Data[ofs+byteOfs:]))
-			byteOfs += 2
+			data, ok := read(2)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = int16(binary.LittleEndian.Uint16(data))
 		case FieldUInt16:
-			out[sf.Name] = binary.LittleEndian.Uint16(r.Data[ofs+byteOfs:])
-			byteOfs += 2
+			data, ok := read(2)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = binary.LittleEndian.Uint16(data)
 		case FieldInt64:
-			out[sf.Name] = int64(binary.LittleEndian.Uint64(r.Data[ofs+byteOfs:]))
-			byteOfs += 8
+			data, ok := read(8)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = int64(binary.LittleEndian.Uint64(data))
 		case FieldUInt64:
-			out[sf.Name] = binary.LittleEndian.Uint64(r.Data[ofs+byteOfs:])
-			byteOfs += 8
+			data, ok := read(8)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = binary.LittleEndian.Uint64(data)
 		case FieldFloat:
-			out[sf.Name] = float32(binary.LittleEndian.Uint32(r.Data[ofs+byteOfs:]))
-			byteOfs += 4
+			data, ok := read(4)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = float32(binary.LittleEndian.Uint32(data))
 		default:
+			if _, ok := read(4); !ok {
+				return nil
+			}
 			out[sf.Name] = nil
-			byteOfs += 4
 		}
 	}
 

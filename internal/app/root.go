@@ -1,10 +1,6 @@
 package app
 
-import (
-	"fmt"
-
-	"github.com/spf13/cobra"
-)
+import "github.com/spf13/cobra"
 
 func NewRootCommand() *cobra.Command {
 	return NewRootCommandWithService(nil)
@@ -23,14 +19,26 @@ func NewRootCommandWithService(svc *Service) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	cmd.PersistentFlags().Bool("auto-warmup", false, "Initialize the requested data context before running commands that need warmup")
+	cmd.PersistentFlags().Bool("mcp", false, "Serve MCP tools over stdio")
+	cmd.PersistentFlags().String("source", "remote", "Data source for --auto-warmup: local or remote")
+	cmd.PersistentFlags().String("path", "", "Local WoW client path for --auto-warmup when source=local")
+	cmd.PersistentFlags().String("region", "cn", "WoW region for --auto-warmup")
+	cmd.PersistentFlags().String("product", "wow", "WoW product for --auto-warmup")
+	cmd.PersistentFlags().String("locale", "zhCN", "WoW locale for --auto-warmup, such as zhCN or enUS")
+	cmd.PersistentFlags().String("cache", "", "Cache directory for --auto-warmup; defaults to cache next to the executable")
+	cmd.PersistentFlags().String("tables", "", "Comma-separated DB2 tables to load during --auto-warmup")
+	cmd.PersistentFlags().Bool("listfile", false, "Load listfile during --auto-warmup")
+	cmd.PersistentFlags().String("listfile-format", "binary", "Listfile source format for --auto-warmup: binary or text")
+	cmd.PersistentFlags().Bool("dbd-manifest", false, "Load DBD manifest during --auto-warmup")
 
 	registerCommands(cmd, svc)
 	return cmd
 }
 
-func notImplementedHandler(commandName string) func(cmd *cobra.Command, args []string) error {
+func unavailableHandler(commandName string) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		resp := NewErrorResponse(commandName, "not_implemented", fmt.Sprintf("%s is planned but not implemented in Phase 0", commandName))
+		resp := NewErrorResponse(commandName, "service_unavailable", "no runtime service was attached for this command")
 		return writeJSON(cmd.OutOrStdout(), resp)
 	}
 }

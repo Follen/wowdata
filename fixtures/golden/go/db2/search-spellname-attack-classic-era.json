@@ -1,0 +1,31 @@
+{
+  "name": "db2/search-spellname-attack-classic-era",
+  "command": "go",
+  "args": [
+    "run",
+    "./cmd/wowdata",
+    "--auto-warmup",
+    "--source",
+    "remote",
+    "--region",
+    "us",
+    "--product",
+    "wow_classic_era",
+    "--listfile=false",
+    "--dbd-manifest=true",
+    "--tables",
+    "SpellName",
+    "db2",
+    "search",
+    "SpellName",
+    "--field",
+    "Name_lang",
+    "--query",
+    "Attack",
+    "--limit",
+    "3"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"db2 search\",\n  \"data\": {\n    \"count\": 3,\n    \"mode\": \"search\",\n    \"rows\": [\n      {\n        \"ID\": 2923,\n        \"Name_lang\": \"Rooting Attack\"\n      },\n      {\n        \"ID\": 2927,\n        \"Name_lang\": \"Rooting Attack II\"\n      },\n      {\n        \"ID\": 2928,\n        \"Name_lang\": \"Rooting Attack III\"\n      }\n    ],\n    \"table\": \"SpellName\"\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

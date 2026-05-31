@@ -1,82 +1,12 @@
 package db2
 
 import (
-	"bytes"
 	"encoding/binary"
 	"testing"
 )
 
 func buildMinimalWDC2() []byte {
-	buf := new(bytes.Buffer)
-
-	// WDC header
-	binary.Write(buf, binary.LittleEndian, uint32(0x32434457)) // WDC2 magic
-	binary.Write(buf, binary.LittleEndian, uint32(2))           // recordCount
-	binary.Write(buf, binary.LittleEndian, uint32(2))           // fieldCount (unused)
-	binary.Write(buf, binary.LittleEndian, uint32(8))           // recordSize
-	binary.Write(buf, binary.LittleEndian, uint32(0))           // stringTableSize
-	binary.Write(buf, binary.LittleEndian, uint32(0))           // tableHash
-	binary.Write(buf, binary.LittleEndian, uint32(0x11223344))  // layoutHash
-	binary.Write(buf, binary.LittleEndian, uint32(1))           // minID
-	binary.Write(buf, binary.LittleEndian, uint32(2))           // maxID
-	binary.Write(buf, binary.LittleEndian, uint32(0))           // locale
-	binary.Write(buf, binary.LittleEndian, uint16(0))           // flags (normal)
-	binary.Write(buf, binary.LittleEndian, uint16(0))           // idFieldIndex
-	binary.Write(buf, binary.LittleEndian, uint32(2))           // totalFieldCount
-	binary.Write(buf, binary.LittleEndian, uint32(0))           // bitpackedDataOffset
-	binary.Write(buf, binary.LittleEndian, uint32(0))           // lookupColumnCount
-	binary.Write(buf, binary.LittleEndian, uint32(48))          // fieldStorageInfoSize (2 entries × 24)
-	binary.Write(buf, binary.LittleEndian, uint32(0))           // commonDataSize
-	binary.Write(buf, binary.LittleEndian, uint32(0))           // palletDataSize
-	binary.Write(buf, binary.LittleEndian, uint32(1))           // sectionCount
-
-	// Section header (WDC2: 40 bytes)
-	binary.Write(buf, binary.LittleEndian, uint64(0)) // tactKeyHash
-	binary.Write(buf, binary.LittleEndian, uint32(0)) // fileOffset
-	binary.Write(buf, binary.LittleEndian, uint32(2)) // recordCount
-	binary.Write(buf, binary.LittleEndian, uint32(0)) // stringTableSize
-	binary.Write(buf, binary.LittleEndian, uint32(0)) // copyTableSize
-	binary.Write(buf, binary.LittleEndian, uint32(0)) // offsetMapOffset
-	binary.Write(buf, binary.LittleEndian, uint32(8)) // idListSize
-	binary.Write(buf, binary.LittleEndian, uint32(0)) // relationshipDataSize
-
-	// Fields array: 2 entries { size: int16, position: uint16 }
-	binary.Write(buf, binary.LittleEndian, int16(4))
-	binary.Write(buf, binary.LittleEndian, uint16(0))
-	binary.Write(buf, binary.LittleEndian, int16(4))
-	binary.Write(buf, binary.LittleEndian, uint16(4))
-
-	// Field storage info: 2 entries (24 bytes each)
-	// Entry 0: ID at byte offset 0, 32 bits
-	binary.Write(buf, binary.LittleEndian, uint16(0))   // fieldOffsetBits=0
-	binary.Write(buf, binary.LittleEndian, uint16(32))  // fieldSizeBits=32
-	binary.Write(buf, binary.LittleEndian, uint32(0))
-	binary.Write(buf, binary.LittleEndian, uint32(0))
-	binary.Write(buf, binary.LittleEndian, uint32(0))
-	binary.Write(buf, binary.LittleEndian, uint32(0))
-	binary.Write(buf, binary.LittleEndian, uint32(0))
-	// Entry 1: Value at byte offset 4, 32 bits
-	binary.Write(buf, binary.LittleEndian, uint16(32))  // fieldOffsetBits=32
-	binary.Write(buf, binary.LittleEndian, uint16(32))  // fieldSizeBits=32
-	binary.Write(buf, binary.LittleEndian, uint32(0))
-	binary.Write(buf, binary.LittleEndian, uint32(0))
-	binary.Write(buf, binary.LittleEndian, uint32(0))
-	binary.Write(buf, binary.LittleEndian, uint32(0))
-	binary.Write(buf, binary.LittleEndian, uint32(0))
-
-	// Section data: 2 records × 8 bytes = 16 bytes
-	// Record 0: ID=1, Value=100
-	binary.Write(buf, binary.LittleEndian, uint32(1))
-	binary.Write(buf, binary.LittleEndian, uint32(100))
-	// Record 1: ID=2, Value=200
-	binary.Write(buf, binary.LittleEndian, uint32(2))
-	binary.Write(buf, binary.LittleEndian, uint32(200))
-
-	// ID list: uint32[2]
-	binary.Write(buf, binary.LittleEndian, uint32(1))
-	binary.Write(buf, binary.LittleEndian, uint32(2))
-
-	return buf.Bytes()
+	return BuildMinimalWDC2ForTest()
 }
 
 func TestWDCHeaderParsing(t *testing.T) {
@@ -87,8 +17,8 @@ func TestWDCHeaderParsing(t *testing.T) {
 			{Name: "ID", Type: FieldUInt32},
 			{Name: "Value", Type: FieldUInt32},
 		},
-		IsLoaded:   true,
-		IDField:    "ID",
+		IsLoaded:     true,
+		IDField:      "ID",
 		IDFieldIndex: 0,
 	}
 
@@ -125,8 +55,8 @@ func TestWDCGetRow(t *testing.T) {
 			{Name: "ID", Type: FieldUInt32},
 			{Name: "Value", Type: FieldUInt32},
 		},
-		IsLoaded:   true,
-		IDField:    "ID",
+		IsLoaded:     true,
+		IDField:      "ID",
 		IDFieldIndex: 0,
 	}
 
@@ -161,8 +91,8 @@ func TestWDCGetRowMissing(t *testing.T) {
 		Schema: []SchemaField{
 			{Name: "ID", Type: FieldUInt32},
 		},
-		IsLoaded:   true,
-		IDField:    "ID",
+		IsLoaded:     true,
+		IDField:      "ID",
 		IDFieldIndex: 0,
 	}
 
@@ -183,8 +113,8 @@ func TestWDCGetAllRows(t *testing.T) {
 			{Name: "ID", Type: FieldUInt32},
 			{Name: "Value", Type: FieldUInt32},
 		},
-		IsLoaded:   true,
-		IDField:    "ID",
+		IsLoaded:     true,
+		IDField:      "ID",
 		IDFieldIndex: 0,
 	}
 
@@ -198,6 +128,70 @@ func TestWDCGetAllRows(t *testing.T) {
 	}
 }
 
+func TestWDCGetAllRowsAcceptsSignedInlineID(t *testing.T) {
+	reader := signedInlineIDReaderForTest()
+
+	rows := reader.GetAllRows()
+	if rows[7]["ID"] != int32(7) {
+		t.Fatalf("rows = %#v", rows)
+	}
+}
+
+func TestWDCGetAllRowsPreservesTablesWithoutIDField(t *testing.T) {
+	reader := &WDCReader{
+		IsLoaded:         true,
+		Schema:           []SchemaField{{Name: "FileDataID", Type: FieldUInt32}},
+		IDField:          "ID",
+		IDFieldIndex:     -1,
+		FieldInfo:        []FieldStorageInfo{{FieldSizeBits: 32}},
+		RecordSize:       4,
+		TotalRecordCount: 2,
+		data:             []byte{10, 0, 0, 0, 20, 0, 0, 0},
+		Sections: []Section{{
+			Header:         SectionHeader{RecordCount: 2},
+			IsNormal:       true,
+			RecordDataOfs:  0,
+			RecordDataSize: 8,
+		}},
+	}
+
+	rows := reader.GetAllRows()
+	if len(rows) != 2 {
+		t.Fatalf("len(rows) = %d, want 2: %#v", len(rows), rows)
+	}
+	if rows[0]["FileDataID"] != uint32(10) || rows[1]["FileDataID"] != uint32(20) {
+		t.Fatalf("rows = %#v", rows)
+	}
+}
+
+func TestWDCGetRowAcceptsSignedInlineID(t *testing.T) {
+	reader := signedInlineIDReaderForTest()
+
+	row := reader.GetRow(7)
+	if row == nil || row["ID"] != int32(7) {
+		t.Fatalf("row = %#v", row)
+	}
+}
+
+func signedInlineIDReaderForTest() *WDCReader {
+	return &WDCReader{
+		IsLoaded:         true,
+		Schema:           []SchemaField{{Name: "ID", Type: FieldInt32}},
+		IDField:          "ID",
+		IDFieldIndex:     0,
+		FieldInfo:        []FieldStorageInfo{{FieldSizeBits: 32}},
+		RecordSize:       4,
+		TotalRecordCount: 1,
+		data:             []byte{7, 0, 0, 0},
+		Sections: []Section{{
+			Header:         SectionHeader{RecordCount: 1},
+			IsNormal:       true,
+			RecordDataOfs:  0,
+			RecordDataSize: 4,
+		}},
+	}
+}
+
 func TestWDCCopyTable(t *testing.T) {
 	reader := &WDCReader{
 		FileName: "TestTable",
@@ -205,8 +199,8 @@ func TestWDCCopyTable(t *testing.T) {
 			{Name: "ID", Type: FieldUInt32},
 			{Name: "Value", Type: FieldUInt32},
 		},
-		IsLoaded:   true,
-		IDField:    "ID",
+		IsLoaded:     true,
+		IDField:      "ID",
 		IDFieldIndex: 0,
 	}
 
@@ -231,4 +225,179 @@ func TestWDCCopyTable(t *testing.T) {
 	if row["Value"] != uint32(100) {
 		t.Fatalf("copy table value = %v, want 100", row["Value"])
 	}
+}
+
+func TestWDC5EmptyMultiSectionTableAtEOF(t *testing.T) {
+	data := buildWDC5EmptyTableAtEOF()
+	schema := []SchemaField{
+		{Name: "ID", Type: FieldNonInlineID},
+		{Name: "JournalEncounterID", Type: FieldUInt32},
+	}
+	reader, err := NewWDCReaderFromBytes("JournalEncounterSection", data, schema)
+	if err != nil {
+		t.Fatalf("empty WDC5 table should parse: %v", err)
+	}
+	if got := reader.GetAllRows(); len(got) != 0 {
+		t.Fatalf("expected no rows, got %#v", got)
+	}
+}
+
+func TestWDCRelationshipDataTruncationReturnsError(t *testing.T) {
+	data := buildWDC5TruncatedRelationshipData()
+	data = data[:len(data)-1]
+	schema := []SchemaField{
+		{Name: "ID", Type: FieldNonInlineID},
+		{Name: "SpellID", Type: FieldUInt32},
+	}
+	if _, err := NewWDCReaderFromBytes("SpellEffect", data, schema); err == nil {
+		t.Fatal("expected truncated relationship data error")
+	}
+}
+
+func TestWDCRecordReadPastRecordDoesNotPanic(t *testing.T) {
+	reader := &WDCReader{
+		IsLoaded:         true,
+		Schema:           []SchemaField{{Name: "ID", Type: FieldUInt32}, {Name: "Value", Type: FieldUInt32}},
+		IDField:          "ID",
+		IDFieldIndex:     0,
+		FieldInfo:        []FieldStorageInfo{{FieldSizeBits: 32}, {FieldSizeBits: 32}},
+		RecordSize:       4,
+		TotalRecordCount: 1,
+		data:             []byte{7, 0, 0, 0},
+		Sections: []Section{{
+			Header:         SectionHeader{RecordCount: 1},
+			IsNormal:       true,
+			RecordDataOfs:  0,
+			RecordDataSize: 4,
+		}},
+	}
+	if row := reader.GetRow(7); row != nil {
+		t.Fatalf("expected nil row for schema beyond record, got %#v", row)
+	}
+}
+
+func buildWDC5EmptyTableAtEOF() []byte {
+	buf := make([]byte, 0, 264)
+	put32 := func(v uint32) {
+		tmp := make([]byte, 4)
+		binary.LittleEndian.PutUint32(tmp, v)
+		buf = append(buf, tmp...)
+	}
+	put16 := func(v uint16) {
+		tmp := make([]byte, 2)
+		binary.LittleEndian.PutUint16(tmp, v)
+		buf = append(buf, tmp...)
+	}
+	put64 := func(v uint64) {
+		tmp := make([]byte, 8)
+		binary.LittleEndian.PutUint64(tmp, v)
+		buf = append(buf, tmp...)
+	}
+
+	put32(wdc5Magic)
+	put32(5)
+	build := make([]byte, 128)
+	copy(build, []byte("WOWSTATIC_1_15_8_63631"))
+	buf = append(buf, build...)
+	put32(0)  // recordCount
+	put32(15) // fieldCount
+	put32(8)  // recordSize
+	put32(0)  // stringTableSize
+	put32(0)  // tableHash
+	put32(0)  // layoutHash
+	put32(0)  // minID
+	put32(0)  // maxID
+	put32(1)  // locale
+	put16(4)  // flags
+	put16(15) // id field index
+	put32(15) // total field count
+	put32(0)  // bitpackedDataOffset
+	put32(0)  // lookupColumnCount
+	put32(0)  // fieldStorageInfoSize
+	put32(0)  // commonDataSize
+	put32(0)  // palletDataSize
+	put32(4)  // sectionCount
+
+	for i := 0; i < 4; i++ {
+		put64(0)
+		put32(0) // fileOffset
+		put32(0) // recordCount
+		put32(0) // stringTableSize
+		put32(0) // offsetRecordsEnd
+		put32(0) // idListSize
+		put32(0) // relationshipDataSize
+		put32(0) // offsetMapIDCount
+		put32(0) // copyTableCount
+	}
+	for i := 0; i < 15; i++ {
+		put16(32)
+		put16(8)
+	}
+	return buf
+}
+
+func buildWDC5TruncatedRelationshipData() []byte {
+	buf := make([]byte, 0, 256)
+	put32 := func(v uint32) {
+		tmp := make([]byte, 4)
+		binary.LittleEndian.PutUint32(tmp, v)
+		buf = append(buf, tmp...)
+	}
+	put16 := func(v uint16) {
+		tmp := make([]byte, 2)
+		binary.LittleEndian.PutUint16(tmp, v)
+		buf = append(buf, tmp...)
+	}
+	put64 := func(v uint64) {
+		tmp := make([]byte, 8)
+		binary.LittleEndian.PutUint64(tmp, v)
+		buf = append(buf, tmp...)
+	}
+
+	put32(wdc5Magic)
+	put32(5)
+	build := make([]byte, 128)
+	copy(build, []byte("WOWSTATIC_12_0_5"))
+	buf = append(buf, build...)
+	put32(1)  // recordCount
+	put32(2)  // fieldCount
+	put32(8)  // recordSize
+	put32(0)  // stringTableSize
+	put32(0)  // tableHash
+	put32(0)  // layoutHash
+	put32(1)  // minID
+	put32(1)  // maxID
+	put32(1)  // locale
+	put16(0)  // flags
+	put16(0)  // id field index
+	put32(2)  // total field count
+	put32(0)  // bitpackedDataOffset
+	put32(0)  // lookupColumnCount
+	put32(0)  // fieldStorageInfoSize
+	put32(0)  // commonDataSize
+	put32(0)  // palletDataSize
+	put32(1)  // sectionCount
+
+	put64(0)
+	put32(0)  // fileOffset
+	put32(1)  // recordCount
+	put32(0)  // stringTableSize
+	put32(8)  // offsetRecordsEnd
+	put32(0)  // idListSize
+	put32(16) // relationshipDataSize says one entry is present
+	put32(0)  // offsetMapIDCount
+	put32(0)  // copyTableCount
+
+	for i := 0; i < 2; i++ {
+		put16(32)
+		put16(uint16(i * 4))
+	}
+
+	put32(1)   // ID
+	put32(123) // SpellID
+	put32(1)   // relationship entry count
+	put32(1)   // minID
+	put32(1)   // maxID
+	put32(123) // foreignID, but recordIndex is missing
+	return buf
 }

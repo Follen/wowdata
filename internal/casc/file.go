@@ -3,11 +3,19 @@ package casc
 import "fmt"
 
 type FileInfo struct {
-	FileDataID  uint32 `json:"fileDataID"`
-	Filename    string `json:"filename,omitempty"`
-	ContentKey  string `json:"contentKey,omitempty"`
-	EncodingKey string `json:"encodingKey,omitempty"`
-	Size        int64  `json:"size,omitempty"`
+	FileDataID  uint32           `json:"fileDataID"`
+	Filename    string           `json:"filename,omitempty"`
+	ContentKey  string           `json:"contentKey,omitempty"`
+	EncodingKey string           `json:"encodingKey,omitempty"`
+	Enc         string           `json:"enc,omitempty"`
+	Archive     *FileArchiveInfo `json:"arc,omitempty"`
+	Size        int64            `json:"size,omitempty"`
+}
+
+type FileArchiveInfo struct {
+	Key    string `json:"key"`
+	Offset int32  `json:"ofs"`
+	Length int32  `json:"len"`
 }
 
 type FileService struct {
@@ -22,6 +30,11 @@ func NewFileService() *FileService {
 	}
 }
 
+func (fs *FileService) Reset() {
+	fs.encoding = make(map[string]FileInfo)
+	fs.roots = make(map[uint32][]string)
+}
+
 func (fs *FileService) AddRootEntry(fileDataID uint32, contentKey string) {
 	fs.roots[fileDataID] = append(fs.roots[fileDataID], contentKey)
 }
@@ -30,8 +43,15 @@ func (fs *FileService) AddEncodingEntry(contentKey, encodingKey string, size int
 	fs.encoding[contentKey] = FileInfo{
 		ContentKey:  contentKey,
 		EncodingKey: encodingKey,
+		Enc:         encodingKey,
 		Size:        size,
 	}
+}
+
+func (fs *FileService) AddEncodingArchive(contentKey string, archive ArchiveEntry) {
+	info := fs.encoding[contentKey]
+	info.Archive = &FileArchiveInfo{Key: archive.Key, Offset: archive.Offset, Length: archive.Size}
+	fs.encoding[contentKey] = info
 }
 
 func (fs *FileService) Exists(fileDataID uint32) bool {
@@ -50,5 +70,8 @@ func (fs *FileService) GetEncodingInfo(fileDataID uint32) (*FileInfo, error) {
 	}
 	info := enc
 	info.FileDataID = fileDataID
+	if info.Enc == "" {
+		info.Enc = info.EncodingKey
+	}
 	return &info, nil
 }

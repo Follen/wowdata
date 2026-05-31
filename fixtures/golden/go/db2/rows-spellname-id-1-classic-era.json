@@ -1,0 +1,27 @@
+{
+  "name": "db2/rows-spellname-id-1-classic-era",
+  "command": "go",
+  "args": [
+    "run",
+    "./cmd/wowdata",
+    "--auto-warmup",
+    "--source",
+    "remote",
+    "--region",
+    "us",
+    "--product",
+    "wow_classic_era",
+    "--listfile=false",
+    "--dbd-manifest=true",
+    "--tables",
+    "SpellName",
+    "db2",
+    "rows",
+    "SpellName",
+    "--id",
+    "1"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"db2 rows\",\n  \"data\": {\n    \"count\": 1,\n    \"mode\": \"rows\",\n    \"rows\": [\n      {\n        \"ID\": 1,\n        \"Name_lang\": \"Word of Recall (OLD)\"\n      }\n    ],\n    \"table\": \"SpellName\"\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

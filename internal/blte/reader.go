@@ -10,12 +10,13 @@ import (
 	"io"
 
 	"wowdata/internal/crypto"
+	"wowdata/internal/tact"
 )
 
 const (
-	blteMagic       = 0x45544c42
-	encTypeSalsa20  = 0x53
-	emptyHash       = "00000000000000000000000000000000"
+	blteMagic      = 0x45544c42
+	encTypeSalsa20 = 0x53
+	emptyHash      = "00000000000000000000000000000000"
 )
 
 type EncryptionError struct {
@@ -126,10 +127,10 @@ func ParseBLTEHeader(data []byte) *BLTEHeader {
 }
 
 type Reader struct {
-	data     []byte
-	header   *BLTEHeader
-	keys     KeyProvider
-	partial  bool
+	data    []byte
+	header  *BLTEHeader
+	keys    KeyProvider
+	partial bool
 
 	blockIndex      int
 	blockWriteIndex int
@@ -139,7 +140,7 @@ type Reader struct {
 }
 
 func NewReader(data []byte) (*Reader, error) {
-	return newReader(data, nil, false)
+	return newReader(data, defaultKeys, false)
 }
 
 func NewReaderFromBytes(data []byte) (*Reader, error) { return NewReader(data) }
@@ -147,6 +148,18 @@ func NewReaderFromBytes(data []byte) (*Reader, error) { return NewReader(data) }
 func NewReaderWithKeys(data []byte, keys KeyProvider) (*Reader, error) {
 	return newReader(data, keys, false)
 }
+
+func NewPartialReader(data []byte) (*Reader, error) {
+	return newReader(data, defaultKeys, true)
+}
+
+var defaultKeys KeyProvider
+
+func SetDefaultKeyProvider(keys KeyProvider) {
+	defaultKeys = keys
+}
+
+var _ KeyProvider = (*tact.KeyRing)(nil)
 
 func newReader(data []byte, keys KeyProvider, partial bool) (*Reader, error) {
 	header := ParseBLTEHeader(data)
@@ -179,6 +192,9 @@ func (r *Reader) processBlock() error {
 	block := r.header.Blocks[r.blockIndex]
 	blockStart := r.bltePos
 	blockEnd := blockStart + block.CompSize
+	if block.CompSize < 0 || blockStart < 0 || blockEnd < blockStart || blockEnd > len(r.data) {
+		return fmt.Errorf("[BLTE] Block %d bounds %d-%d exceed data size %d", r.blockIndex, blockStart, blockEnd, len(r.data))
+	}
 
 	if block.Hash != emptyHash {
 		blockData := r.data[blockStart:blockEnd]
@@ -202,6 +218,9 @@ func (r *Reader) handleBlock(blockStart, blockEnd int, index int) error {
 }
 
 func (r *Reader) handleBlockData(data []byte, blockStart, blockEnd int, index int) error {
+	if blockStart < 0 || blockStart >= blockEnd || blockEnd > len(data) {
+		return fmt.Errorf("[BLTE] Invalid block bounds")
+	}
 	flag := data[blockStart]
 	switch flag {
 	case 0x45: // Encrypted
@@ -216,8 +235,8 @@ func (r *Reader) handleBlockData(data []byte, blockStart, blockEnd int, index in
 		}
 		return r.handleBlockData(decrypted, 0, len(decrypted), index)
 
-	case 0x46: // Frame (recursive) — not implemented
-		return fmt.Errorf("[BLTE] No frame decoder implemented!")
+	case 0x46: // Frame (recursive)
+		return r.decodeFrameBlock(data, blockStart+1, blockEnd)
 
 	case 0x4E: // Normal (uncompressed)
 		r.buf.Write(data[blockStart+1 : blockEnd])
@@ -231,7 +250,26 @@ func (r *Reader) handleBlockData(data []byte, blockStart, blockEnd int, index in
 	}
 }
 
+func (r *Reader) decodeFrameBlock(data []byte, blockStart, blockEnd int) error {
+	if blockStart > blockEnd || blockStart < 0 || blockEnd > len(data) {
+		return fmt.Errorf("[BLTE] Invalid frame bounds")
+	}
+	nested, err := newReader(data[blockStart:blockEnd], r.keys, r.partial)
+	if err != nil {
+		return err
+	}
+	decoded, err := nested.ReadAll()
+	if err != nil {
+		return err
+	}
+	r.buf.Write(decoded)
+	return nil
+}
+
 func (r *Reader) decompressBlockData(data []byte, blockStart, blockEnd int, index int) error {
+	if blockStart < 0 || blockStart > blockEnd || blockEnd > len(data) {
+		return fmt.Errorf("[BLTE] Invalid compressed block bounds")
+	}
 	zr, err := zlib.NewReader(bytes.NewReader(data[blockStart:blockEnd]))
 	if err != nil {
 		return err
@@ -253,10 +291,16 @@ func (r *Reader) decryptBlock(blockStart, blockEnd int, index int) ([]byte, erro
 
 func (r *Reader) decryptBlockData(data []byte, blockStart, blockEnd int, index int) ([]byte, error) {
 	pos := blockStart
+	if pos >= blockEnd || pos < 0 || blockEnd > len(data) {
+		return nil, fmt.Errorf("[BLTE] Invalid encrypted block bounds")
+	}
 	keyNameSize := data[pos]
 	pos++
 	if keyNameSize == 0 || keyNameSize != 8 {
 		return nil, fmt.Errorf("[BLTE] Unexpected keyNameSize: %d", keyNameSize)
+	}
+	if pos+int(keyNameSize) > blockEnd {
+		return nil, fmt.Errorf("[BLTE] Unexpected end of data in key name")
 	}
 
 	keyNameBytes := make([]string, keyNameSize)
@@ -269,10 +313,16 @@ func (r *Reader) decryptBlockData(data []byte, blockStart, blockEnd int, index i
 		keyName += s
 	}
 
+	if pos >= blockEnd {
+		return nil, fmt.Errorf("[BLTE] Unexpected end of data before iv size")
+	}
 	ivSize := data[pos]
 	pos++
 	if (ivSize != 4 && ivSize != 8) || ivSize > 8 {
 		return nil, fmt.Errorf("[BLTE] Unexpected ivSize: %d", ivSize)
+	}
+	if pos+int(ivSize) > blockEnd {
+		return nil, fmt.Errorf("[BLTE] Unexpected end of data in iv")
 	}
 
 	ivShort := make([]byte, ivSize)

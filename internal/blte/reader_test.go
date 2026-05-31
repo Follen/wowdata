@@ -13,13 +13,12 @@ import (
 	"wowdata/internal/tact"
 )
 
-
 // buildSingleBlockBLTE creates a BLTE with header_size=0 containing raw data.
 // The first byte of data should be the block type flag (0x4E for normal).
 func buildSingleBlockBLTE(payload []byte) []byte {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, uint32(0x45544c42)) // BLTE
-	binary.Write(buf, binary.BigEndian, int32(0))               // header size
+	binary.Write(buf, binary.BigEndian, int32(0))              // header size
 	buf.Write(payload)
 	return buf.Bytes()
 }
@@ -141,6 +140,23 @@ func TestReadZlibCompressedBlock(t *testing.T) {
 	}
 	if !bytes.Equal(result, plaintext) {
 		t.Fatalf("decompressed result mismatch: got %d bytes, want %d", len(result), len(plaintext))
+	}
+}
+
+func TestReadRecursiveFrameBlock(t *testing.T) {
+	inner := buildSingleBlockBLTE(append([]byte{0x4E}, []byte("nested frame payload")...))
+	outer := buildSingleBlockBLTE(append([]byte{0x46}, inner...))
+
+	reader, err := NewReader(outer)
+	if err != nil {
+		t.Fatalf("NewReader: %v", err)
+	}
+	result, err := reader.ReadAll()
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if string(result) != "nested frame payload" {
+		t.Fatalf("result = %q", result)
 	}
 }
 
@@ -323,8 +339,8 @@ func TestParseHeaderErrors(t *testing.T) {
 
 	// Invalid frame header (headerSize > 0 but too small)
 	invalid := make([]byte, 12)
-	binary.LittleEndian.PutUint32(invalid, 0x45544c42)  // magic
-	binary.BigEndian.PutUint32(invalid[4:], 100)          // headerSize = 100
+	binary.LittleEndian.PutUint32(invalid, 0x45544c42) // magic
+	binary.BigEndian.PutUint32(invalid[4:], 100)       // headerSize = 100
 	if meta := ParseBLTEHeader(invalid); meta != nil {
 		t.Fatal("expected nil for data shorter than headerSize")
 	}

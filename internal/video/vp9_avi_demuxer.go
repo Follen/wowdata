@@ -7,10 +7,10 @@ import (
 )
 
 type FrameInfo struct {
-	Type      string `json:"type"`
+	Type      string  `json:"type"`
 	Timestamp float64 `json:"timestamp"`
 	Duration  float64 `json:"duration"`
-	Size      int    `json:"size"`
+	Size      int     `json:"size"`
 }
 
 type VP9AVIDemuxer struct {
@@ -69,8 +69,8 @@ func (d *VP9AVIDemuxer) parseListChunk(start, end int) {
 				d.parseListChunk(pos+12, subEnd)
 			}
 		case "avih":
-			if pos+8+32 <= len(d.data) {
-				usPerFrame := binary.LittleEndian.Uint32(d.data[pos+8+24 : pos+8+28])
+			if pos+8+4 <= len(d.data) {
+				usPerFrame := binary.LittleEndian.Uint32(d.data[pos+8 : pos+8+4])
 				if usPerFrame > 0 {
 					d.frameRate = 1000000.0 / float64(usPerFrame)
 				}
@@ -106,6 +106,12 @@ func (d *VP9AVIDemuxer) ExtractFrames() ([]FrameInfo, error) {
 			d.parseFrameData(&frames, pos, int(size))
 			break
 		}
+		if fourCC == "LIST" && pos+12 <= len(d.data) && string(d.data[pos+8:pos+12]) == "movi" {
+			moviFound = true
+			pos += 12
+			d.parseFrameData(&frames, pos, int(size)-4)
+			break
+		}
 
 		skip := int(size)
 		if skip%2 == 1 {
@@ -130,20 +136,18 @@ func (d *VP9AVIDemuxer) parseFrameData(frames *[]FrameInfo, startPos, chunkSize 
 
 	pos := startPos
 	timestamp := 0.0
-	frameDuration := 1.0 / d.frameRate
+	frameDuration := 0.0
+	if d.frameRate > 0 {
+		frameDuration = float64(int(1000000.0 / d.frameRate))
+	}
 
 	for pos+8 <= endPos {
 		fourCC := string(d.data[pos : pos+4])
 		size := int(binary.LittleEndian.Uint32(d.data[pos+4 : pos+8]))
 
 		if fourCC == "00dc" || fourCC == "00db" {
-			fType := "delta"
-			if fourCC == "00db" {
-				fType = "key"
-			}
-
 			*frames = append(*frames, FrameInfo{
-				Type:      fType,
+				Type:      "key",
 				Timestamp: timestamp,
 				Duration:  frameDuration,
 				Size:      size,

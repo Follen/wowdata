@@ -1,0 +1,13 @@
+{
+  "name": "creature/display-without-warmup",
+  "command": "wowdata",
+  "args": [
+    "creature",
+    "display",
+    "--display-id",
+    "123"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": false,\n  \"command\": \"creature display\",\n  \"data\": null,\n  \"warnings\": [],\n  \"error\": {\n    \"code\": \"not_ready\",\n    \"message\": \"CASC 未就绪，请先调用 wow_warmup\"\n  }\n}\n",
+  "stderr": ""
+}

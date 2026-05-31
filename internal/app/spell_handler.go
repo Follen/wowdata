@@ -15,6 +15,12 @@ func NewSpellHandler(svc *wowdata.SpellService) func(cmd *cobra.Command, args []
 		}
 
 		if use == "info" || cmd.Name() == "info" {
+			if !svc.RuntimeReady() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell info", "not_ready", warmupRequiredMessage))
+			}
+			if !svc.Ready() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell info", "not_ready", "SpellEffect table is not loaded; run warmup with --tables SpellEffect"))
+			}
 			spellID, _ := cmd.Flags().GetUint32("spell-id")
 			maxDepth, _ := cmd.Flags().GetInt("max-depth")
 			if maxDepth <= 0 {
@@ -26,13 +32,34 @@ func NewSpellHandler(svc *wowdata.SpellService) func(cmd *cobra.Command, args []
 		}
 
 		if use == "auras" || cmd.Name() == "auras" {
+			if !svc.RuntimeReady() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell auras", "not_ready", warmupRequiredMessage))
+			}
+			if !svc.Ready() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell auras", "not_ready", "SpellEffect table is not loaded; run warmup with --tables SpellEffect"))
+			}
 			spellID, _ := cmd.Flags().GetUint32("spell-id")
 			result := svc.DetectAuras(spellID)
-			resp := NewSuccessResponse("spell auras", result)
+			data := map[string]interface{}{
+				"hasAura": []uint32{},
+				"noAura":  []uint32{},
+			}
+			if result.HasAura {
+				data["hasAura"] = []uint32{spellID}
+			} else {
+				data["noAura"] = []uint32{spellID}
+			}
+			resp := NewSuccessResponse("spell auras", data)
 			return writeJSON(cmd.OutOrStdout(), resp)
 		}
 
 		if use == "summons" || cmd.Name() == "summons" {
+			if !svc.RuntimeReady() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell summons", "not_ready", warmupRequiredMessage))
+			}
+			if !svc.Ready() {
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell summons", "not_ready", "SpellEffect table is not loaded; run warmup with --tables SpellEffect"))
+			}
 			spellID, _ := cmd.Flags().GetUint32("spell-id")
 			npcID, _ := cmd.Flags().GetUint32("npc-id")
 			summons := svc.DetectSummons(spellID, npcID)

@@ -2,18 +2,25 @@ package app
 
 import (
 	"os"
+	"strings"
 
 	"wowdata/internal/export"
+	appruntime "wowdata/internal/runtime"
 	"wowdata/internal/video"
 
 	"github.com/spf13/cobra"
 )
 
 func NewIconHandler() func(cmd *cobra.Command, args []string) error {
+	return NewIconHandlerWithStore(nil)
+}
+
+func NewIconHandlerWithStore(store appruntime.IconStore) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		fdid, _ := cmd.Flags().GetUint32("file-data-id")
 		format, _ := cmd.Flags().GetString("format")
 		mipmap, _ := cmd.Flags().GetInt("mipmap")
+		mask, _ := cmd.Flags().GetInt("mask")
 		outPath, _ := cmd.Flags().GetString("output")
 
 		if format == "" {
@@ -22,20 +29,23 @@ func NewIconHandler() func(cmd *cobra.Command, args []string) error {
 		if outPath == "" {
 			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("icon export", "missing_argument", "--output is required"))
 		}
-
-		// Note: actual BLP decoding requires CASC file retrieval
-		resp := NewSuccessResponse("icon export", map[string]interface{}{
-			"fileDataID": fdid,
-			"format":     format,
-			"mipmap":     mipmap,
-			"output":     outPath,
-			"note":       "icon export requires full CASC context for BLP file retrieval",
-		})
-		// Ensure icon export package is imported
-		if false {
-			_, _ = export.ExportIcon([]byte{}, "", "", 0)
+		if store == nil {
+			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("icon export", "not_ready", "icon export is not connected to CASC runtime yet"))
 		}
-		return writeJSON(cmd.OutOrStdout(), resp)
+		format = strings.ToLower(strings.TrimSpace(format))
+		if format != "png" && format != "webp" {
+			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("icon export", "unsupported_format", "format must be png or webp"))
+		}
+
+		data, err := store.ReadByID(fdid)
+		if err != nil {
+			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("icon export", "not_found", err.Error()))
+		}
+		result, err := export.ExportIconWithOptions(data, outPath, format, mipmap, mask)
+		if err != nil {
+			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("icon export", "export_error", err.Error()))
+		}
+		return writeJSON(cmd.OutOrStdout(), NewSuccessResponse("icon export", result))
 	}
 }
 
@@ -64,15 +74,18 @@ func NewVideoHandler() func(cmd *cobra.Command, args []string) error {
 		}
 
 		w, h := demuxer.GetDimensions()
-		resp := NewSuccessResponse("video demux", map[string]interface{}{
-			"input":     inputPath,
-			"outputDir": outputDir,
-			"width":     w,
-			"height":    h,
-			"frameRate": demuxer.FrameRate(),
-			"frames":    frames,
+		responseData := map[string]interface{}{
+			"input":      inputPath,
+			"width":      w,
+			"height":     h,
+			"frameRate":  demuxer.FrameRate(),
+			"frames":     frames,
 			"frameCount": len(frames),
-		})
+		}
+		if outputDir != "" {
+			responseData["outputDir"] = outputDir
+		}
+		resp := NewSuccessResponse("video demux", responseData)
 		return writeJSON(cmd.OutOrStdout(), resp)
 	}
 }

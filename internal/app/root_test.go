@@ -39,7 +39,7 @@ func TestResponseEnvelopeSuccess(t *testing.T) {
 }
 
 func TestResponseEnvelopeError(t *testing.T) {
-	resp := NewErrorResponse("wowdata bad", "not_implemented", "command is not implemented yet")
+	resp := NewErrorResponse("wowdata bad", "service_unavailable", "no runtime service was attached for this command")
 
 	if resp.OK {
 		t.Fatalf("expected non-OK response")
@@ -47,7 +47,7 @@ func TestResponseEnvelopeError(t *testing.T) {
 	if resp.Error == nil {
 		t.Fatalf("expected error payload")
 	}
-	if resp.Error.Code != "not_implemented" {
+	if resp.Error.Code != "service_unavailable" {
 		t.Fatalf("error code = %q", resp.Error.Code)
 	}
 }
@@ -98,9 +98,34 @@ func TestWarmupHelp(t *testing.T) {
 	if !strings.Contains(stdout, "Initialize local or remote WoW data context") {
 		t.Fatalf("warmup help missing description:\n%s", stdout)
 	}
+	for _, want := range []string{"--tables", "--listfile", "--listfile-format", "--dbd-manifest", "--locale", "--cache"} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("warmup help missing %s flag:\n%s", want, stdout)
+		}
+	}
 }
 
-func TestCascInfoReturnsNotImplemented(t *testing.T) {
+func TestFileExportHelpIncludesFilename(t *testing.T) {
+	stdout, stderr, err := executeCommand(t, "file", "export", "--help")
+	if err != nil {
+		t.Fatalf("file export --help returned error: %v stderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, "--filename") {
+		t.Fatalf("file export help should include --filename:\n%s", stdout)
+	}
+}
+
+func TestCreatureDisplayHelpIncludesFileDataID(t *testing.T) {
+	stdout, stderr, err := executeCommand(t, "creature", "display", "--help")
+	if err != nil {
+		t.Fatalf("creature display --help returned error: %v stderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, "--file-data-id") {
+		t.Fatalf("creature display help should include --file-data-id:\n%s", stdout)
+	}
+}
+
+func TestCascInfoReturnsServiceUnavailableWithoutInjectedRuntime(t *testing.T) {
 	stdout, stderr, err := executeCommand(t, "casc", "info")
 	if err != nil {
 		t.Fatalf("casc info returned error: %v stderr=%s", err, stderr)
@@ -108,8 +133,8 @@ func TestCascInfoReturnsNotImplemented(t *testing.T) {
 	if !strings.Contains(stdout, `"ok": false`) {
 		t.Fatalf("expected ok=false:\n%s", stdout)
 	}
-	if !strings.Contains(stdout, `"not_implemented"`) {
-		t.Fatalf("expected not_implemented:\n%s", stdout)
+	if !strings.Contains(stdout, `"service_unavailable"`) {
+		t.Fatalf("expected service_unavailable:\n%s", stdout)
 	}
 }
 

@@ -1,0 +1,15 @@
+{
+  "name": "icon/extract-without-warmup",
+  "command": "wowdata",
+  "args": [
+    "icon",
+    "export",
+    "--file-data-id",
+    "123",
+    "--output",
+    "output/icon-123.png"
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": false,\n  \"command\": \"icon export\",\n  \"data\": null,\n  \"warnings\": [],\n  \"error\": {\n    \"code\": \"not_found\",\n    \"message\": \"CASC 未就绪，请先调用 wow_warmup\"\n  }\n}\n",
+  "stderr": ""
+}

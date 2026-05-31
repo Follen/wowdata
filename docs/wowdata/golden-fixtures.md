@@ -1,11 +1,10 @@
 # wowdata Golden Fixture Rules
 
-Golden fixtures prove that Go `wowdata` replicates Node business behavior.
+Golden fixtures prove that Go `wowdata` command output stays stable across changes.
 
 ## Fixture Layout
 
-- `fixtures/golden/node/<group>/<name>.json`: captured Node baseline
-- `fixtures/golden/go/<group>/<name>.json`: captured Go command output when useful for debugging
+- `fixtures/golden/go/<group>/<name>.json`: captured Go command output
 - `fixtures/golden/diff/<group>/<name>.json`: semantic comparison output
 
 ## Naming
@@ -30,13 +29,13 @@ Use lowercase names with hyphens:
 - Ignore raw formatting.
 - Normalize path separators when path style is not the behavior under test.
 - Compare generated artifact hashes for export commands.
-- Fail when a Node capability has no Go CLI equivalent.
+- Fail when a required command group has no representative fixture.
 
 ## Expected Differences
 
-Intentional differences must be documented next to the fixture with:
+Intentional behavior changes must be documented next to the fixture with:
 
-- original Node behavior
-- Go behavior
+- original behavior
+- new behavior
 - reason
 - affected command

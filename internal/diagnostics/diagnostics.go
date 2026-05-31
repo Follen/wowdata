@@ -3,19 +3,25 @@ package diagnostics
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 )
 
 type CASCInfo struct {
-	Source    string   `json:"source"`
-	Region    string   `json:"region"`
-	Product   string   `json:"product"`
-	BuildName string   `json:"buildName,omitempty"`
-	BuildKey  string   `json:"buildKey,omitempty"`
-	CachePath string   `json:"cachePath"`
-	CDNHost   string   `json:"cdnHost,omitempty"`
+	Source             string `json:"source"`
+	Region             string `json:"region"`
+	Product            string `json:"product"`
+	Locale             string `json:"locale,omitempty"`
+	BuildName          string `json:"buildName,omitempty"`
+	BuildKey           string `json:"buildKey,omitempty"`
+	CachePath          string `json:"cachePath"`
+	CDNHost            string `json:"cdnHost,omitempty"`
+	ArchiveCount       int    `json:"archiveCount,omitempty"`
+	RootEntryCount     int    `json:"rootEntryCount,omitempty"`
+	EncodingEntryCount int    `json:"encodingEntryCount,omitempty"`
+	TACTKeyCount       int    `json:"tactKeyCount,omitempty"`
 }
 
 type CASCProducts struct {
@@ -29,9 +35,9 @@ type Product struct {
 }
 
 type CASCDiagnose struct {
-	OK      bool            `json:"ok"`
-	Source  string          `json:"source"`
-	Checks  []DiagnoseCheck `json:"checks"`
+	OK     bool            `json:"ok"`
+	Source string          `json:"source"`
+	Checks []DiagnoseCheck `json:"checks"`
 }
 
 type DiagnoseCheck struct {
@@ -101,6 +107,18 @@ func (ds *DiagnosticsService) Diagnose() CASCDiagnose {
 			Name: "build_key", Status: "ok", Detail: ds.info.BuildKey,
 		})
 	}
+
+	appendCountCheck := func(name string, count int) {
+		if count <= 0 {
+			checks = append(checks, DiagnoseCheck{Name: name, Status: "unknown", Detail: "not loaded"})
+			return
+		}
+		checks = append(checks, DiagnoseCheck{Name: name, Status: "ok", Detail: fmt.Sprintf("%d", count)})
+	}
+	appendCountCheck("archives", ds.info.ArchiveCount)
+	appendCountCheck("root", ds.info.RootEntryCount)
+	appendCountCheck("encoding", ds.info.EncodingEntryCount)
+	appendCountCheck("tact_keys", ds.info.TACTKeyCount)
 
 	d.Checks = checks
 	return d

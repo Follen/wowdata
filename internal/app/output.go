@@ -3,8 +3,6 @@ package app
 import (
 	"encoding/json"
 	"io"
-
-	"github.com/spf13/cobra"
 )
 
 type Response struct {
@@ -67,14 +65,3 @@ func writeJSON(w io.Writer, resp Response) error {
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(resp)
 }
-
-func PlaceholderHandler(label string) func(cmd *cobra.Command, args []string) error {
-	return func(cmd *cobra.Command, args []string) error {
-		resp := NewSuccessResponse(label, map[string]interface{}{
-			"note": label + " handler ready — full implementation requires complete CASC context",
-		})
-		return writeJSON(cmd.OutOrStdout(), resp)
-	}
-}
-
-var _ = (*cobra.Command)(nil)

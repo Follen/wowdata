@@ -9,20 +9,21 @@ import (
 
 func buildEncodingData(cKeys map[string]struct {
 	eKey string
-	size  int64
+	size int64
 }) []byte {
 	data := make([]byte, 2000)
 	binary.LittleEndian.PutUint16(data, encMagic)
-	data[2] = 16                                // hashSizeCKey
-	data[3] = 16                                // hashSizeEKey
-	binary.BigEndian.PutUint16(data[4:], 4)     // cKeyPageSize = 4KB
-	// eKeyPageSize at 6
-	binary.BigEndian.PutUint32(data[8:], 1)     // cKeyPageCount = 1
-	// eKeyPageCount + unk11 at 12
-	binary.BigEndian.PutUint32(data[17:], 0)    // specBlockSize = 0
+	data[2] = 1                             // version
+	data[3] = 16                            // hashSizeCKey
+	data[4] = 16                            // hashSizeEKey
+	binary.BigEndian.PutUint16(data[5:], 4) // cKeyPageSize = 4KB
+	// eKeyPageSize at 7
+	binary.BigEndian.PutUint32(data[9:], 1) // cKeyPageCount = 1
+	// eKeyPageCount + unk11 at 13
+	binary.BigEndian.PutUint32(data[18:], 0) // specBlockSize = 0
 
-	// pagesStart = 21 + 0 + 1*(16+16) = 53
-	pos := 53
+	// pagesStart = 22 + 0 + 1*(16+16) = 54
+	pos := 54
 
 	for cKeyHex, val := range cKeys {
 		cKey, _ := hexDecode(cKeyHex)
@@ -36,8 +37,10 @@ func buildEncodingData(cKeys map[string]struct {
 		data[pos] = byte(val.size >> 32)
 		binary.BigEndian.PutUint32(data[pos+1:], uint32(val.size))
 		pos += 5
-		copy(data[pos:], cKey); pos += 16
-		copy(data[pos:], eKey); pos += 16
+		copy(data[pos:], cKey)
+		pos += 16
+		copy(data[pos:], eKey)
+		pos += 16
 	}
 
 	return data[:pos]
@@ -65,7 +68,10 @@ func hexDecode(s string) ([]byte, error) {
 
 func TestParseEncodingFile(t *testing.T) {
 	c := NewCASCSource()
-	cKeys := map[string]struct{ eKey string; size int64 }{
+	cKeys := map[string]struct {
+		eKey string
+		size int64
+	}{
 		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 1024},
 		"cccccccccccccccccccccccccccccccc": {"dddddddddddddddddddddddddddddddd", 2048},
 	}
@@ -140,8 +146,8 @@ func TestParseArchiveIndex(t *testing.T) {
 	data := make([]byte, 12+2*24)
 	// Entry 1
 	copy(data[0:16], []byte{0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA})
-	binary.BigEndian.PutUint32(data[16:], 1024)  // size
-	binary.BigEndian.PutUint32(data[20:], 0)      // offset
+	binary.BigEndian.PutUint32(data[16:], 1024) // size
+	binary.BigEndian.PutUint32(data[20:], 0)    // offset
 	// Entry 2
 	copy(data[24:], []byte{0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB})
 	binary.BigEndian.PutUint32(data[40:], 2048)
@@ -174,9 +180,15 @@ func TestVersionConfigParsing(t *testing.T) {
 	if len(entries) != 2 {
 		t.Fatalf("entries = %d, want 2", len(entries))
 	}
-	if entries[0].Product != "WOW" { t.Fatal("Product mismatch") }
-	if entries[0].Region != "cn" { t.Fatal("Region mismatch") }
-	if entries[0].Version != "9.2.5.44170" { t.Fatal("Version mismatch") }
+	if entries[0].Product != "WOW" {
+		t.Fatal("Product mismatch")
+	}
+	if entries[0].Region != "cn" {
+		t.Fatal("Region mismatch")
+	}
+	if entries[0].Version != "9.2.5.44170" {
+		t.Fatal("Version mismatch")
+	}
 }
 
 func TestCDNConfigParsing(t *testing.T) {

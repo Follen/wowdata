@@ -3,6 +3,7 @@ package db2
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -39,6 +40,22 @@ type WDCReader struct {
 	rows map[uint32]map[string]interface{}
 }
 
+func NewWDCReaderFromBytes(fileName string, data []byte, schema []SchemaField) (*WDCReader, error) {
+	reader := &WDCReader{
+		FileName:     fileName,
+		Schema:       schema,
+		IDField:      "ID",
+		IDFieldIndex: -1,
+	}
+	if err := reader.parseBinary(data); err != nil {
+		return nil, err
+	}
+	if reader.IDFieldIndex >= 0 && reader.IDFieldIndex < len(schema) {
+		reader.IDField = schema[reader.IDFieldIndex].Name
+	}
+	return reader, nil
+}
+
 func (r *WDCReader) Size() int { return int(r.TotalRecordCount) + len(r.CopyTable) }
 
 func (r *WDCReader) parseBinary(data []byte) error {
@@ -46,13 +63,43 @@ func (r *WDCReader) parseBinary(data []byte) error {
 	r.CopyTable = make(map[uint32]uint32)
 	r.RelationshipLookup = make(map[uint32][]uint32)
 	pos := 0
+	readU16 := func() (uint16, error) {
+		if pos+2 > len(data) {
+			return 0, fmt.Errorf("truncated WDC data at offset %d: need 2 bytes, have %d", pos, len(data)-pos)
+		}
+		v := binary.LittleEndian.Uint16(data[pos:])
+		pos += 2
+		return v, nil
+	}
+	readU32 := func() (uint32, error) {
+		if pos+4 > len(data) {
+			return 0, fmt.Errorf("truncated WDC data at offset %d: need 4 bytes, have %d", pos, len(data)-pos)
+		}
+		v := binary.LittleEndian.Uint32(data[pos:])
+		pos += 4
+		return v, nil
+	}
+	readU64 := func() (uint64, error) {
+		if pos+8 > len(data) {
+			return 0, fmt.Errorf("truncated WDC data at offset %d: need 8 bytes, have %d", pos, len(data)-pos)
+		}
+		v := binary.LittleEndian.Uint64(data[pos:])
+		pos += 8
+		return v, nil
+	}
+	skip := func(n int) error {
+		if pos+n > len(data) {
+			return fmt.Errorf("truncated WDC data at offset %d: need %d bytes, have %d", pos, n, len(data)-pos)
+		}
+		pos += n
+		return nil
+	}
 
 	if len(data) < 4 {
 		return fmt.Errorf("data too short for WDC magic")
 	}
 
-	magic := binary.LittleEndian.Uint32(data[pos:])
-	pos += 4
+	magic, _ := readU32()
 
 	switch magic {
 	case wdc2Magic, cls1Magic:
@@ -68,17 +115,35 @@ func (r *WDCReader) parseBinary(data []byte) error {
 	}
 
 	if r.WDCVersion == 5 {
-		pos += 4            // schemaVersion
-		pos += 128          // schemaBuildString
+		if err := skip(4); err != nil {
+			return err
+		} // schemaVersion
+		if err := skip(128); err != nil {
+			return err
+		} // schemaBuildString
 	}
 
-	r.RecordCount = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-	pos += 4 // fieldCount (unused)
-	r.RecordSize = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-	pos += 4 // stringTableSize
-	pos += 4 // tableHash
+	var err error
+	if r.RecordCount, err = readU32(); err != nil {
+		return err
+	}
+	if err := skip(4); err != nil {
+		return err
+	} // fieldCount (unused)
+	if r.RecordSize, err = readU32(); err != nil {
+		return err
+	}
+	if err := skip(4); err != nil {
+		return err
+	} // stringTableSize
+	if err := skip(4); err != nil {
+		return err
+	} // tableHash
 
 	// layoutHash: 4 LE bytes, reverse, hex uppercase
+	if pos+4 > len(data) {
+		return fmt.Errorf("truncated WDC data at offset %d: need layout hash", pos)
+	}
 	lh := make([]byte, 4)
 	copy(lh, data[pos:pos+4])
 	for i, j := 0, 3; i < j; i, j = i+1, j-1 {
@@ -87,39 +152,95 @@ func (r *WDCReader) parseBinary(data []byte) error {
 	_ = strings.ToUpper(fmt.Sprintf("%02x%02x%02x%02x", lh[0], lh[1], lh[2], lh[3]))
 	pos += 4
 
-	r.MinID = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-	r.MaxID = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-	pos += 4 // locale
-	r.Flags = binary.LittleEndian.Uint16(data[pos:]); pos += 2
-	idIndex := binary.LittleEndian.Uint16(data[pos:]); pos += 2
+	if r.MinID, err = readU32(); err != nil {
+		return err
+	}
+	if r.MaxID, err = readU32(); err != nil {
+		return err
+	}
+	if err := skip(4); err != nil {
+		return err
+	} // locale
+	if r.Flags, err = readU16(); err != nil {
+		return err
+	}
+	idIndex, err := readU16()
+	if err != nil {
+		return err
+	}
 	r.IDFieldIndex = int(idIndex)
-	totalFieldCount := binary.LittleEndian.Uint32(data[pos:]); pos += 4
-	pos += 4                          // bitpackedDataOffset
-	pos += 4                          // lookupColumnCount
-	fieldStorageInfoSize := binary.LittleEndian.Uint32(data[pos:]); pos += 4
-	commonDataSize := binary.LittleEndian.Uint32(data[pos:]); pos += 4
-	palletDataSize := binary.LittleEndian.Uint32(data[pos:]); pos += 4
-	sectionCount := binary.LittleEndian.Uint32(data[pos:]); pos += 4
+	totalFieldCount, err := readU32()
+	if err != nil {
+		return err
+	}
+	if err := skip(4); err != nil {
+		return err
+	} // bitpackedDataOffset
+	if err := skip(4); err != nil {
+		return err
+	} // lookupColumnCount
+	fieldStorageInfoSize, err := readU32()
+	if err != nil {
+		return err
+	}
+	commonDataSize, err := readU32()
+	if err != nil {
+		return err
+	}
+	palletDataSize, err := readU32()
+	if err != nil {
+		return err
+	}
+	sectionCount, err := readU32()
+	if err != nil {
+		return err
+	}
 
 	// Read section headers
 	sectionHeaders := make([]SectionHeader, sectionCount)
 	for i := uint32(0); i < sectionCount; i++ {
 		sh := SectionHeader{}
-		sh.TactKeyHash = binary.LittleEndian.Uint64(data[pos:]); pos += 8
-		sh.FileOffset = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-		sh.RecordCount = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-		sh.StringTableSize = binary.LittleEndian.Uint32(data[pos:]); pos += 4
+		if sh.TactKeyHash, err = readU64(); err != nil {
+			return err
+		}
+		if sh.FileOffset, err = readU32(); err != nil {
+			return err
+		}
+		if sh.RecordCount, err = readU32(); err != nil {
+			return err
+		}
+		if sh.StringTableSize, err = readU32(); err != nil {
+			return err
+		}
 		if r.WDCVersion == 2 {
-			sh.CopyTableSize = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-			sh.OffsetMapOffset = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-			sh.IDListSize = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-			sh.RelationshipDataSize = binary.LittleEndian.Uint32(data[pos:]); pos += 4
+			if sh.CopyTableSize, err = readU32(); err != nil {
+				return err
+			}
+			if sh.OffsetMapOffset, err = readU32(); err != nil {
+				return err
+			}
+			if sh.IDListSize, err = readU32(); err != nil {
+				return err
+			}
+			if sh.RelationshipDataSize, err = readU32(); err != nil {
+				return err
+			}
 		} else {
-			sh.OffsetRecordsEnd = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-			sh.IDListSize = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-			sh.RelationshipDataSize = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-			sh.OffsetMapIDCount = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-			sh.CopyTableCount = binary.LittleEndian.Uint32(data[pos:]); pos += 4
+			if sh.OffsetRecordsEnd, err = readU32(); err != nil {
+				return err
+			}
+			if sh.IDListSize, err = readU32(); err != nil {
+				return err
+			}
+			if sh.RelationshipDataSize, err = readU32(); err != nil {
+				return err
+			}
+			if sh.OffsetMapIDCount, err = readU32(); err != nil {
+				return err
+			}
+			if sh.CopyTableCount, err = readU32(); err != nil {
+				return err
+			}
 		}
 		sectionHeaders[i] = sh
 	}
@@ -127,20 +248,38 @@ func (r *WDCReader) parseBinary(data []byte) error {
 	// Fields
 	totalFieldCountUint := totalFieldCount // shadow
 	for i := uint32(0); i < totalFieldCountUint; i++ {
-		pos += 2 + 2 // size and position
+		if err := skip(2 + 2); err != nil {
+			return err
+		} // size and position
 	}
 
 	// Field storage info
 	infoCount := int(fieldStorageInfoSize / 24)
 	r.FieldInfo = make([]FieldStorageInfo, infoCount)
 	for i := 0; i < infoCount; i++ {
-		r.FieldInfo[i].FieldOffsetBits = binary.LittleEndian.Uint16(data[pos:]); pos += 2
-		r.FieldInfo[i].FieldSizeBits = binary.LittleEndian.Uint16(data[pos:]); pos += 2
-		r.FieldInfo[i].AdditionalDataSize = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-		r.FieldInfo[i].FieldCompression = CompressionType(binary.LittleEndian.Uint32(data[pos:])); pos += 4
-		r.FieldInfo[i].FieldCompressionPacking[0] = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-		r.FieldInfo[i].FieldCompressionPacking[1] = binary.LittleEndian.Uint32(data[pos:]); pos += 4
-		r.FieldInfo[i].FieldCompressionPacking[2] = binary.LittleEndian.Uint32(data[pos:]); pos += 4
+		if r.FieldInfo[i].FieldOffsetBits, err = readU16(); err != nil {
+			return err
+		}
+		if r.FieldInfo[i].FieldSizeBits, err = readU16(); err != nil {
+			return err
+		}
+		if r.FieldInfo[i].AdditionalDataSize, err = readU32(); err != nil {
+			return err
+		}
+		compression, err := readU32()
+		if err != nil {
+			return err
+		}
+		r.FieldInfo[i].FieldCompression = CompressionType(compression)
+		if r.FieldInfo[i].FieldCompressionPacking[0], err = readU32(); err != nil {
+			return err
+		}
+		if r.FieldInfo[i].FieldCompressionPacking[1], err = readU32(); err != nil {
+			return err
+		}
+		if r.FieldInfo[i].FieldCompressionPacking[2], err = readU32(); err != nil {
+			return err
+		}
 	}
 
 	// Pallet data
@@ -152,9 +291,15 @@ func (r *WDCReader) parseBinary(data []byte) error {
 			n := int(fiInfo.AdditionalDataSize / 4)
 			r.PalletData[fi] = make([]uint32, n)
 			for i := 0; i < n; i++ {
-				r.PalletData[fi][i] = binary.LittleEndian.Uint32(data[pos:]); pos += 4
+				var err error
+				if r.PalletData[fi][i], err = readU32(); err != nil {
+					return err
+				}
 			}
 		}
+	}
+	if prevPallet+int(palletDataSize) > len(data) {
+		return fmt.Errorf("truncated WDC pallet data at offset %d: size %d exceeds file size %d", prevPallet, palletDataSize, len(data))
 	}
 	pos = prevPallet + int(palletDataSize)
 
@@ -167,20 +312,37 @@ func (r *WDCReader) parseBinary(data []byte) error {
 			n := int(fiInfo.AdditionalDataSize / 8)
 			cm := make(map[uint32]uint32)
 			for i := 0; i < n; i++ {
-				key := binary.LittleEndian.Uint32(data[pos:]); pos += 4
-				val := binary.LittleEndian.Uint32(data[pos:]); pos += 4
+				key, err := readU32()
+				if err != nil {
+					return err
+				}
+				val, err := readU32()
+				if err != nil {
+					return err
+				}
 				cm[key] = val
 			}
 			r.CommonData[fi] = cm
 		}
+	}
+	if prevCommon+int(commonDataSize) > len(data) {
+		return fmt.Errorf("truncated WDC common data at offset %d: size %d exceeds file size %d", prevCommon, commonDataSize, len(data))
 	}
 	pos = prevCommon + int(commonDataSize)
 
 	// WDC4+ extra chunk
 	if r.WDCVersion > 3 {
 		for i := uint32(0); i < sectionCount-1; i++ {
-			entryCount := int(binary.LittleEndian.Uint32(data[pos:])); pos += 4
-			pos += entryCount * 4
+			if pos == len(data) && r.RecordCount == 0 {
+				break
+			}
+			entryCountRaw, err := readU32()
+			if err != nil {
+				return err
+			}
+			if err := skip(int(entryCountRaw) * 4); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -209,9 +371,14 @@ func (r *WDCReader) parseBinary(data []byte) error {
 			omCount := r.MaxID - r.MinID + 1
 			offsetMap = make(map[uint32]OffsetMapEntry, omCount)
 			for i := uint32(0); i < omCount; i++ {
+				if omPos < 0 || omPos+6 > len(data) {
+					return fmt.Errorf("truncated WDC offset map section %d at offset %d: need 6 bytes, have %d", si, omPos, len(data)-omPos)
+				}
 				id := r.MinID + i
-				off := binary.LittleEndian.Uint32(data[omPos:]); omPos += 4
-				sz := binary.LittleEndian.Uint16(data[omPos:]); omPos += 2
+				off := binary.LittleEndian.Uint32(data[omPos:])
+				omPos += 4
+				sz := binary.LittleEndian.Uint16(data[omPos:])
+				omPos += 2
 				offsetMap[id] = OffsetMapEntry{Offset: off, Size: sz}
 			}
 		}
@@ -224,12 +391,38 @@ func (r *WDCReader) parseBinary(data []byte) error {
 
 		// Seek to string table + string data
 		sPos := stringBlockOfs + int64(sh.StringTableSize)
+		readSectionU16 := func() (uint16, error) {
+			if sPos < 0 || sPos+2 > int64(len(data)) {
+				return 0, fmt.Errorf("truncated WDC section %d at offset %d: need 2 bytes, have %d", si, sPos, int64(len(data))-sPos)
+			}
+			v := binary.LittleEndian.Uint16(data[sPos:])
+			sPos += 2
+			return v, nil
+		}
+		readSectionU32 := func() (uint32, error) {
+			if sPos < 0 || sPos+4 > int64(len(data)) {
+				return 0, fmt.Errorf("truncated WDC section %d at offset %d: need 4 bytes, have %d", si, sPos, int64(len(data))-sPos)
+			}
+			v := binary.LittleEndian.Uint32(data[sPos:])
+			sPos += 4
+			return v, nil
+		}
+		skipSection := func(n int64) error {
+			if n < 0 || sPos < 0 || sPos+n > int64(len(data)) {
+				return fmt.Errorf("truncated WDC section %d at offset %d: need %d bytes, have %d", si, sPos, n, int64(len(data))-sPos)
+			}
+			sPos += n
+			return nil
+		}
 
 		// ID list
 		idList := make([]uint32, sh.IDListSize/4)
 		for i := range idList {
-			idList[i] = binary.LittleEndian.Uint32(data[sPos:])
-			sPos += 4
+			id, err := readSectionU32()
+			if err != nil {
+				return err
+			}
+			idList[i] = id
 		}
 
 		// Copy table
@@ -238,8 +431,16 @@ func (r *WDCReader) parseBinary(data []byte) error {
 			copyCount = int(sh.CopyTableCount)
 		}
 		for i := 0; i < copyCount; i++ {
-			destID := int32(binary.LittleEndian.Uint32(data[sPos:])); sPos += 4
-			srcID := int32(binary.LittleEndian.Uint32(data[sPos:])); sPos += 4
+			destRaw, err := readSectionU32()
+			if err != nil {
+				return err
+			}
+			srcRaw, err := readSectionU32()
+			if err != nil {
+				return err
+			}
+			destID := int32(destRaw)
+			srcID := int32(srcRaw)
 			if destID != srcID {
 				r.CopyTable[uint32(destID)] = uint32(srcID)
 			}
@@ -249,8 +450,14 @@ func (r *WDCReader) parseBinary(data []byte) error {
 		if r.WDCVersion > 2 {
 			offsetMap = make(map[uint32]OffsetMapEntry, sh.OffsetMapIDCount)
 			for i := uint32(0); i < sh.OffsetMapIDCount; i++ {
-				off := binary.LittleEndian.Uint32(data[sPos:]); sPos += 4
-				sz := binary.LittleEndian.Uint16(data[sPos:]); sPos += 2
+				off, err := readSectionU32()
+				if err != nil {
+					return err
+				}
+				sz, err := readSectionU16()
+				if err != nil {
+					return err
+				}
 				offsetMap[i] = OffsetMapEntry{Offset: off, Size: sz}
 			}
 		}
@@ -258,36 +465,67 @@ func (r *WDCReader) parseBinary(data []byte) error {
 		// Relationship data
 		var relationshipMap map[uint32]uint32
 		if sh.RelationshipDataSize > 0 {
-			relEntryCount := binary.LittleEndian.Uint32(data[sPos:]); sPos += 4
-			sPos += 8 // minID, maxID
+			relStart := sPos
+			relEnd := relStart + int64(sh.RelationshipDataSize)
+			if relEnd > int64(len(data)) {
+				return fmt.Errorf("truncated WDC section %d relationship data at offset %d: need %d bytes, have %d", si, relStart, sh.RelationshipDataSize, int64(len(data))-relStart)
+			}
+			relEntryCount, err := readSectionU32()
+			if err != nil {
+				return err
+			}
+			if err := skipSection(8); err != nil {
+				return err
+			} // minID, maxID
 			relationshipMap = make(map[uint32]uint32, relEntryCount)
+			maxEntries := uint32((relEnd - sPos) / 8)
+			if relEntryCount > maxEntries {
+				relEntryCount = maxEntries
+			}
 			for i := uint32(0); i < relEntryCount; i++ {
-				foreignID := binary.LittleEndian.Uint32(data[sPos:]); sPos += 4
-				recordIndex := binary.LittleEndian.Uint32(data[sPos:]); sPos += 4
+				foreignID, err := readSectionU32()
+				if err != nil {
+					return err
+				}
+				recordIndex, err := readSectionU32()
+				if err != nil {
+					return err
+				}
 				relationshipMap[recordIndex] = foreignID
 				if _, ok := r.RelationshipLookup[foreignID]; !ok {
 					r.RelationshipLookup[foreignID] = nil
 				}
+				recordID := recordIndex
+				if int(recordIndex) < len(idList) {
+					recordID = idList[recordIndex]
+				}
+				if !containsUint32(r.RelationshipLookup[foreignID], recordID) {
+					r.RelationshipLookup[foreignID] = append(r.RelationshipLookup[foreignID], recordID)
+				}
 			}
+			sPos = relEnd
 		}
 
 		// Offset map ID list (WDC3+, duplicate)
 		if r.WDCVersion > 2 {
-			sPos += int64(sh.OffsetMapIDCount) * 4
+			if err := skipSection(int64(sh.OffsetMapIDCount) * 4); err != nil {
+				return err
+			}
 		}
 
 		r.Sections[si] = Section{
-			Header:               sh,
-			IsNormal:             isNormal,
-			RecordDataOfs:        recordDataOfs,
-			RecordDataSize:       recordDataSize,
-			StringBlockOfs:       stringBlockOfs,
-			StringTableOffset:    stringTableOffset,
+			Header:                sh,
+			IsNormal:              isNormal,
+			RecordDataOfs:         recordDataOfs,
+			RecordDataSize:        recordDataSize,
+			StringBlockOfs:        stringBlockOfs,
+			StringTableOffset:     stringTableOffset,
 			StringTableOffsetBase: stringTableOffsetBase,
-			IDList:               idList,
-			OffsetMap:            offsetMap,
-			RelationshipMap:      relationshipMap,
+			IDList:                idList,
+			OffsetMap:             offsetMap,
+			RelationshipMap:       relationshipMap,
 		}
+		pos = int(sPos)
 	}
 
 	// Detect encrypted sections
@@ -366,7 +604,10 @@ func (r *WDCReader) GetAllRows() map[uint32]map[string]interface{} {
 			row := r.readRecordFromSection(si, ri, recordID)
 			if row != nil {
 				if recordID == 0 && !hasIDMap {
-					recordID = row["ID"].(uint32)
+					recordID = rowIDUint32(row["ID"])
+					if recordID == 0 {
+						recordID = uint32(len(rows))
+					}
 				}
 				rows[recordID] = row
 			}
@@ -386,6 +627,26 @@ func (r *WDCReader) GetAllRows() map[uint32]map[string]interface{} {
 	}
 
 	return rows
+}
+
+func (r *WDCReader) GetRelationshipRows(fkValue uint32) ([]map[string]interface{}, bool) {
+	if !r.IsLoaded || r.RelationshipLookup == nil {
+		return nil, false
+	}
+	recordIDs, ok := r.RelationshipLookup[fkValue]
+	if !ok {
+		return nil, false
+	}
+	if len(recordIDs) == 0 {
+		return []map[string]interface{}{}, true
+	}
+	rows := make([]map[string]interface{}, 0, len(recordIDs))
+	for _, recordID := range recordIDs {
+		if row := r.readRecord(recordID); row != nil {
+			rows = append(rows, row)
+		}
+	}
+	return rows, true
 }
 
 func (r *WDCReader) readRecord(recordID uint32) map[string]interface{} {
@@ -417,8 +678,7 @@ func (r *WDCReader) readRecord(recordID uint32) map[string]interface{} {
 			for ri := uint32(0); ri < section.Header.RecordCount; ri++ {
 				row := r.readRecordFromSection(si, ri, 0)
 				if row != nil {
-					id, _ := row["ID"].(uint32)
-					if id == recordID {
+					if rowIDUint32(row["ID"]) == recordID {
 						return row
 					}
 				}
@@ -429,7 +689,46 @@ func (r *WDCReader) readRecord(recordID uint32) map[string]interface{} {
 	return nil
 }
 
+func rowIDUint32(value interface{}) uint32 {
+	switch v := value.(type) {
+	case uint8:
+		return uint32(v)
+	case uint16:
+		return uint32(v)
+	case uint32:
+		return v
+	case uint64:
+		return uint32(v)
+	case uint:
+		return uint32(v)
+	case int8:
+		if v > 0 {
+			return uint32(v)
+		}
+	case int16:
+		if v > 0 {
+			return uint32(v)
+		}
+	case int32:
+		if v > 0 {
+			return uint32(v)
+		}
+	case int64:
+		if v > 0 {
+			return uint32(v)
+		}
+	case int:
+		if v > 0 {
+			return uint32(v)
+		}
+	}
+	return 0
+}
+
 func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordID uint32) map[string]interface{} {
+	if sectionIndex < 0 || sectionIndex >= len(r.Sections) {
+		return nil
+	}
 	section := &r.Sections[sectionIndex]
 	if section.IsEncrypted {
 		return nil
@@ -458,13 +757,26 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 	}
 
 	out := make(map[string]interface{})
-
-	for fi, sf := range r.Schema {
-		if fi >= len(r.FieldInfo) {
-			break
+	fieldInfoIndex := 0
+	hasIDMap := len(section.IDList) > 0
+	recordBase := section.RecordDataOfs + int64(recordOfs)
+	if !isNormal {
+		recordBase = int64(recordOfs)
+	}
+	cursor := recordBase
+	read := func(n int64) ([]byte, bool) {
+		if n < 0 || cursor < 0 || cursor+n > int64(len(r.data)) {
+			return nil, false
 		}
-		rfi := r.FieldInfo[fi]
+		if isNormal && cursor+n > section.RecordDataOfs+section.RecordDataSize {
+			return nil, false
+		}
+		data := r.data[cursor : cursor+n]
+		cursor += n
+		return data, true
+	}
 
+	for _, sf := range r.Schema {
 		if sf.Type == FieldRelation {
 			if section.RelationshipMap != nil {
 				if foreignID, ok := section.RelationshipMap[recordIndex]; ok {
@@ -480,65 +792,133 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 
 		if sf.Type == FieldNonInlineID {
 			if len(section.IDList) > int(recordIndex) {
-				out[sf.Name] = section.IDList[recordIndex]
+				recordID = section.IDList[recordIndex]
+				out[sf.Name] = recordID
 			}
 			continue
 		}
+		if fieldInfoIndex >= len(r.FieldInfo) {
+			break
+		}
+		rfi := r.FieldInfo[fieldInfoIndex]
+		fieldInfoIndex++
 
 		if rfi.FieldCompression != CompNone {
-			// For compressed fields, return zero/default
-			switch sf.Type {
-			case FieldInt8, FieldUInt8, FieldInt16, FieldUInt16, FieldInt32, FieldUInt32:
-				out[sf.Name] = uint32(0)
-			case FieldInt64, FieldUInt64:
-				out[sf.Name] = uint64(0)
-			case FieldFloat:
-				out[sf.Name] = float32(0)
-			case FieldString:
-				out[sf.Name] = ""
-			}
+			out[sf.Name] = r.readCompressedField(section, rfi, sf, recordOfs, recordID)
 			continue
 		}
 
-		dataOfs := section.RecordDataOfs + int64(recordOfs)
-		fieldByteOffset := int64(rfi.FieldOffsetBits / 8)
+		if sf.ArrayLen > 0 && sf.Type != FieldString {
+			var ok bool
+			out[sf.Name], cursor, ok = r.readSequentialArray(cursor, sf, section, isNormal)
+			if !ok {
+				return nil
+			}
+			continue
+		}
 
 		switch sf.Type {
 		case FieldInt8:
-			out[sf.Name] = int8(r.data[dataOfs+fieldByteOffset])
+			data, ok := read(1)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = int8(data[0])
 		case FieldUInt8:
-			out[sf.Name] = r.data[dataOfs+fieldByteOffset]
+			data, ok := read(1)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = data[0]
 		case FieldInt16:
-			out[sf.Name] = int16(binary.LittleEndian.Uint16(r.data[dataOfs+fieldByteOffset:]))
+			data, ok := read(2)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = int16(binary.LittleEndian.Uint16(data))
 		case FieldUInt16:
-			out[sf.Name] = binary.LittleEndian.Uint16(r.data[dataOfs+fieldByteOffset:])
+			data, ok := read(2)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = binary.LittleEndian.Uint16(data)
 		case FieldInt32:
-			out[sf.Name] = int32(binary.LittleEndian.Uint32(r.data[dataOfs+fieldByteOffset:]))
+			data, ok := read(4)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = int32(binary.LittleEndian.Uint32(data))
 		case FieldUInt32:
-			out[sf.Name] = binary.LittleEndian.Uint32(r.data[dataOfs+fieldByteOffset:])
+			data, ok := read(4)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = binary.LittleEndian.Uint32(data)
 		case FieldInt64:
-			out[sf.Name] = int64(binary.LittleEndian.Uint64(r.data[dataOfs+fieldByteOffset:]))
+			data, ok := read(8)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = int64(binary.LittleEndian.Uint64(data))
 		case FieldUInt64:
-			out[sf.Name] = binary.LittleEndian.Uint64(r.data[dataOfs+fieldByteOffset:])
+			data, ok := read(8)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = binary.LittleEndian.Uint64(data)
 		case FieldFloat:
-			out[sf.Name] = float32(binary.LittleEndian.Uint32(r.data[dataOfs+fieldByteOffset:]))
+			data, ok := read(4)
+			if !ok {
+				return nil
+			}
+			out[sf.Name] = math.Float32frombits(binary.LittleEndian.Uint32(data))
 		case FieldString:
 			if isNormal && r.WDCVersion > 2 {
 				// String table offset (WDC3+)
-				ofs := binary.LittleEndian.Uint32(r.data[dataOfs+fieldByteOffset:])
+				fieldByteOffset := int64(rfi.FieldOffsetBits / 8)
+				data, ok := read(4)
+				if !ok {
+					return nil
+				}
+				ofs := binary.LittleEndian.Uint32(data)
 				if ofs == 0 {
 					out[sf.Name] = ""
 				} else {
-					out[sf.Name] = r.readString(section, dataOfs, fieldByteOffset, int64(ofs), recordOfs)
+					out[sf.Name] = r.readString(section, fieldByteOffset, int64(ofs), recordOfs)
 				}
 			} else {
 				// Inline null-terminated (WDC2 or sparse)
-				start := dataOfs + fieldByteOffset
+				start := cursor
 				end := start
-				for end < int64(len(r.data)) && r.data[end] != 0 {
+				recordEnd := int64(len(r.data))
+				if isNormal {
+					recordEnd = section.RecordDataOfs + section.RecordDataSize
+				}
+				for end < recordEnd && end < int64(len(r.data)) && r.data[end] != 0 {
 					end++
 				}
+				if start < 0 || start > end || end > int64(len(r.data)) {
+					return nil
+				}
 				out[sf.Name] = string(r.data[start:end])
+				if end < recordEnd && end < int64(len(r.data)) {
+					end++
+				}
+				cursor = end
+			}
+		}
+		if !hasIDMap && fieldInfoIndex-1 == r.IDFieldIndex {
+			if id, ok := out[sf.Name].(uint32); ok {
+				recordID = id
+			}
+		}
+	}
+
+	if section.RelationshipMap != nil {
+		if foreignID, ok := section.RelationshipMap[recordIndex]; ok {
+			lookup := r.RelationshipLookup[foreignID]
+			if lookup != nil && !containsUint32(lookup, recordID) {
+				r.RelationshipLookup[foreignID] = append(lookup, recordID)
 			}
 		}
 	}
@@ -546,11 +926,284 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 	return out
 }
 
-func (r *WDCReader) readString(section *Section, dataOfs, fieldOfs, ofs int64, recordOfs uint32) string {
+func containsUint32(values []uint32, needle uint32) bool {
+	for _, value := range values {
+		if value == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *WDCReader) readArrayField(dataOfs int64, info FieldStorageInfo, field SchemaField) interface{} {
+	count := field.ArrayLen
+	if count <= 0 {
+		return nil
+	}
+	out := make([]interface{}, count)
+	bitSize := int(info.FieldSizeBits) / count
+	if bitSize == 0 {
+		bitSize = fieldTypeBitSize(field.Type)
+	}
+	for i := 0; i < count; i++ {
+		bitOffset := int(info.FieldOffsetBits) + i*bitSize
+		raw := r.readBits(dataOfs, bitOffset, bitSize)
+		out[i] = reinterpretCompressedValue(raw, field.Type)
+	}
+	return out
+}
+
+func (r *WDCReader) readSequentialArray(cursor int64, field SchemaField, section *Section, isNormal bool) (interface{}, int64, bool) {
+	out := make([]interface{}, field.ArrayLen)
+	read := func(n int64) ([]byte, bool) {
+		if n < 0 || cursor < 0 || cursor+n > int64(len(r.data)) {
+			return nil, false
+		}
+		if isNormal && cursor+n > section.RecordDataOfs+section.RecordDataSize {
+			return nil, false
+		}
+		data := r.data[cursor : cursor+n]
+		cursor += n
+		return data, true
+	}
+	for i := 0; i < field.ArrayLen; i++ {
+		switch field.Type {
+		case FieldInt8:
+			data, ok := read(1)
+			if !ok {
+				return nil, cursor, false
+			}
+			out[i] = int8(data[0])
+		case FieldUInt8:
+			data, ok := read(1)
+			if !ok {
+				return nil, cursor, false
+			}
+			out[i] = data[0]
+		case FieldInt16:
+			data, ok := read(2)
+			if !ok {
+				return nil, cursor, false
+			}
+			out[i] = int16(binary.LittleEndian.Uint16(data))
+		case FieldUInt16:
+			data, ok := read(2)
+			if !ok {
+				return nil, cursor, false
+			}
+			out[i] = binary.LittleEndian.Uint16(data)
+		case FieldInt32:
+			data, ok := read(4)
+			if !ok {
+				return nil, cursor, false
+			}
+			out[i] = int32(binary.LittleEndian.Uint32(data))
+		case FieldUInt32:
+			data, ok := read(4)
+			if !ok {
+				return nil, cursor, false
+			}
+			out[i] = binary.LittleEndian.Uint32(data)
+		case FieldInt64:
+			data, ok := read(8)
+			if !ok {
+				return nil, cursor, false
+			}
+			out[i] = int64(binary.LittleEndian.Uint64(data))
+		case FieldUInt64:
+			data, ok := read(8)
+			if !ok {
+				return nil, cursor, false
+			}
+			out[i] = binary.LittleEndian.Uint64(data)
+		case FieldFloat:
+			data, ok := read(4)
+			if !ok {
+				return nil, cursor, false
+			}
+			out[i] = math.Float32frombits(binary.LittleEndian.Uint32(data))
+		}
+	}
+	return out, cursor, true
+}
+
+func (r *WDCReader) readBits(base int64, bitOffset, bitSize int) uint64 {
+	if bitSize <= 0 {
+		return 0
+	}
+	byteOfs := base + int64(bitOffset/8)
+	shift := uint(bitOffset & 7)
+	var raw uint64
+	for i := 0; i < 8; i++ {
+		pos := byteOfs + int64(i)
+		if pos >= int64(len(r.data)) {
+			break
+		}
+		raw |= uint64(r.data[pos]) << (8 * i)
+	}
+	if bitSize >= 64 {
+		return raw >> shift
+	}
+	return (raw >> shift) & ((uint64(1) << bitSize) - 1)
+}
+
+func fieldTypeBitSize(fieldType FieldType) int {
+	switch fieldType {
+	case FieldInt8, FieldUInt8:
+		return 8
+	case FieldInt16, FieldUInt16:
+		return 16
+	case FieldInt32, FieldUInt32, FieldFloat:
+		return 32
+	case FieldInt64, FieldUInt64:
+		return 64
+	default:
+		return 32
+	}
+}
+
+func (r *WDCReader) readCompressedField(section *Section, info FieldStorageInfo, field SchemaField, recordOfs, recordID uint32) interface{} {
+	var value interface{}
+	switch info.FieldCompression {
+	case CompCommonData:
+		value = uint64(info.FieldCompressionPacking[0])
+		fi := r.fieldInfoIndex(info)
+		if fi >= 0 && fi < len(r.CommonData) && r.CommonData[fi] != nil {
+			if v, ok := r.CommonData[fi][recordID]; ok {
+				value = uint64(v)
+			}
+		}
+	case CompBitpacked, CompBitpackedSigned, CompBitpackedIndexed, CompBitpackedIndexedArray:
+		bitpacked := r.readBitpackedValue(section, info, recordOfs)
+		fi := r.fieldInfoIndex(info)
+		if info.FieldCompression == CompBitpackedIndexedArray {
+			count := int(info.FieldCompressionPacking[2])
+			values := make([]interface{}, count)
+			for i := 0; i < count; i++ {
+				idx := int(bitpacked)*count + i
+				var raw uint64
+				if fi >= 0 && fi < len(r.PalletData) && idx >= 0 && idx < len(r.PalletData[fi]) {
+					raw = uint64(r.PalletData[fi][idx])
+				}
+				values[i] = reinterpretCompressedValue(raw, field.Type)
+			}
+			return values
+		}
+		if info.FieldCompression == CompBitpackedIndexed {
+			idx := int(bitpacked)
+			if fi >= 0 && fi < len(r.PalletData) && idx >= 0 && idx < len(r.PalletData[fi]) {
+				value = uint64(r.PalletData[fi][idx])
+			} else {
+				value = uint64(0)
+			}
+		} else if info.FieldCompression == CompBitpackedSigned {
+			value = signExtend(bitpacked, int(info.FieldSizeBits))
+		} else {
+			value = bitpacked
+		}
+	default:
+		value = uint64(0)
+	}
+	return reinterpretCompressedValue(value, field.Type)
+}
+
+func (r *WDCReader) fieldInfoIndex(info FieldStorageInfo) int {
+	for i := range r.FieldInfo {
+		if r.FieldInfo[i] == info {
+			return i
+		}
+	}
+	return -1
+}
+
+func (r *WDCReader) readBitpackedValue(section *Section, info FieldStorageInfo, recordOfs uint32) uint64 {
+	dataOfs := section.RecordDataOfs + int64(recordOfs) + int64(info.FieldOffsetBits/8)
+	if !section.IsNormal {
+		dataOfs = int64(recordOfs) + int64(info.FieldOffsetBits/8)
+	}
+	if dataOfs < 0 || dataOfs >= int64(len(r.data)) {
+		return 0
+	}
+	var raw uint64
+	for i := 0; i < 8; i++ {
+		pos := dataOfs + int64(i)
+		if pos >= int64(len(r.data)) {
+			break
+		}
+		raw |= uint64(r.data[pos]) << (8 * i)
+	}
+	bitOffset := uint(info.FieldOffsetBits & 7)
+	if info.FieldSizeBits == 0 {
+		return 0
+	}
+	if info.FieldSizeBits >= 64 {
+		return raw >> bitOffset
+	}
+	mask := (uint64(1) << info.FieldSizeBits) - 1
+	return (raw >> bitOffset) & mask
+}
+
+func signExtend(value uint64, bits int) int64 {
+	if bits <= 0 {
+		return 0
+	}
+	if bits >= 64 {
+		return int64(value)
+	}
+	shift := 64 - bits
+	return int64(value<<shift) >> shift
+}
+
+func reinterpretCompressedValue(value interface{}, fieldType FieldType) interface{} {
+	var unsigned uint64
+	var signed int64
+	switch v := value.(type) {
+	case int64:
+		signed = v
+		unsigned = uint64(v)
+	case uint64:
+		unsigned = v
+		signed = int64(v)
+	case uint32:
+		unsigned = uint64(v)
+		signed = int64(v)
+	case int:
+		signed = int64(v)
+		unsigned = uint64(v)
+	default:
+		return value
+	}
+	switch fieldType {
+	case FieldInt8:
+		return int8(signed)
+	case FieldUInt8:
+		return uint8(unsigned)
+	case FieldInt16:
+		return int16(signed)
+	case FieldUInt16:
+		return uint16(unsigned)
+	case FieldInt32:
+		return int32(signed)
+	case FieldUInt32:
+		return uint32(unsigned)
+	case FieldInt64:
+		return int64(signed)
+	case FieldUInt64:
+		return uint64(unsigned)
+	case FieldFloat:
+		return math.Float32frombits(uint32(unsigned))
+	case FieldString:
+		return ""
+	default:
+		return uint32(unsigned)
+	}
+}
+
+func (r *WDCReader) readString(section *Section, fieldOfs, ofs int64, recordOfs uint32) string {
 	// Compute outsideDataSize: sum of recordDataSize for all prior sections
 	var outsideDataSize int64
 	for i := range r.Sections {
-		if r.Sections[i].StringTableOffset == section.StringTableOffset {
+		if &r.Sections[i] == section {
 			break
 		}
 		outsideDataSize += r.Sections[i].RecordDataSize

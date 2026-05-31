@@ -7,7 +7,7 @@ func TestGetInfo(t *testing.T) {
 	ds.SetInfo(CASCInfo{
 		Source: "remote", Region: "cn", Product: "wow",
 		BuildName: "Wrath of the Lich King", BuildKey: "abc123",
-		CachePath: "/tmp/wowcache",
+		CachePath: "/tmp/wowcache", Locale: "zhCN",
 	})
 
 	info := ds.GetInfo()
@@ -16,6 +16,9 @@ func TestGetInfo(t *testing.T) {
 	}
 	if info.Region != "cn" {
 		t.Fatalf("region = %s", info.Region)
+	}
+	if info.Locale != "zhCN" {
+		t.Fatalf("locale = %s", info.Locale)
 	}
 }
 
@@ -38,11 +41,15 @@ func TestGetProducts(t *testing.T) {
 func TestDiagnose(t *testing.T) {
 	ds := NewDiagnosticsService()
 	ds.SetInfo(CASCInfo{
-		Source:    "remote",
-		Region:    "cn",
-		Product:   "wow",
-		BuildKey:  "abc123",
-		CachePath: t.TempDir(),
+		Source:             "remote",
+		Region:             "cn",
+		Product:            "wow",
+		BuildKey:           "abc123",
+		CachePath:          t.TempDir(),
+		ArchiveCount:       3,
+		RootEntryCount:     10,
+		EncodingEntryCount: 20,
+		TACTKeyCount:       30,
 	})
 
 	d := ds.Diagnose()
@@ -51,6 +58,11 @@ func TestDiagnose(t *testing.T) {
 	}
 	if len(d.Checks) == 0 {
 		t.Fatal("should have checks")
+	}
+	for _, name := range []string{"archives", "root", "encoding", "tact_keys"} {
+		if !hasDiagnoseCheck(d.Checks, name, "ok") {
+			t.Fatalf("diagnose should include ok %s check: %#v", name, d.Checks)
+		}
 	}
 }
 
@@ -82,4 +94,13 @@ func TestVerifyFileHash(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for missing file")
 	}
+}
+
+func hasDiagnoseCheck(checks []DiagnoseCheck, name string, status string) bool {
+	for _, check := range checks {
+		if check.Name == name && check.Status == status {
+			return true
+		}
+	}
+	return false
 }

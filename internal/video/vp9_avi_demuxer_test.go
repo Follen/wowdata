@@ -12,13 +12,13 @@ func buildMinimalAVI() []byte {
 	// RIFF header
 	buf.Write([]byte("RIFF"))
 	riffSizePos := buf.Len()
-	binary.Write(buf, binary.LittleEndian, uint32(0)) // placeholder
+	binary.Write(buf, binary.LittleEndian, uint32(0)) // patched below
 	buf.Write([]byte("AVI "))
 
 	// LIST hdrl
 	buf.Write([]byte("LIST"))
 	hdrlSizePos := buf.Len()
-	binary.Write(buf, binary.LittleEndian, uint32(0)) // placeholder
+	binary.Write(buf, binary.LittleEndian, uint32(0)) // patched below
 	buf.Write([]byte("hdrl"))
 
 	// avih
@@ -26,7 +26,7 @@ func buildMinimalAVI() []byte {
 	binary.Write(buf, binary.LittleEndian, uint32(56))
 	avih := make([]byte, 56)
 	binary.LittleEndian.PutUint32(avih[24:], 33333) // usPerFrame (~30fps)
-	binary.LittleEndian.PutUint32(avih[48:], 1)      // streams count
+	binary.LittleEndian.PutUint32(avih[48:], 1)     // streams count
 	buf.Write(avih)
 
 	// Fixup hdrl size
@@ -36,15 +36,15 @@ func buildMinimalAVI() []byte {
 	// LIST strl
 	buf.Write([]byte("LIST"))
 	strlSizePos := buf.Len()
-	binary.Write(buf, binary.LittleEndian, uint32(0)) // placeholder
+	binary.Write(buf, binary.LittleEndian, uint32(0)) // patched below
 	buf.Write([]byte("strl"))
 
 	// strf
 	buf.Write([]byte("strf"))
 	binary.Write(buf, binary.LittleEndian, uint32(40))
 	strf := make([]byte, 40)
-	binary.LittleEndian.PutUint32(strf[4:], 1920)  // width
-	binary.LittleEndian.PutUint32(strf[8:], 1080)  // height
+	binary.LittleEndian.PutUint32(strf[4:], 1920) // width
+	binary.LittleEndian.PutUint32(strf[8:], 1080) // height
 	copy(strf[16:], "VP90")
 	buf.Write(strf)
 
@@ -55,7 +55,7 @@ func buildMinimalAVI() []byte {
 	// movi
 	buf.Write([]byte("movi"))
 	moviSizePos := buf.Len()
-	binary.Write(buf, binary.LittleEndian, uint32(0)) // placeholder
+	binary.Write(buf, binary.LittleEndian, uint32(0)) // patched below
 
 	// Frame 1: keyframe
 	keyframeData := make([]byte, 100)
@@ -115,8 +115,32 @@ func TestExtractFrames(t *testing.T) {
 	if frames[0].Type != "key" {
 		t.Fatalf("frame 0 type = %s, want key", frames[0].Type)
 	}
-	if frames[1].Type != "delta" {
-		t.Fatalf("frame 1 type = %s, want delta", frames[1].Type)
+	if frames[1].Type != "key" {
+		t.Fatalf("frame 1 type = %s, want key", frames[1].Type)
+	}
+}
+
+func TestExtractFramesFromListMoviChunk(t *testing.T) {
+	data := buildMinimalAVI()
+	data = bytes.Replace(data, []byte("movi\xc4\x00\x00\x00"), []byte("LIST\xc8\x00\x00\x00movi"), 1)
+	d := NewVP9AVIDemuxer(data)
+	if err := d.ParseHeader(); err != nil {
+		t.Fatalf("ParseHeader: %v", err)
+	}
+
+	frames, err := d.ExtractFrames()
+	if err != nil {
+		t.Fatalf("ExtractFrames: %v", err)
+	}
+
+	if len(frames) != 2 {
+		t.Fatalf("frame count = %d, want 2", len(frames))
+	}
+	if frames[0].Type != "key" || frames[1].Type != "key" {
+		t.Fatalf("frame types = %s,%s; legacy implementation treats VP9 chunks as key frames", frames[0].Type, frames[1].Type)
+	}
+	if frames[0].Duration != 33333 || frames[1].Timestamp != 33333 {
+		t.Fatalf("frame timing = %#v", frames)
 	}
 }
 

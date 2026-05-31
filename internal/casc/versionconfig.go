@@ -4,6 +4,11 @@ import "strings"
 
 type VersionEntry struct {
 	Product      string
+	Name         string
+	Path         string
+	Hosts        string
+	Servers      string
+	ConfigPath   string
 	Region       string
 	BuildConfig  string
 	CDNConfig    string
@@ -47,8 +52,19 @@ func ParseVersionConfig(data string) []VersionEntry {
 
 func setField(e *VersionEntry, field, val string) {
 	switch field {
-	case "Product", "Name":
+	case "Product":
 		e.Product = val
+	case "Name":
+		e.Product = val
+		e.Name = val
+	case "Path":
+		e.Path = val
+	case "Hosts":
+		e.Hosts = val
+	case "Servers":
+		e.Servers = val
+	case "ConfigPath":
+		e.ConfigPath = val
 	case "Region":
 		e.Region = val
 	case "BuildConfig":
@@ -57,6 +73,13 @@ func setField(e *VersionEntry, field, val string) {
 		e.CDNConfig = val
 	case "BuildKey":
 		e.BuildKey = val
+		if e.BuildConfig == "" {
+			e.BuildConfig = val
+		}
+	case "CDNKey":
+		if e.CDNConfig == "" {
+			e.CDNConfig = val
+		}
 	case "Version":
 		e.Version = val
 	case "VersionsName":
