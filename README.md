@@ -32,7 +32,7 @@
 
 ### 亮点
 
-- **CLI Supported**：适合脚本、调试、批量导出和黄金样例对比。
+- **CLI Supported**：适合脚本、调试、批量查询和资源导出。
 - **MCP Supported**：可以作为 Agent/LLM 工具服务器，通过 `wow_*` 工具查询 WoW 数据。
 - **远端和本地数据源**：支持 Blizzard CDN，也支持本机 WoW 客户端目录。
 - **Go 单文件发布**：release 提供 Windows、Linux、macOS 构建产物。
@@ -124,7 +124,6 @@ item get|models|geosets|textures
 creature display|model
 decor list|get
 video demux
-golden capture|compare
 mcp serve
 ```
 
@@ -158,7 +157,7 @@ Current version: `v0.0.1`
 
 ### Highlights
 
-- **CLI Supported**: built for scripts, debugging, bulk export, and golden fixture checks.
+- **CLI Supported**: built for scripts, debugging, bulk queries, and asset export.
 - **MCP Supported**: runs as an Agent/LLM tool server with `wow_*` tools.
 - **Local or remote data**: use a local WoW client path or Blizzard CDN metadata.
 - **Go release binaries**: Windows, Linux, and macOS builds are published in releases.
@@ -250,7 +249,6 @@ item get|models|geosets|textures
 creature display|model
 decor list|get
 video demux
-golden capture|compare
 mcp serve
 ```
 
