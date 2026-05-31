@@ -12,7 +12,10 @@ import (
 	"strings"
 )
 
-const protocolVersion = "2024-11-05"
+const (
+	protocolVersion = "2024-11-05"
+	serverVersion   = "0.0.1"
+)
 
 type Tool struct {
 	Name        string
@@ -94,7 +97,7 @@ func (s *Server) handle(ctx context.Context, payload []byte) (rpcResponse, bool)
 			},
 			"serverInfo": map[string]interface{}{
 				"name":    s.name,
-				"version": "0.1.0",
+				"version": serverVersion,
 			},
 		}}, true
 	case "tools/list":

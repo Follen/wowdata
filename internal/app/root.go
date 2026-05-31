@@ -2,6 +2,8 @@ package app
 
 import "github.com/spf13/cobra"
 
+const Version = "0.0.1"
+
 func NewRootCommand() *cobra.Command {
 	return NewRootCommandWithService(nil)
 }
@@ -16,6 +18,7 @@ func NewRootCommandWithService(svc *Service) *cobra.Command {
 			"  wowdata db2 rows SpellName --id 123\n" +
 			"  wowdata file lookup --file-data-id 456\n" +
 			"  wowdata icon export --file-data-id 789 --format png",
+		Version:       Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
