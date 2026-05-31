@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"testing"
 
 	"wowdata/internal/casc"
@@ -13,6 +14,22 @@ type readByIDSource struct {
 
 func (s readByIDSource) ReadFileData(fileDataID uint32) ([]byte, error) {
 	return s.data, nil
+}
+
+type metadataReader struct {
+	exists bool
+	info   *casc.FileInfo
+}
+
+func (m metadataReader) ReadFileData(uint32) ([]byte, error) { return []byte("raw"), nil }
+
+func (m metadataReader) FileExists(uint32) bool { return m.exists }
+
+func (m metadataReader) GetFileEncodingInfo(uint32) (*casc.FileInfo, error) {
+	if m.info == nil {
+		return nil, fmt.Errorf("missing metadata")
+	}
+	return m.info, nil
 }
 
 func TestCASCFileStoreReadAndLookup(t *testing.T) {
@@ -46,6 +63,32 @@ func TestCASCFileStoreReadyWithFileServiceOnly(t *testing.T) {
 	}
 	if !store.ExistsByID(134400) {
 		t.Fatal("ExistsByID should use CASC file service without requiring listfile")
+	}
+}
+
+func TestCASCFileStoreUsesReaderMetadataWithoutFileServiceCopy(t *testing.T) {
+	reader := metadataReader{
+		exists: true,
+		info: &casc.FileInfo{
+			FileDataID:  134400,
+			ContentKey:  "content",
+			EncodingKey: "encoding",
+			Enc:         "encoding",
+			Size:        42,
+		},
+	}
+	store := NewCASCFileStore(nil, nil, reader)
+
+	if !store.ExistsByID(134400) {
+		t.Fatal("ExistsByID should use reader metadata without requiring FileService")
+	}
+	info, err := store.EncodingInfo(134400)
+	if err != nil {
+		t.Fatalf("EncodingInfo: %v", err)
+	}
+	got := info.(*casc.FileInfo)
+	if got.EncodingKey != "encoding" || got.Size != 42 {
+		t.Fatalf("metadata = %#v", got)
 	}
 }
 

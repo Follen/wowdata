@@ -431,12 +431,12 @@ func (r *CASCRemote) loadEncoding() error {
 }
 
 func (r *CASCRemote) loadRoot() error {
-	rootKey, ok := r.EncodingKeys[r.BuildConfig["root"]]
+	rootEntry, ok := r.EncodingEntries[r.BuildConfig["root"]]
 	if !ok {
 		return fmt.Errorf("no encoding entry found for root key")
 	}
 
-	data, err := r.getConfigFileWithCache("build_root", rootKey)
+	data, err := r.getConfigFileWithCache("build_root", rootEntry.Key)
 	if err != nil {
 		return err
 	}

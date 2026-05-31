@@ -75,9 +75,9 @@ func TestRootEntryMapIncludesAllPreloadInput(t *testing.T) {
 		{LocaleFlags: casc.LocaleZhCN},
 		{LocaleFlags: casc.LocaleEnUS, ContentFlags: casc.ContentLowViolence},
 	}
-	source.RootEntries[100] = map[int]string{0: "en-us"}
-	source.RootEntries[200] = map[int]string{1: "zh-cn"}
-	source.RootEntries[300] = map[int]string{2: "low-violence"}
+	source.RootEntries[100] = []casc.RootEntry{{TypeIndex: 0, ContentKey: "en-us"}}
+	source.RootEntries[200] = []casc.RootEntry{{TypeIndex: 1, ContentKey: "zh-cn"}}
+	source.RootEntries[300] = []casc.RootEntry{{TypeIndex: 2, ContentKey: "low-violence"}}
 
 	got := rootEntryMap(source)
 	for _, fdid := range []uint32{100, 200, 300} {

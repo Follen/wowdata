@@ -13,6 +13,11 @@ type FileDataReader interface {
 	ReadFileData(fileDataID uint32) ([]byte, error)
 }
 
+type FileMetadataReader interface {
+	FileExists(fileDataID uint32) bool
+	GetFileEncodingInfo(fileDataID uint32) (*casc.FileInfo, error)
+}
+
 type CASCFileStore struct {
 	listfile *listfile.Listfile
 	files    *casc.FileService
@@ -68,6 +73,9 @@ func (s *CASCFileStore) ExistsByID(fileDataID uint32) bool {
 	if s.files != nil && s.files.Exists(fileDataID) {
 		return true
 	}
+	if reader, ok := s.reader.(FileMetadataReader); ok && reader.FileExists(fileDataID) {
+		return true
+	}
 	return s.listfile != nil && s.listfile.ExistsByID(fileDataID)
 }
 
@@ -76,10 +84,13 @@ func (s *CASCFileStore) ExistsByName(filename string) bool {
 }
 
 func (s *CASCFileStore) EncodingInfo(fileDataID uint32) (interface{}, error) {
-	if s.files == nil {
-		return nil, fmt.Errorf("file service is not initialized")
+	if s.files != nil {
+		return s.files.GetEncodingInfo(fileDataID)
 	}
-	return s.files.GetEncodingInfo(fileDataID)
+	if reader, ok := s.reader.(FileMetadataReader); ok {
+		return reader.GetFileEncodingInfo(fileDataID)
+	}
+	return nil, fmt.Errorf("file metadata is not initialized")
 }
 
 func (s *CASCFileStore) ReadByID(fileDataID uint32) ([]byte, error) {

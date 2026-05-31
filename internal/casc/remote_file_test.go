@@ -26,9 +26,9 @@ func TestDecodeCASCData(t *testing.T) {
 
 func TestResolveFileEncodingKey(t *testing.T) {
 	c := NewCASCSource()
-	c.RootEntries[10] = map[int]string{0: "content"}
+	c.RootEntries[10] = []RootEntry{{TypeIndex: 0, ContentKey: "content"}}
 	c.RootTypes = append(c.RootTypes, RootType{LocaleFlags: LocaleEnUS})
-	c.EncodingKeys["content"] = "encoding"
+	c.EncodingEntries["content"] = EncodingEntry{Key: "encoding"}
 	c.Locale = LocaleEnUS
 
 	contentKey, encodingKey, err := c.ResolveFileKeys(10)
@@ -43,9 +43,9 @@ func TestResolveFileEncodingKey(t *testing.T) {
 func TestReadFileDataUsesArchiveThenDecodes(t *testing.T) {
 	remote := NewCASCRemote("us")
 	remote.Cache = NewDataCache(t.TempDir(), "test-build")
-	remote.RootEntries[10] = map[int]string{0: "content"}
+	remote.RootEntries[10] = []RootEntry{{TypeIndex: 0, ContentKey: "content"}}
 	remote.RootTypes = append(remote.RootTypes, RootType{LocaleFlags: LocaleEnUS})
-	remote.EncodingKeys["content"] = "encoding"
+	remote.EncodingEntries["content"] = EncodingEntry{Key: "encoding"}
 	remote.Archives["encoding"] = ArchiveEntry{Key: "archive", Size: int32(len(buildCascTestBLTE([]byte("hello archive")))), Offset: 12}
 	remote.Locale = LocaleEnUS
 
@@ -77,9 +77,9 @@ func TestReadFileDataUsesArchiveThenDecodes(t *testing.T) {
 func TestReadFileDataUsesUnarchivedEncodingKey(t *testing.T) {
 	remote := NewCASCRemote("us")
 	remote.Cache = NewDataCache(t.TempDir(), "test-build")
-	remote.RootEntries[10] = map[int]string{0: "content"}
+	remote.RootEntries[10] = []RootEntry{{TypeIndex: 0, ContentKey: "content"}}
 	remote.RootTypes = append(remote.RootTypes, RootType{LocaleFlags: LocaleEnUS})
-	remote.EncodingKeys["content"] = "encoding"
+	remote.EncodingEntries["content"] = EncodingEntry{Key: "encoding"}
 	remote.Locale = LocaleEnUS
 
 	var gotFile string

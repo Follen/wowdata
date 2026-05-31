@@ -19,15 +19,24 @@ type RootType struct {
 	LocaleFlags  LocaleFlag
 }
 
+type RootEntry struct {
+	TypeIndex  int
+	ContentKey string
+}
+
+type EncodingEntry struct {
+	Key  string
+	Size int64
+}
+
 type CASCSource struct {
-	EncodingSizes map[string]int64
-	EncodingKeys  map[string]string
-	RootTypes     []RootType
-	RootEntries   map[uint32]map[int]string
-	Locale        LocaleFlag
-	Archives      map[string]ArchiveEntry
-	BuildConfig   map[string]string
-	CDNConfig     map[string]string
+	EncodingEntries map[string]EncodingEntry
+	RootTypes       []RootType
+	RootEntries     map[uint32][]RootEntry
+	Locale          LocaleFlag
+	Archives        map[string]ArchiveEntry
+	BuildConfig     map[string]string
+	CDNConfig       map[string]string
 }
 
 type ArchiveEntry struct {
@@ -38,20 +47,19 @@ type ArchiveEntry struct {
 
 func NewCASCSource() *CASCSource {
 	return &CASCSource{
-		EncodingSizes: make(map[string]int64),
-		EncodingKeys:  make(map[string]string),
-		RootEntries:   make(map[uint32]map[int]string),
-		Archives:      make(map[string]ArchiveEntry),
-		Locale:        LocaleZhCN,
+		EncodingEntries: make(map[string]EncodingEntry),
+		RootEntries:     make(map[uint32][]RootEntry),
+		Archives:        make(map[string]ArchiveEntry),
+		Locale:          LocaleZhCN,
 	}
 }
 
 func (c *CASCSource) GetValidRootEntries() []uint32 {
 	var entries []uint32
-	for fdid, entry := range c.RootEntries {
-		for idx := range entry {
-			if idx < len(c.RootTypes) {
-				rt := c.RootTypes[idx]
+	for fdid, rootEntries := range c.RootEntries {
+		for _, entry := range rootEntries {
+			if entry.TypeIndex < len(c.RootTypes) {
+				rt := c.RootTypes[entry.TypeIndex]
 				if rt.LocaleFlags&c.Locale != 0 && rt.ContentFlags&ContentLowViolence == 0 {
 					entries = append(entries, fdid)
 					break
@@ -67,9 +75,9 @@ func (c *CASCSource) FileExists(fdid uint32) bool {
 	if !ok {
 		return false
 	}
-	for idx := range root {
-		if idx < len(c.RootTypes) {
-			rt := c.RootTypes[idx]
+	for _, entry := range root {
+		if entry.TypeIndex < len(c.RootTypes) {
+			rt := c.RootTypes[entry.TypeIndex]
 			if rt.LocaleFlags&c.Locale != 0 && rt.ContentFlags&ContentLowViolence == 0 {
 				return true
 			}
@@ -90,11 +98,11 @@ func (c *CASCSource) ResolveFileKeys(fdid uint32) (string, string, error) {
 	}
 
 	var contentKey string
-	for idx, key := range root {
-		if idx < len(c.RootTypes) {
-			rt := c.RootTypes[idx]
+	for _, entry := range root {
+		if entry.TypeIndex < len(c.RootTypes) {
+			rt := c.RootTypes[entry.TypeIndex]
 			if rt.LocaleFlags&c.Locale != 0 && rt.ContentFlags&ContentLowViolence == 0 {
-				contentKey = key
+				contentKey = entry.ContentKey
 				break
 			}
 		}
@@ -103,30 +111,41 @@ func (c *CASCSource) ResolveFileKeys(fdid uint32) (string, string, error) {
 		return "", "", fmt.Errorf("no root entry found for locale: %d", c.Locale)
 	}
 
-	encKey, ok := c.EncodingKeys[contentKey]
+	enc, ok := c.EncodingEntries[contentKey]
 	if !ok {
 		return "", "", fmt.Errorf("no encoding entry found: %s", contentKey)
 	}
-	return contentKey, encKey, nil
+	return contentKey, enc.Key, nil
 }
 
 func (c *CASCSource) GetEncodingKeyForContentKey(contentKey string) (string, error) {
-	encKey, ok := c.EncodingKeys[contentKey]
+	enc, ok := c.EncodingEntries[contentKey]
 	if !ok {
 		return "", fmt.Errorf("no encoding entry found: %s", contentKey)
 	}
-	return encKey, nil
+	return enc.Key, nil
+}
+
+func (c *CASCSource) GetEncodingSizeForContentKey(contentKey string) int64 {
+	return c.EncodingEntries[contentKey].Size
 }
 
 func (c *CASCSource) GetFileEncodingInfo(fdid uint32) (*FileInfo, error) {
-	encKey, err := c.GetFile(fdid)
+	contentKey, encKey, err := c.ResolveFileKeys(fdid)
 	if err != nil {
 		return nil, err
 	}
-	return &FileInfo{
+	info := &FileInfo{
 		FileDataID:  fdid,
+		ContentKey:  contentKey,
 		EncodingKey: encKey,
-	}, nil
+		Enc:         encKey,
+		Size:        c.GetEncodingSizeForContentKey(contentKey),
+	}
+	if archive, ok := c.Archives[encKey]; ok {
+		info.Archive = &FileArchiveInfo{Key: archive.Key, Offset: archive.Offset, Length: archive.Size}
+	}
+	return info, nil
 }
 
 func FormatCDNKey(key string) string {
@@ -248,17 +267,12 @@ func (c *CASCSource) parseRootBlocks(data []byte, pos *int, version uint32, allo
 		}
 		for i := uint32(0); i < numRecords; i++ {
 			fdid := fdids[i]
-			entry, ok := c.RootEntries[fdid]
-			if !ok {
-				entry = make(map[int]string)
-				c.RootEntries[fdid] = entry
-			}
 			key := hex.EncodeToString(data[*pos : *pos+16])
 			*pos += 16
 			if classic {
 				*pos += 8 // skip hash
 			}
-			entry[typeIndex] = key
+			c.RootEntries[fdid] = append(c.RootEntries[fdid], RootEntry{TypeIndex: typeIndex, ContentKey: key})
 		}
 
 		// Skip lookup hashes for non-classic
@@ -342,8 +356,7 @@ func (c *CASCSource) parseEncoding(data []byte) error {
 			eKey := hex.EncodeToString(data[pos : pos+hashSizeEKey])
 			pos += hashSizeEKey
 
-			c.EncodingSizes[cKey] = size
-			c.EncodingKeys[cKey] = eKey
+			c.EncodingEntries[cKey] = EncodingEntry{Key: eKey, Size: size}
 
 			pos += hashSizeEKey * (int(keysCount) - 1)
 		}

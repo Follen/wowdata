@@ -217,11 +217,11 @@ func (l *CASCLocal) loadEncoding() error {
 }
 
 func (l *CASCLocal) loadRoot() error {
-	rootKey, ok := l.EncodingKeys[l.BuildConfig["root"]]
+	rootEntry, ok := l.EncodingEntries[l.BuildConfig["root"]]
 	if !ok {
 		return fmt.Errorf("no encoding entry found for root key")
 	}
-	data, err := l.ReadEncodingData(rootKey)
+	data, err := l.ReadEncodingData(rootEntry.Key)
 	if err != nil {
 		return err
 	}

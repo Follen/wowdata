@@ -88,14 +88,14 @@ func TestParseEncodingFile(t *testing.T) {
 	if ek != "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" {
 		t.Fatalf("encoding key = %s", ek)
 	}
-	if sz := c.EncodingSizes["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]; sz != 1024 {
+	if sz := c.GetEncodingSizeForContentKey("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); sz != 1024 {
 		t.Fatalf("size = %d", sz)
 	}
 }
 
 func TestFileExists(t *testing.T) {
 	c := NewCASCSource()
-	c.RootEntries[100] = map[int]string{0: "aaaa"}
+	c.RootEntries[100] = []RootEntry{{TypeIndex: 0, ContentKey: "aaaa"}}
 	c.RootTypes = append(c.RootTypes, RootType{LocaleFlags: LocaleEnUS, ContentFlags: 0})
 	c.Locale = LocaleEnUS
 
@@ -109,8 +109,9 @@ func TestFileExists(t *testing.T) {
 
 func TestGetFile(t *testing.T) {
 	c := NewCASCSource()
-	c.RootEntries[100] = map[int]string{0: "contentKeyA"}
-	c.EncodingKeys["contentKeyA"] = "encodingKeyB"
+	c.RootEntries[100] = []RootEntry{{TypeIndex: 0, ContentKey: "contentKeyA"}}
+	c.EncodingEntries["contentKeyA"] = EncodingEntry{Key: "encodingKeyB", Size: 42}
+	c.Archives["encodingKeyB"] = ArchiveEntry{Key: "archive", Size: 10, Offset: 5}
 	c.RootTypes = append(c.RootTypes, RootType{LocaleFlags: LocaleEnUS, ContentFlags: 0})
 	c.Locale = LocaleEnUS
 
@@ -121,13 +122,24 @@ func TestGetFile(t *testing.T) {
 	if ek != "encodingKeyB" {
 		t.Fatalf("encoding key = %s", ek)
 	}
+
+	info, err := c.GetFileEncodingInfo(100)
+	if err != nil {
+		t.Fatalf("GetFileEncodingInfo: %v", err)
+	}
+	if info.ContentKey != "contentKeyA" || info.EncodingKey != "encodingKeyB" || info.Size != 42 {
+		t.Fatalf("encoding info = %#v", info)
+	}
+	if info.Archive == nil || info.Archive.Key != "archive" || info.Archive.Offset != 5 || info.Archive.Length != 10 {
+		t.Fatalf("archive info = %#v", info.Archive)
+	}
 }
 
 func TestLocaleFilterLowViolence(t *testing.T) {
 	c := NewCASCSource()
-	c.RootEntries[100] = map[int]string{
-		0: "keyA",
-		1: "keyB",
+	c.RootEntries[100] = []RootEntry{
+		{TypeIndex: 0, ContentKey: "keyA"},
+		{TypeIndex: 1, ContentKey: "keyB"},
 	}
 	c.RootTypes = append(c.RootTypes,
 		RootType{LocaleFlags: LocaleEnUS, ContentFlags: ContentLowViolence},

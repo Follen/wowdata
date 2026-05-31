@@ -30,7 +30,6 @@ type Runtime struct {
 	CASC               *casc.CASCRemote
 	Local              *casc.CASCLocal
 	LF                 *listfile.Listfile
-	FS                 *casc.FileService
 	DB2                *appruntime.MemoryDB2Store
 	Keys               *tact.KeyRing
 	Spell              *wowdata.SpellService
@@ -45,7 +44,6 @@ func NewRuntime() *Runtime {
 	return &Runtime{
 		CacheRoot: resolveCacheRoot("", os.Executable),
 		LF:        listfile.New(),
-		FS:        casc.NewFileService(),
 		DB2:       appruntime.NewMemoryDB2Store(),
 		Spell:     wowdata.NewSpellService(),
 		Enc:       wowdata.NewEncounterService(),
@@ -69,7 +67,7 @@ func main() {
 }
 
 func newRootCommandForRuntime(rt *Runtime) *cobra.Command {
-	fileStore := appruntime.NewCASCFileStore(rt.LF, rt.FS, rt)
+	fileStore := appruntime.NewCASCFileStore(rt.LF, nil, rt)
 
 	svc := &app.Service{
 		Warmup:    warmupHandler(rt),
@@ -113,6 +111,34 @@ func (rt *Runtime) ReadFileData(fileDataID uint32) ([]byte, error) {
 	}
 	if cascSource == nil {
 		return nil, fmt.Errorf("CASC 未就绪，请先调用 wow_warmup")
+	}
+	return nil, fmt.Errorf("CASC 未就绪，请先调用 wow_warmup")
+}
+
+func (rt *Runtime) FileExists(fileDataID uint32) bool {
+	rt.mu.Lock()
+	cascSource := rt.CASC
+	localSource := rt.Local
+	rt.mu.Unlock()
+	if cascSource != nil {
+		return cascSource.FileExists(fileDataID)
+	}
+	if localSource != nil {
+		return localSource.FileExists(fileDataID)
+	}
+	return false
+}
+
+func (rt *Runtime) GetFileEncodingInfo(fileDataID uint32) (*casc.FileInfo, error) {
+	rt.mu.Lock()
+	cascSource := rt.CASC
+	localSource := rt.Local
+	rt.mu.Unlock()
+	if cascSource != nil {
+		return cascSource.GetFileEncodingInfo(fileDataID)
+	}
+	if localSource != nil {
+		return localSource.GetFileEncodingInfo(fileDataID)
 	}
 	return nil, fmt.Errorf("CASC 未就绪，请先调用 wow_warmup")
 }
@@ -274,9 +300,7 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 		rt.mu.Lock()
 		rt.CASC = remote
 		rt.Local = nil
-		rt.FS.Reset()
 		rt.DB2.Reset()
-		rt.populateFileService(remote.CASCSource)
 		rt.Diag.SetInfo(diagnostics.CASCInfo{
 			Source:             opts.Source,
 			Region:             opts.Region,
@@ -288,7 +312,7 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 			CDNHost:            remote.Host,
 			ArchiveCount:       len(remote.Archives),
 			RootEntryCount:     len(remote.RootEntries),
-			EncodingEntryCount: len(remote.EncodingKeys),
+			EncodingEntryCount: len(remote.EncodingEntries),
 		})
 		rt.Diag.SetProducts(diagnostics.CASCProducts{
 			Source:   opts.Source,
@@ -300,7 +324,7 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 		result["buildName"] = remote.GetBuildName()
 		result["buildKey"] = remote.GetBuildKey()
 		result["rootEntryCount"] = len(remote.RootEntries)
-		result["encodingEntryCount"] = len(remote.EncodingKeys)
+		result["encodingEntryCount"] = len(remote.EncodingEntries)
 		result["archiveCount"] = len(remote.Archives)
 		addWarmupSuccessFields(result, buildIdx, remote.GetBuildName())
 
@@ -328,9 +352,7 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 		rt.mu.Lock()
 		rt.Local = local
 		rt.CASC = nil
-		rt.FS.Reset()
 		rt.DB2.Reset()
-		rt.populateFileService(local.CASCSource)
 		rt.Diag.SetInfo(diagnostics.CASCInfo{
 			Source:             opts.Source,
 			Region:             opts.Region,
@@ -341,7 +363,7 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 			CachePath:          filepath.ToSlash(opts.Path),
 			ArchiveCount:       len(local.Archives),
 			RootEntryCount:     len(local.RootEntries),
-			EncodingEntryCount: len(local.EncodingKeys),
+			EncodingEntryCount: len(local.EncodingEntries),
 		})
 		rt.Diag.SetProducts(diagnostics.CASCProducts{
 			Source:   opts.Source,
@@ -353,7 +375,7 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 		result["buildName"] = local.GetBuildName()
 		result["buildKey"] = local.GetBuildKey()
 		result["rootEntryCount"] = len(local.RootEntries)
-		result["encodingEntryCount"] = len(local.EncodingKeys)
+		result["encodingEntryCount"] = len(local.EncodingEntries)
 		result["localIndexCount"] = len(local.LocalIndexes)
 		addWarmupSuccessFields(result, buildIdx, local.GetBuildName())
 
@@ -455,22 +477,6 @@ func (rt *Runtime) warmTACTKeys() error {
 	rt.Diag.SetInfo(info)
 	rt.mu.Unlock()
 	return nil
-}
-
-func (rt *Runtime) populateFileService(source *casc.CASCSource) {
-	for _, fdid := range source.GetValidRootEntries() {
-		contentKeys := source.RootEntries[fdid]
-		for _, ck := range contentKeys {
-			rt.FS.AddRootEntry(fdid, ck)
-			encKey, err := source.GetEncodingKeyForContentKey(ck)
-			if err == nil {
-				rt.FS.AddEncodingEntry(ck, encKey, source.EncodingSizes[ck])
-				if archive, ok := source.Archives[encKey]; ok {
-					rt.FS.AddEncodingArchive(ck, archive)
-				}
-			}
-		}
-	}
 }
 
 func buildIndexByProduct(builds []casc.VersionEntry, product string) int {
