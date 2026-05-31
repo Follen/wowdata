@@ -111,6 +111,29 @@ func TestMCPToolExecutesCLIHandlerInProcess(t *testing.T) {
 	}
 }
 
+func TestMCPHTTPWarmupGateReturnsBusyEnvelope(t *testing.T) {
+	rt := NewRuntime()
+	rt.enableHTTPWarmupGate()
+	release, err := rt.beginHTTPWarmup()
+	if err != nil {
+		t.Fatalf("begin warmup: %v", err)
+	}
+	defer release()
+
+	tool := findMCPTool(t, mcpToolsForRuntime(rt), "wow_warmup")
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{"source":"remote","region":"cn","product":"wow"}`))
+	if err != nil {
+		t.Fatalf("wow_warmup tool: %v", err)
+	}
+	data, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"ok":false`) || !strings.Contains(string(data), "warmup_in_progress") {
+		t.Fatalf("busy warmup envelope mismatch: %s", data)
+	}
+}
+
 func TestAllBusinessMCPToolsAreCallable(t *testing.T) {
 	tests := map[string]string{
 		"wow_warmup":    `{}`,

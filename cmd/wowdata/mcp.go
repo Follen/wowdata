@@ -88,6 +88,7 @@ Compatibility notes:
   The HTTP server accepts GET, HEAD, OPTIONS, and POST on /mcp.
   JSON-RPC notifications such as notifications/initialized return HTTP 202 with no JSON-RPC error.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			rt.enableHTTPWarmupGate()
 			server := newMCPServerForRuntime(rt)
 			addr := fmt.Sprintf("%s:%d", httpHost, httpPort)
 			mux := http.NewServeMux()
@@ -210,6 +211,25 @@ func cliTool(rt *Runtime, name, description string, base []string, mapper func(m
 			extra, err := mapper(args)
 			if err != nil {
 				return nil, err
+			}
+			var release func()
+			if name == "wow_warmup" {
+				release, err = rt.beginHTTPWarmup()
+				if err != nil {
+					return map[string]interface{}{
+						"ok":      false,
+						"command": "warmup",
+						"data": map[string]interface{}{
+							"status": "busy",
+						},
+						"warnings": []interface{}{},
+						"error": map[string]interface{}{
+							"code":    "warmup_in_progress",
+							"message": err.Error(),
+						},
+					}, nil
+				}
+				defer release()
 			}
 			return executeCLIJSON(ctx, rt, append(append([]string{}, base...), extra...))
 		},

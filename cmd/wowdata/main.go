@@ -22,20 +22,23 @@ import (
 
 // Runtime holds the live state that handlers share.
 type Runtime struct {
-	mu        sync.Mutex
-	CacheRoot string
-	CASC      *casc.CASCRemote
-	Local     *casc.CASCLocal
-	LF        *listfile.Listfile
-	FS        *casc.FileService
-	DB2       *appruntime.MemoryDB2Store
-	Keys      *tact.KeyRing
-	Spell     *wowdata.SpellService
-	Enc       *wowdata.EncounterService
-	Item      *wowdata.ItemService
-	Creat     *wowdata.CreatureService
-	Decor     *wowdata.DecorService
-	Diag      *diagnostics.DiagnosticsService
+	mu                 sync.Mutex
+	httpWarmupMu       sync.Mutex
+	httpWarmupGate     bool
+	httpWarmupInFlight bool
+	CacheRoot          string
+	CASC               *casc.CASCRemote
+	Local              *casc.CASCLocal
+	LF                 *listfile.Listfile
+	FS                 *casc.FileService
+	DB2                *appruntime.MemoryDB2Store
+	Keys               *tact.KeyRing
+	Spell              *wowdata.SpellService
+	Enc                *wowdata.EncounterService
+	Item               *wowdata.ItemService
+	Creat              *wowdata.CreatureService
+	Decor              *wowdata.DecorService
+	Diag               *diagnostics.DiagnosticsService
 }
 
 func NewRuntime() *Runtime {
@@ -112,6 +115,32 @@ func (rt *Runtime) ReadFileData(fileDataID uint32) ([]byte, error) {
 		return nil, fmt.Errorf("CASC 未就绪，请先调用 wow_warmup")
 	}
 	return nil, fmt.Errorf("CASC 未就绪，请先调用 wow_warmup")
+}
+
+func (rt *Runtime) enableHTTPWarmupGate() {
+	rt.httpWarmupMu.Lock()
+	rt.httpWarmupGate = true
+	rt.httpWarmupMu.Unlock()
+}
+
+func (rt *Runtime) beginHTTPWarmup() (func(), error) {
+	rt.httpWarmupMu.Lock()
+	defer rt.httpWarmupMu.Unlock()
+	if !rt.httpWarmupGate {
+		return func() {}, nil
+	}
+	if rt.httpWarmupInFlight {
+		return nil, warmupStepError{
+			Code: "warmup_in_progress",
+			Err:  fmt.Errorf("another wow_warmup is already running; wait for it to finish and reuse the warmed server context"),
+		}
+	}
+	rt.httpWarmupInFlight = true
+	return func() {
+		rt.httpWarmupMu.Lock()
+		rt.httpWarmupInFlight = false
+		rt.httpWarmupMu.Unlock()
+	}, nil
 }
 
 func warmupHandler(rt *Runtime) func(cmd *cobra.Command, args []string) error {

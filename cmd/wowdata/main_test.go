@@ -139,6 +139,38 @@ func TestWarmupResultNormalizesNilTablesToEmptySlice(t *testing.T) {
 	}
 }
 
+func TestRuntimeHTTPWarmupGateRejectsConcurrentWarmup(t *testing.T) {
+	rt := NewRuntime()
+
+	release, err := rt.beginHTTPWarmup()
+	if err != nil {
+		t.Fatalf("ungated warmup should not be rejected: %v", err)
+	}
+	release()
+
+	rt.enableHTTPWarmupGate()
+	release, err = rt.beginHTTPWarmup()
+	if err != nil {
+		t.Fatalf("begin first HTTP warmup: %v", err)
+	}
+
+	_, err = rt.beginHTTPWarmup()
+	if err == nil {
+		t.Fatal("expected concurrent HTTP warmup to be rejected")
+	}
+	step, ok := err.(warmupStepError)
+	if !ok || step.Code != "warmup_in_progress" {
+		t.Fatalf("error = %#v, want warmup_in_progress step error", err)
+	}
+
+	release()
+	release, err = rt.beginHTTPWarmup()
+	if err != nil {
+		t.Fatalf("begin warmup after release: %v", err)
+	}
+	release()
+}
+
 func validRootEntries(source *casc.CASCSource) map[uint32]bool {
 	out := map[uint32]bool{}
 	for _, fdid := range source.GetValidRootEntries() {
