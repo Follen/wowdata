@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -94,6 +96,102 @@ func TestServerIgnoresBlankLinesBetweenFrames(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), `\"pong\":true`) {
 		t.Fatalf("missing tool result:\n%s", stdout.String())
+	}
+}
+
+func TestHTTPHandlerAcceptsInitializedNotification(t *testing.T) {
+	server := NewServer("wowdata-test", nil)
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted && rec.Code != http.StatusNoContent {
+		t.Fatalf("initialized notification status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "method not found") {
+		t.Fatalf("notification should not return JSON-RPC method error: %s", rec.Body.String())
+	}
+}
+
+func TestHTTPHandlerInitializesAndListsTools(t *testing.T) {
+	server := NewServer("wowdata-test", []Tool{{
+		Name:        "wow_ping",
+		Description: "Ping tool",
+		InputSchema: map[string]interface{}{"type": "object"},
+		Handler: func(ctx context.Context, args json.RawMessage) (interface{}, error) {
+			return map[string]interface{}{"pong": true}, nil
+		},
+	}})
+	for _, tc := range []struct {
+		name string
+		body string
+		want string
+	}{
+		{"initialize", `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}`, `"serverInfo"`},
+		{"tools-list", `{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`, `"name":"wow_ping"`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+
+			server.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), tc.want) {
+				t.Fatalf("response missing %s: %s", tc.want, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestHTTPHandlerRejectsSSEGet(t *testing.T) {
+	server := NewServer("wowdata-test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/mcp", nil)
+	req.Header.Set("Accept", "text/event-stream")
+	rec := httptest.NewRecorder()
+
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("SSE GET status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "streamable_http") {
+		t.Fatalf("SSE rejection should explain supported transport: %s", rec.Body.String())
+	}
+}
+
+func TestServerCallToolReturnsStructuredContentAndResourceLinks(t *testing.T) {
+	server := NewServer("wowdata-test", []Tool{{
+		Name:        "wow_export",
+		Description: "Export",
+		InputSchema: map[string]interface{}{"type": "object"},
+		Handler: func(ctx context.Context, args json.RawMessage) (interface{}, error) {
+			return map[string]interface{}{
+				"ok": true,
+				"data": map[string]interface{}{
+					"path":     `C:\tmp\icon.png`,
+					"uri":      "file:///C:/tmp/icon.png",
+					"name":     "icon.png",
+					"mimeType": "image/png",
+					"size":     42,
+				},
+			}, nil
+		},
+	}})
+	stdout := runMCPServer(t, server,
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_export","arguments":{}}}`,
+	)
+
+	if !strings.Contains(stdout, `"structuredContent"`) {
+		t.Fatalf("tool result should include structuredContent:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, `"type":"resource_link"`) || !strings.Contains(stdout, `"uri":"file:///C:/tmp/icon.png"`) {
+		t.Fatalf("tool result should include resource_link for exported artifact:\n%s", stdout)
 	}
 }
 

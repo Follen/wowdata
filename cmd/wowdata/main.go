@@ -57,7 +57,7 @@ func main() {
 	rt := NewRuntime()
 	cmd := newRootCommandForRuntime(rt)
 	if len(os.Args) == 2 && os.Args[1] == "--mcp" {
-		cmd.SetArgs([]string{"mcp", "serve"})
+		cmd.SetArgs([]string{"mcp", "stdio"})
 	}
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

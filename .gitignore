@@ -1,3 +1,6 @@
 output/
 dist/
+.local/
+AGENT.md
+AGENTS.md
 *.log

@@ -12,16 +12,34 @@ import (
 
 func TestMCPCommandHelpExists(t *testing.T) {
 	cmd := newRootCommandForRuntime(NewRuntime())
-	cmd.SetArgs([]string{"mcp", "serve", "--help"})
+	cmd.SetArgs([]string{"mcp", "stdio", "--help"})
 	var stdout, stderr bytes.Buffer
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stderr)
 
 	if err := cmd.Execute(); err != nil {
-		t.Fatalf("mcp serve --help: %v stderr=%s", err, stderr.String())
+		t.Fatalf("mcp stdio --help: %v stderr=%s", err, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "Serve MCP tools over stdio") {
-		t.Fatalf("help missing mcp serve text:\n%s", stdout.String())
+	if !strings.Contains(stdout.String(), "stdio") || !strings.Contains(stdout.String(), "Claude Code") {
+		t.Fatalf("help missing stdio client guidance:\n%s", stdout.String())
+	}
+}
+
+func TestMCPHTTPHelpIncludesClientConfigGuidance(t *testing.T) {
+	cmd := newRootCommandForRuntime(NewRuntime())
+	cmd.SetArgs([]string{"mcp", "http", "--help"})
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("mcp http --help: %v stderr=%s", err, stderr.String())
+	}
+	help := stdout.String()
+	for _, want := range []string{"--host", "--port", "--base-url", "codex mcp add", "cc-switch", "Claude Code"} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("mcp http help missing %q:\n%s", want, help)
+		}
 	}
 }
 

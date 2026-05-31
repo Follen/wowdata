@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -42,6 +43,24 @@ func TestExportIcon(t *testing.T) {
 	}
 	if result.Width != 4 {
 		t.Fatalf("width = %d", result.Width)
+	}
+	if !filepath.IsAbs(result.Path) {
+		t.Fatalf("path should be absolute, got %q", result.Path)
+	}
+	if !strings.HasPrefix(result.URI, "file:///") {
+		t.Fatalf("uri should be a file URI, got %q", result.URI)
+	}
+	if result.Name != "icon.png" {
+		t.Fatalf("name = %q", result.Name)
+	}
+	if result.MimeType != "image/png" {
+		t.Fatalf("mimeType = %q", result.MimeType)
+	}
+	if result.Size <= 0 {
+		t.Fatalf("size = %d", result.Size)
+	}
+	if result.SHA256 == "" {
+		t.Fatal("sha256 is empty")
 	}
 
 	// Verify file exists

@@ -3,6 +3,7 @@ package export
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -23,6 +24,18 @@ func TestExportFile(t *testing.T) {
 	}
 	if result.Hash == "" {
 		t.Fatal("hash is empty")
+	}
+	if !filepath.IsAbs(result.Path) {
+		t.Fatalf("path should be absolute, got %q", result.Path)
+	}
+	if !strings.HasPrefix(result.URI, "file:///") {
+		t.Fatalf("uri should be a file URI, got %q", result.URI)
+	}
+	if result.Name != "test.bin" {
+		t.Fatalf("name = %q", result.Name)
+	}
+	if result.MimeType != "application/octet-stream" {
+		t.Fatalf("mimeType = %q", result.MimeType)
 	}
 	if result.Overwrite {
 		t.Fatal("should not overwrite on first write")

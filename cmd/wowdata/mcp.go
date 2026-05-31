@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"wowdata/internal/mcpserver"
 
@@ -20,21 +22,162 @@ func registerMCPCommand(root *cobra.Command, rt *Runtime) {
 	mcpCmd := &cobra.Command{
 		Use:   "mcp",
 		Short: "Run wowdata as an MCP server.",
+		Long: `Run wowdata as an MCP server.
+
+Transports:
+  stdio  Local process transport for Codex, Claude Code, and cc-switch command configs.
+  http   Streamable HTTP endpoint for remote services, domains, and shared deployments.
+
+Examples:
+  wowdata mcp stdio
+  wowdata mcp http --host 127.0.0.1 --port 9788 --base-url http://127.0.0.1:9788`,
 	}
-	serveCmd := &cobra.Command{
-		Use:   "serve",
+	stdioCmd := &cobra.Command{
+		Use:   "stdio",
 		Short: "Serve MCP tools over stdio.",
+		Long: `Serve MCP tools over stdio.
+
+Use this for local clients that launch wowdata as a subprocess.
+
+Codex CLI:
+  codex mcp add wowdata -- wowdata mcp stdio
+
+Claude Code:
+  claude mcp add wowdata -- wowdata mcp stdio
+
+cc-switch custom MCP:
+  {
+    "type": "stdio",
+    "command": "wowdata",
+    "args": ["mcp", "stdio"]
+  }
+
+Legacy compatibility:
+  wowdata --mcp is treated as wowdata mcp stdio.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			server := newMCPServerForRuntime(rt)
 			return server.Serve(cmd.Context(), os.Stdin, os.Stdout)
 		},
 	}
-	mcpCmd.AddCommand(serveCmd)
+	var httpHost, httpBaseURL string
+	var httpPort int
+	httpCmd := &cobra.Command{
+		Use:   "http",
+		Short: "Serve MCP tools over Streamable HTTP.",
+		Long: `Serve MCP tools over Streamable HTTP.
+
+Use this for remote deployments with a domain, TLS, reverse proxy, or shared service.
+The MCP endpoint is /mcp. Health and agent-readable setup guidance are available at /health and /help.
+
+Codex CLI:
+  codex mcp add wowdata --url https://mcp.lychee-addon.online:9443/mcp
+
+Claude Code:
+  claude mcp add --transport http wowdata https://mcp.lychee-addon.online:9443/mcp
+
+Claude Code stdio fallback:
+  claude mcp add --transport stdio wowdata -- wowdata mcp stdio
+
+cc-switch custom MCP:
+  {
+    "type": "http",
+    "url": "https://mcp.lychee-addon.online:9443/mcp"
+  }
+
+Compatibility notes:
+  The HTTP server accepts GET, HEAD, OPTIONS, and POST on /mcp.
+  JSON-RPC notifications such as notifications/initialized return HTTP 202 with no JSON-RPC error.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			server := newMCPServerForRuntime(rt)
+			addr := fmt.Sprintf("%s:%d", httpHost, httpPort)
+			mux := http.NewServeMux()
+			registerMCPHTTPHandlers(mux, server, httpBaseURL)
+			httpServer := &http.Server{
+				Addr:              addr,
+				Handler:           mux,
+				ReadHeaderTimeout: 10 * time.Second,
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "wowdata MCP HTTP listening on http://%s/mcp\n", addr)
+			return httpServer.ListenAndServe()
+		},
+	}
+	httpCmd.Flags().StringVar(&httpHost, "host", "127.0.0.1", "Host/interface to bind")
+	httpCmd.Flags().IntVar(&httpPort, "port", 9788, "Port to bind")
+	httpCmd.Flags().StringVar(&httpBaseURL, "base-url", "", "Public base URL used in help output, such as https://mcp.example.com:9443")
+
+	mcpCmd.AddCommand(stdioCmd, httpCmd)
 	root.AddCommand(mcpCmd)
 }
 
 func newMCPServerForRuntime(rt *Runtime) *mcpserver.Server {
 	return mcpserver.NewServer("wowdata", mcpToolsForRuntime(rt))
+}
+
+func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseURL string) {
+	mux.Handle("/mcp", server)
+	mux.Handle("/mcp/", server)
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		writeHelpJSON(w, http.StatusOK, map[string]interface{}{
+			"ok":        true,
+			"service":   "wowdata-mcp",
+			"endpoint":  publicURL(baseURL, "/mcp"),
+			"transport": "streamable_http",
+		})
+	})
+	mux.HandleFunc("/help", func(w http.ResponseWriter, r *http.Request) {
+		writeHelpHTML(w, http.StatusOK, mcpHelpHTML(baseURL))
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			writeHelpHTML(w, http.StatusOK, mcpHelpHTML(baseURL))
+			return
+		}
+		writeHelpJSON(w, http.StatusNotFound, map[string]interface{}{"error": "not found", "help": "/help", "endpoint": "/mcp"})
+	})
+}
+
+func publicURL(baseURL, path string) string {
+	baseURL = strings.TrimRight(baseURL, "/")
+	if baseURL == "" {
+		return path
+	}
+	return baseURL + path
+}
+
+func writeHelpJSON(w http.ResponseWriter, code int, payload interface{}) {
+	data, _ := json.Marshal(payload)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.WriteHeader(code)
+	_, _ = w.Write(data)
+}
+
+func writeHelpHTML(w http.ResponseWriter, code int, text string) {
+	data := []byte(text)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.WriteHeader(code)
+	_, _ = w.Write(data)
+}
+
+func mcpHelpHTML(baseURL string) string {
+	endpoint := publicURL(baseURL, "/mcp")
+	return fmt.Sprintf(`<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wowdata MCP Help</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;line-height:1.55;max-width:980px;margin:40px auto;padding:0 18px;color:#172033}pre{background:#0f172a;color:#dbeafe;padding:14px;border-radius:8px;overflow:auto}code{background:#e5e7eb;padding:2px 5px;border-radius:4px}h1,h2{color:#0f172a}</style></head>
+<body><h1>wowdata MCP</h1><p>Endpoint: <code>%s</code></p>
+<h2>Codex</h2><pre>codex mcp add wowdata --url %s</pre>
+<h2>cc-switch</h2><pre>{
+  "type": "http",
+  "url": "%s"
+}</pre>
+<h2>Claude Code</h2><pre>claude mcp add --transport http wowdata %s</pre>
+<h2>Claude Code stdio fallback</h2><pre>claude mcp add --transport stdio wowdata -- wowdata mcp stdio</pre>
+<h2>Local stdio</h2><pre>wowdata mcp stdio</pre>
+<h2>HTTP server</h2><pre>wowdata mcp http --host 127.0.0.1 --port 9788 --base-url %s</pre>
+<p>Supported tools: wow_warmup, wow_casc, wow_db2, wow_file, wow_icon, wow_spell, wow_encounter, wow_item, wow_creature, wow_decor, wow_video.</p>
+</body></html>`, endpoint, endpoint, endpoint, endpoint, strings.TrimSuffix(endpoint, "/mcp"))
 }
 
 func mcpToolsForRuntime(rt *Runtime) []mcpTool {

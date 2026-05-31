@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
@@ -59,6 +60,67 @@ func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 			return err
 		}
 	}
+}
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, MCP-Protocol-Version")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if r.Method == http.MethodGet {
+		if acceptsSSE(r.Header.Get("Accept")) {
+			writeJSONHTTP(w, http.StatusMethodNotAllowed, map[string]interface{}{
+				"error":     "SSE transport is not supported on this endpoint",
+				"transport": "streamable_http",
+				"endpoint":  "/mcp",
+			})
+			return
+		}
+		writeJSONHTTP(w, http.StatusOK, map[string]interface{}{
+			"ok":              true,
+			"transport":       "streamable_http",
+			"protocolVersion": protocolVersion,
+			"serverInfo": map[string]interface{}{
+				"name":    s.name,
+				"version": serverVersion,
+			},
+		})
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSONHTTP(w, http.StatusMethodNotAllowed, map[string]interface{}{"error": "method not allowed"})
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeJSONHTTP(w, http.StatusBadRequest, rpcResponse{JSONRPC: "2.0", Error: &rpcError{Code: -32700, Message: err.Error()}})
+		return
+	}
+	resp, ok := s.handle(r.Context(), body)
+	if !ok {
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
+	writeJSONHTTP(w, http.StatusOK, resp)
+}
+
+func writeJSONHTTP(w http.ResponseWriter, code int, payload interface{}) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		code = http.StatusInternalServerError
+		data = []byte(`{"jsonrpc":"2.0","error":{"code":-32000,"message":"encode response failed"}}`)
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.WriteHeader(code)
+	_, _ = w.Write(data)
 }
 
 type rpcRequest struct {
@@ -154,9 +216,76 @@ func (s *Server) callTool(ctx context.Context, req rpcRequest) rpcResponse {
 	if err != nil {
 		return rpcResponse{JSONRPC: "2.0", ID: req.ID, Error: &rpcError{Code: -32000, Message: err.Error()}}
 	}
+	content := []map[string]interface{}{{"type": "text", "text": string(text)}}
+	content = append(content, resourceLinksFrom(result)...)
 	return rpcResponse{JSONRPC: "2.0", ID: req.ID, Result: map[string]interface{}{
-		"content": []map[string]interface{}{{"type": "text", "text": string(text)}},
+		"content":           content,
+		"structuredContent": result,
 	}}
+}
+
+func acceptsSSE(accept string) bool {
+	for _, part := range strings.Split(accept, ",") {
+		mediaType := strings.TrimSpace(strings.SplitN(part, ";", 2)[0])
+		if strings.EqualFold(mediaType, "text/event-stream") {
+			return true
+		}
+	}
+	return false
+}
+
+func resourceLinksFrom(value interface{}) []map[string]interface{} {
+	links := []map[string]interface{}{}
+	collectResourceLinks(value, &links)
+	return links
+}
+
+func collectResourceLinks(value interface{}, links *[]map[string]interface{}) {
+	switch v := value.(type) {
+	case map[string]interface{}:
+		if link, ok := resourceLinkFromMap(v); ok {
+			*links = append(*links, link)
+		}
+		for _, child := range v {
+			collectResourceLinks(child, links)
+		}
+	case []interface{}:
+		for _, child := range v {
+			collectResourceLinks(child, links)
+		}
+	case []map[string]interface{}:
+		for _, child := range v {
+			collectResourceLinks(child, links)
+		}
+	}
+}
+
+func resourceLinkFromMap(v map[string]interface{}) (map[string]interface{}, bool) {
+	uri, ok := stringValue(v["uri"])
+	if !ok || !strings.HasPrefix(uri, "file://") {
+		return nil, false
+	}
+	name, _ := stringValue(v["name"])
+	if name == "" {
+		name = uri
+	}
+	link := map[string]interface{}{
+		"type": "resource_link",
+		"uri":  uri,
+		"name": name,
+	}
+	if mimeType, ok := stringValue(v["mimeType"]); ok && mimeType != "" {
+		link["mimeType"] = mimeType
+	}
+	if size, ok := v["size"]; ok {
+		link["size"] = size
+	}
+	return link, true
+}
+
+func stringValue(value interface{}) (string, bool) {
+	s, ok := value.(string)
+	return s, ok
 }
 
 func readFrame(reader *bufio.Reader) ([]byte, error) {

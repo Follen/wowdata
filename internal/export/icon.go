@@ -1,8 +1,7 @@
 package export
 
 import (
-	"crypto/md5"
-	"encoding/hex"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,15 +11,20 @@ import (
 )
 
 type IconExportResult struct {
-	OK     bool   `json:"ok"`
-	Status string `json:"status"`
-	Path   string `json:"path"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
-	Format string `json:"format"`
-	Mipmap int    `json:"mipmap"`
-	Mask   int    `json:"mask,omitempty"`
-	Hash   string `json:"hash"`
+	OK       bool   `json:"ok"`
+	Status   string `json:"status"`
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	URI      string `json:"uri"`
+	Width    int    `json:"width"`
+	Height   int    `json:"height"`
+	Format   string `json:"format"`
+	MimeType string `json:"mimeType"`
+	Mipmap   int    `json:"mipmap"`
+	Mask     int    `json:"mask,omitempty"`
+	Hash     string `json:"hash"`
+	SHA256   string `json:"sha256"`
+	Size     int64  `json:"size"`
 }
 
 func ExportIcon(data []byte, outputPath, format string, mipmap int) (*IconExportResult, error) {
@@ -60,19 +64,23 @@ func ExportIconWithOptions(data []byte, outputPath, format string, mipmap, mask 
 	}
 
 	result := &IconExportResult{
-		OK:     true,
-		Status: "extracted",
-		Path:   resultPath,
-		Width:  exportResult.Width,
-		Height: exportResult.Height,
-		Format: format,
-		Mipmap: mipmap,
-		Mask:   mask,
+		OK:       true,
+		Status:   "extracted",
+		Name:     filepath.Base(resultPath),
+		Path:     resultPath,
+		URI:      FileURI(resultPath),
+		Width:    exportResult.Width,
+		Height:   exportResult.Height,
+		Format:   format,
+		MimeType: mimeTypeForPath(resultPath),
+		Mipmap:   mipmap,
+		Mask:     mask,
 	}
-	// Verify hash
 	if fileData, err := os.ReadFile(outputPath); err == nil {
-		h := md5.Sum(fileData)
-		result.Hash = hex.EncodeToString(h[:])
+		h := sha256.Sum256(fileData)
+		result.Hash = fmt.Sprintf("%x", h)
+		result.SHA256 = result.Hash
+		result.Size = int64(len(fileData))
 	}
 
 	return result, nil

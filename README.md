@@ -26,14 +26,14 @@
 
 ## 中文
 
-`wowdata` 是一个纯 Go 实现的 World of Warcraft 数据工具箱，同时提供命令行工具和 MCP stdio server。它可以从本地客户端或 Blizzard CDN 构建读取 CASC、DB2、listfile、贴图、图标、法术、地下城手册、物品、生物、装饰物、视频和诊断数据。
+`wowdata` 是一个纯 Go 实现的 World of Warcraft 数据工具箱，同时提供命令行工具、MCP stdio server 和 MCP Streamable HTTP server。它可以从本地客户端或 Blizzard CDN 构建读取 CASC、DB2、listfile、贴图、图标、法术、地下城手册、物品、生物、装饰物、视频和诊断数据。
 
 当前版本：`v0.0.1`
 
 ### 亮点
 
 - **CLI Supported**：适合脚本、调试、批量查询和资源导出。
-- **MCP Supported**：可以作为 Agent/LLM 工具服务器，通过 `wow_*` 工具查询 WoW 数据。
+- **MCP Supported**：支持本地 `stdio` 和远端 `http` 两种 MCP 传输，通过 `wow_*` 工具查询 WoW 数据。
 - **远端和本地数据源**：支持 Blizzard CDN，也支持本机 WoW 客户端目录。
 - **Go 单文件发布**：release 提供 Windows、Linux、macOS 构建产物。
 - **强开源保护**：使用 `AGPL-3.0-or-later`，修改、分发或作为网络服务使用时需要继续公开源码。
@@ -82,10 +82,10 @@ wowdata --auto-warmup --source remote --region us --product wow_classic_era --li
 
 ### MCP Server
 
-作为 MCP stdio server 运行：
+作为本地 MCP stdio server 运行：
 
 ```powershell
-wowdata mcp serve
+wowdata mcp stdio
 ```
 
 内置别名：
@@ -93,6 +93,48 @@ wowdata mcp serve
 ```powershell
 wowdata --mcp
 ```
+
+作为远端 MCP Streamable HTTP server 运行：
+
+```powershell
+wowdata mcp http --host 127.0.0.1 --port 9788 --base-url https://mcp.example.com:9443
+```
+
+HTTP endpoint:
+
+- `POST /mcp`：MCP Streamable HTTP JSON-RPC endpoint
+- `GET|HEAD /mcp`：健康探测和客户端 reachability 检查
+- `GET /health`：服务健康状态
+- `GET /help`：面向用户和 agent 的配置指南
+
+Codex:
+
+```powershell
+codex mcp add wowdata --url https://mcp.example.com:9443/mcp
+```
+
+cc-switch custom MCP:
+
+```json
+{
+  "type": "http",
+  "url": "https://mcp.example.com:9443/mcp"
+}
+```
+
+Claude Code:
+
+```powershell
+claude mcp add --transport http wowdata https://mcp.example.com:9443/mcp
+```
+
+Claude Code 本地 stdio：
+
+```powershell
+claude mcp add --transport stdio wowdata -- wowdata mcp stdio
+```
+
+导出类工具会返回 `path`、`uri`、`mimeType`、`size` 和 `sha256`。在 MCP 调用里，结果同时包含 `structuredContent` 和 `resource_link`，客户端或 agent 可以直接通过 `file://` URI 定位本机导出的图标、贴图和其他素材。
 
 暴露的 MCP 工具：
 
@@ -124,7 +166,8 @@ item get|models|geosets|textures
 creature display|model
 decor list|get
 video demux
-mcp serve
+mcp stdio
+mcp http
 ```
 
 ### 开发构建
@@ -151,14 +194,14 @@ go build -o dist/wowdata.exe ./cmd/wowdata
 
 ## English
 
-`wowdata` is a pure Go World of Warcraft data toolbox with both a CLI and an MCP stdio server. It can query CASC, DB2, listfiles, textures, icons, spells, encounters, items, creatures, decor, video containers, and diagnostics from a local WoW client or Blizzard CDN builds.
+`wowdata` is a pure Go World of Warcraft data toolbox with a CLI, an MCP stdio server, and an MCP Streamable HTTP server. It can query CASC, DB2, listfiles, textures, icons, spells, encounters, items, creatures, decor, video containers, and diagnostics from a local WoW client or Blizzard CDN builds.
 
 Current version: `v0.0.1`
 
 ### Highlights
 
 - **CLI Supported**: built for scripts, debugging, bulk queries, and asset export.
-- **MCP Supported**: runs as an Agent/LLM tool server with `wow_*` tools.
+- **MCP Supported**: supports local `stdio` and remote `http` MCP transports with `wow_*` tools.
 - **Local or remote data**: use a local WoW client path or Blizzard CDN metadata.
 - **Go release binaries**: Windows, Linux, and macOS builds are published in releases.
 - **Strong copyleft license**: `AGPL-3.0-or-later` keeps distributed and network-served modifications open.
@@ -210,7 +253,7 @@ wowdata --auto-warmup --source remote --region us --product wow_classic_era --li
 Run as an MCP stdio server:
 
 ```bash
-wowdata mcp serve
+wowdata mcp stdio
 ```
 
 Built-in alias:
@@ -218,6 +261,48 @@ Built-in alias:
 ```bash
 wowdata --mcp
 ```
+
+Run as an MCP Streamable HTTP server:
+
+```bash
+wowdata mcp http --host 127.0.0.1 --port 9788 --base-url https://mcp.example.com:9443
+```
+
+HTTP endpoints:
+
+- `POST /mcp`: MCP Streamable HTTP JSON-RPC endpoint
+- `GET|HEAD /mcp`: health/reachability checks for clients
+- `GET /health`: service health
+- `GET /help`: setup guide for users and agents
+
+Codex:
+
+```bash
+codex mcp add wowdata --url https://mcp.example.com:9443/mcp
+```
+
+cc-switch custom MCP:
+
+```json
+{
+  "type": "http",
+  "url": "https://mcp.example.com:9443/mcp"
+}
+```
+
+Claude Code:
+
+```bash
+claude mcp add --transport http wowdata https://mcp.example.com:9443/mcp
+```
+
+Claude Code local stdio:
+
+```bash
+claude mcp add --transport stdio wowdata -- wowdata mcp stdio
+```
+
+Export tools return `path`, `uri`, `mimeType`, `size`, and `sha256`. MCP tool calls also include `structuredContent` and `resource_link`, so clients and agents can locate exported icons, textures, and other artifacts through the `file://` URI.
 
 Exposed MCP tools:
 
@@ -249,7 +334,8 @@ item get|models|geosets|textures
 creature display|model
 decor list|get
 video demux
-mcp serve
+mcp stdio
+mcp http
 ```
 
 ### Development
