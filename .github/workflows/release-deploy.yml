@@ -2,6 +2,11 @@ name: Release Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to deploy when running manually.
+        required: true
+        default: v0.0.1
   release:
     types:
       - published
@@ -12,6 +17,7 @@ permissions:
 env:
   ARTIFACT_NAME: wowdata-linux-amd64
   SSH_OPTS: -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes
+  RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag || 'v0.0.1' }}
   REMOTE_APP_DIR: /opt/wowdata
   REMOTE_BIN: /opt/wowdata/bin/wowdata
   REMOTE_CACHE_DIR: /opt/wowdata/cache
@@ -52,10 +58,9 @@ jobs:
           path: dist/${{ env.ARTIFACT_NAME }}
 
       - name: Attach binary to release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/${{ env.ARTIFACT_NAME }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$RELEASE_TAG" "dist/${ARTIFACT_NAME}" --clobber
 
   deploy:
     name: Deploy to MCP server
@@ -63,12 +68,6 @@ jobs:
     needs: build
     environment: production
     steps:
-      - name: Download release binary
-        uses: actions/download-artifact@v4
-        with:
-          name: wowdata-linux-amd64
-          path: dist
-
       - name: Configure SSH key
         env:
           SSH_PRIVATE_KEY: ${{ secrets.WOWDATA_DEPLOY_SSH_KEY }}
@@ -88,14 +87,14 @@ jobs:
           DEPLOY_PORT: ${{ secrets.WOWDATA_DEPLOY_PORT || '22' }}
         run: ssh-keyscan -T 20 -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
-      - name: Upload binary
+      - name: Install release binary
         env:
           DEPLOY_HOST: ${{ secrets.WOWDATA_DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.WOWDATA_DEPLOY_USER || 'root' }}
           DEPLOY_PORT: ${{ secrets.WOWDATA_DEPLOY_PORT || '22' }}
         run: |
           ssh $SSH_OPTS -i ~/.ssh/wowdata_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '${REMOTE_APP_DIR}/bin' '${REMOTE_CACHE_DIR}'"
-          cat "dist/${ARTIFACT_NAME}" | ssh $SSH_OPTS -i ~/.ssh/wowdata_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "cat > '/tmp/${ARTIFACT_NAME}'"
+          ssh $SSH_OPTS -i ~/.ssh/wowdata_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "curl --fail --location --retry 3 --connect-timeout 20 --max-time 180 -o '/tmp/${ARTIFACT_NAME}' 'https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${ARTIFACT_NAME}'"
           ssh $SSH_OPTS -i ~/.ssh/wowdata_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "install -m 0755 '/tmp/${ARTIFACT_NAME}' '${REMOTE_BIN}' && rm -f '/tmp/${ARTIFACT_NAME}'"
 
       - name: Configure systemd and nginx
