@@ -136,7 +136,7 @@ go build -o dist/wowdata.exe ./cmd/wowdata
 
 ### 缓存和输出
 
-生成的数据不会提交到仓库：
+`wowdata` 会在本地保存运行所需的缓存，并把导出的资源写入输出目录：
 
 - `cache/`：CASC、DBD、listfile 和 TACT key 缓存。
 - `output/`：默认导出目录。
@@ -261,7 +261,7 @@ go build -o dist/wowdata ./cmd/wowdata
 
 ### Cache And Output
 
-Generated local data is intentionally not committed:
+`wowdata` stores runtime caches locally and writes exported assets to an output directory:
 
 - `cache/`: CASC, DBD, listfile, and TACT key caches.
 - `output/`: default exported artifacts.
