@@ -43,6 +43,16 @@ func TestMCPHTTPHelpIncludesClientConfigGuidance(t *testing.T) {
 	}
 }
 
+func TestMCPWebHelpOmitsServerStartupCommand(t *testing.T) {
+	help := mcpHelpHTML("https://mcp.lychee-addon.online:9443")
+	if strings.Contains(help, "HTTP server") || strings.Contains(help, "wowdata mcp http") {
+		t.Fatalf("web help should not show server startup commands:\n%s", help)
+	}
+	if !strings.Contains(help, "codex mcp add") || !strings.Contains(help, "claude mcp add --transport http") {
+		t.Fatalf("web help should keep client setup commands:\n%s", help)
+	}
+}
+
 func TestRootHelpIncludesMCPAlias(t *testing.T) {
 	cmd := newRootCommandForRuntime(NewRuntime())
 	cmd.SetArgs([]string{"--help"})

@@ -175,9 +175,8 @@ func mcpHelpHTML(baseURL string) string {
 <h2>Claude Code</h2><pre>claude mcp add --transport http wowdata %s</pre>
 <h2>Claude Code stdio fallback</h2><pre>claude mcp add --transport stdio wowdata -- wowdata mcp stdio</pre>
 <h2>Local stdio</h2><pre>wowdata mcp stdio</pre>
-<h2>HTTP server</h2><pre>wowdata mcp http --host 127.0.0.1 --port 9788 --base-url %s</pre>
 <p>Supported tools: wow_warmup, wow_casc, wow_db2, wow_file, wow_icon, wow_spell, wow_encounter, wow_item, wow_creature, wow_decor, wow_video.</p>
-</body></html>`, endpoint, endpoint, endpoint, endpoint, strings.TrimSuffix(endpoint, "/mcp"))
+</body></html>`, endpoint, endpoint, endpoint, endpoint)
 }
 
 func mcpToolsForRuntime(rt *Runtime) []mcpTool {
