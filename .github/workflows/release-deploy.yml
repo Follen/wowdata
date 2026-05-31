@@ -11,6 +11,7 @@ permissions:
 
 env:
   ARTIFACT_NAME: wowdata-linux-amd64
+  SSH_OPTS: -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes
   REMOTE_APP_DIR: /opt/wowdata
   REMOTE_BIN: /opt/wowdata/bin/wowdata
   REMOTE_CACHE_DIR: /opt/wowdata/cache
@@ -85,7 +86,7 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.WOWDATA_DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.WOWDATA_DEPLOY_PORT || '22' }}
-        run: ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+        run: ssh-keyscan -T 20 -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
       - name: Upload binary
         env:
@@ -93,9 +94,9 @@ jobs:
           DEPLOY_USER: ${{ secrets.WOWDATA_DEPLOY_USER || 'root' }}
           DEPLOY_PORT: ${{ secrets.WOWDATA_DEPLOY_PORT || '22' }}
         run: |
-          ssh -i ~/.ssh/wowdata_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '${REMOTE_APP_DIR}/bin' '${REMOTE_CACHE_DIR}'"
-          scp -i ~/.ssh/wowdata_deploy_key -P "$DEPLOY_PORT" "dist/${ARTIFACT_NAME}" "$DEPLOY_USER@$DEPLOY_HOST:/tmp/${ARTIFACT_NAME}"
-          ssh -i ~/.ssh/wowdata_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "install -m 0755 '/tmp/${ARTIFACT_NAME}' '${REMOTE_BIN}' && rm -f '/tmp/${ARTIFACT_NAME}'"
+          ssh $SSH_OPTS -i ~/.ssh/wowdata_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '${REMOTE_APP_DIR}/bin' '${REMOTE_CACHE_DIR}'"
+          cat "dist/${ARTIFACT_NAME}" | ssh $SSH_OPTS -i ~/.ssh/wowdata_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "cat > '/tmp/${ARTIFACT_NAME}'"
+          ssh $SSH_OPTS -i ~/.ssh/wowdata_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "install -m 0755 '/tmp/${ARTIFACT_NAME}' '${REMOTE_BIN}' && rm -f '/tmp/${ARTIFACT_NAME}'"
 
       - name: Configure systemd and nginx
         env:
@@ -103,7 +104,7 @@ jobs:
           DEPLOY_USER: ${{ secrets.WOWDATA_DEPLOY_USER || 'root' }}
           DEPLOY_PORT: ${{ secrets.WOWDATA_DEPLOY_PORT || '22' }}
         run: |
-          ssh -i ~/.ssh/wowdata_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -s <<'REMOTE'
+          ssh $SSH_OPTS -i ~/.ssh/wowdata_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -s <<'REMOTE'
           set -euo pipefail
 
           cat >/etc/systemd/system/wowdata-mcp.service <<'UNIT'
@@ -193,5 +194,5 @@ jobs:
           DEPLOY_USER: ${{ secrets.WOWDATA_DEPLOY_USER || 'root' }}
           DEPLOY_PORT: ${{ secrets.WOWDATA_DEPLOY_PORT || '22' }}
         run: |
-          ssh -i ~/.ssh/wowdata_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "systemctl --no-pager --full status wowdata-mcp.service"
+          ssh $SSH_OPTS -i ~/.ssh/wowdata_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "systemctl --no-pager --full status wowdata-mcp.service"
           curl --fail --show-error --silent --max-time 20 https://mcp.lychee-addon.online:9443/health
