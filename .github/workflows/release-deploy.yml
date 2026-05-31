@@ -75,8 +75,11 @@ jobs:
           test -n "$SSH_PRIVATE_KEY"
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/wowdata_deploy_key
+          cat > ~/.ssh/wowdata_deploy_key <<'KEY'
+          ${{ secrets.WOWDATA_DEPLOY_SSH_KEY }}
+          KEY
           chmod 600 ~/.ssh/wowdata_deploy_key
+          ssh-keygen -y -f ~/.ssh/wowdata_deploy_key > /dev/null
 
       - name: Add host key
         env:
