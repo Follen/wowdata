@@ -1,5 +1,7 @@
 package http
 
+import "fmt"
+
 type Status struct {
 	OK       bool              `json:"ok"`
 	Contexts []ContextStatus   `json:"contexts"`
@@ -35,4 +37,47 @@ type MemoryStatus struct {
 type StructuredError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+type ContextDefaults struct {
+	Region  string `json:"region"`
+	Product string `json:"product"`
+	Locale  string `json:"locale"`
+}
+
+type PinnedContext struct {
+	Region  string `json:"region"`
+	Product string `json:"product"`
+	Locale  string `json:"locale"`
+	Label   string `json:"label"`
+}
+
+type BuildCatalog struct {
+	Default ContextDefaults `json:"default"`
+	Pinned  []PinnedContext `json:"pinned"`
+}
+
+type CapabilityError struct {
+	Code    string
+	Message string
+}
+
+func (e CapabilityError) Error() string {
+	if e.Message != "" {
+		return e.Message
+	}
+	if e.Code != "" {
+		return e.Code
+	}
+	return "capability unavailable"
+}
+
+func NewCapabilityError(code, capability string) CapabilityError {
+	if code == "" {
+		code = "query_engine_unavailable"
+	}
+	return CapabilityError{
+		Code:    code,
+		Message: fmt.Sprintf("%s is unavailable in the HTTP service", capability),
+	}
 }

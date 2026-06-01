@@ -53,6 +53,26 @@ func TestServiceToolPolicyGatesWarmupAndAdminTools(t *testing.T) {
 	}
 }
 
+func TestServiceBuildsReportsDefaultsAndPinnedContexts(t *testing.T) {
+	cfg := config.DefaultHTTPConfig()
+	cfg.Defaults.Region = "eu"
+	cfg.Defaults.Product = "wowt"
+	cfg.Defaults.Locale = "enUS"
+	cfg.Contexts.Pinned = []config.HTTPPinnedContext{
+		{Region: "cn", Product: "wow", Locale: "zhCN", Label: "CN Retail"},
+	}
+	svc := NewService(cfg, nil)
+
+	builds := svc.Builds()
+
+	if builds.Default.Region != "eu" || builds.Default.Product != "wowt" || builds.Default.Locale != "enUS" {
+		t.Fatalf("default context = %#v", builds.Default)
+	}
+	if len(builds.Pinned) != 1 || builds.Pinned[0].Label != "CN Retail" {
+		t.Fatalf("pinned contexts = %#v", builds.Pinned)
+	}
+}
+
 func TestServiceEnsureTableCachesSuccessfulMaterialization(t *testing.T) {
 	svc := NewService(config.DefaultHTTPConfig(), nil)
 	var calls int

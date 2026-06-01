@@ -62,8 +62,32 @@ func (s *Service) ToolPolicy() ToolPolicy {
 	}
 }
 
+func (s *Service) Builds() BuildCatalog {
+	pinned := make([]PinnedContext, 0, len(s.cfg.Contexts.Pinned))
+	for _, ctx := range s.cfg.Contexts.Pinned {
+		pinned = append(pinned, PinnedContext{
+			Region:  ctx.Region,
+			Product: ctx.Product,
+			Locale:  ctx.Locale,
+			Label:   ctx.Label,
+		})
+	}
+	return BuildCatalog{
+		Default: ContextDefaults{
+			Region:  s.cfg.Defaults.Region,
+			Product: s.cfg.Defaults.Product,
+			Locale:  s.cfg.Defaults.Locale,
+		},
+		Pinned: pinned,
+	}
+}
+
 func (s *Service) EnsureContext(context.Context, RequestContext) error {
 	return nil
+}
+
+func (s *Service) RequireCapability(ctx context.Context, rc RequestContext, capability string) error {
+	return NewCapabilityError(capabilityErrorCode(capability), capability)
 }
 
 func (s *Service) Status() Status {
@@ -134,4 +158,11 @@ func (s *Service) materialize(ctx context.Context, rc RequestContext, table stri
 
 func tableKey(rc RequestContext, table string) string {
 	return rc.Region + "/" + rc.Product + "/" + rc.Locale + "/" + table
+}
+
+func capabilityErrorCode(capability string) string {
+	if strings.Contains(capability, "export") {
+		return "export_engine_unavailable"
+	}
+	return "query_engine_unavailable"
 }

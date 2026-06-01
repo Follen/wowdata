@@ -127,23 +127,9 @@ func mcpToolsForRuntime(rt *Runtime) []mcpTool {
 }
 
 func mcpToolsForRuntimeWithArtifacts(rt *Runtime, artifacts artifactConfig) []mcpTool {
-	return []mcpTool{
-		cliTool(rt, "wow_warmup", "Initialize local or remote WoW data context.", []string{"warmup"}, warmupArgs, artifacts),
-		cliTool(rt, "wow_casc", "Inspect CASC source state.", []string{"casc"}, cascArgs, artifacts),
-		cliTool(rt, "wow_db2", "Query DB2 tables.", []string{"db2"}, db2Args, artifacts),
-		cliTool(rt, "wow_file", "Query and export CASC files.", []string{"file"}, func(args map[string]interface{}) ([]string, error) {
-			return fileArgsWithArtifacts(args, artifacts)
-		}, artifacts),
-		cliTool(rt, "wow_icon", "Export BLP icons.", []string{"icon", "export"}, func(args map[string]interface{}) ([]string, error) {
-			return iconArgsWithArtifacts(args, artifacts)
-		}, artifacts),
-		cliTool(rt, "wow_spell", "Inspect spell relationships.", []string{"spell"}, spellArgs, artifacts),
-		cliTool(rt, "wow_encounter", "Query JournalEncounter data.", []string{"encounter", "get"}, encounterArgs, artifacts),
-		cliTool(rt, "wow_item", "Query item metadata and assets.", []string{"item"}, itemArgs, artifacts),
-		cliTool(rt, "wow_creature", "Query creature displays and models.", []string{"creature"}, creatureArgs, artifacts),
-		cliTool(rt, "wow_decor", "Query decor data.", []string{"decor"}, decorArgs, artifacts),
-		cliTool(rt, "wow_video", "Process video container data.", []string{"video", "demux"}, videoArgs, artifacts),
-	}
+	return mcpadapter.StdioTools(func(name string) mcpadapter.ToolHandler {
+		return stdioCLIHandler(rt, name, artifacts)
+	})
 }
 
 type artifactConfig struct {
@@ -162,12 +148,12 @@ func newMCPArtifactReserver(cfg artifactConfig) *mcpArtifactReserver {
 	return &mcpArtifactReserver{manager: artifact.NewManager(artifact.Config{Root: cfg.root, BaseURL: cfg.baseURL})}
 }
 
-func (r *mcpArtifactReserver) ReserveArtifact(category, filename, mimeType string) (string, mcpadapter.ArtifactLink, error) {
-	path, link, err := r.manager.Reserve(category, filename, mimeType)
+func (r *mcpArtifactReserver) LinkArtifact(path, mimeType string) (mcpadapter.ArtifactLink, error) {
+	link, err := r.manager.LinkForPath(path, mimeType)
 	if err != nil {
-		return "", mcpadapter.ArtifactLink{}, err
+		return mcpadapter.ArtifactLink{}, err
 	}
-	return path, mcpadapter.ArtifactLink{
+	return mcpadapter.ArtifactLink{
 		Path:        link.Path,
 		URI:         link.URI,
 		DownloadURL: link.DownloadURL,
@@ -176,6 +162,41 @@ func (r *mcpArtifactReserver) ReserveArtifact(category, filename, mimeType strin
 		Size:        link.Size,
 		SHA256:      link.SHA256,
 	}, nil
+}
+
+func stdioCLIHandler(rt *Runtime, name string, artifacts artifactConfig) mcpadapter.ToolHandler {
+	switch name {
+	case "wow_warmup":
+		return cliTool(rt, name, "", []string{"warmup"}, warmupArgs, artifacts).Handler
+	case "wow_casc":
+		return cliTool(rt, name, "", []string{"casc"}, cascArgs, artifacts).Handler
+	case "wow_db2":
+		return cliTool(rt, name, "", []string{"db2"}, db2Args, artifacts).Handler
+	case "wow_file":
+		return cliTool(rt, name, "", []string{"file"}, func(args map[string]interface{}) ([]string, error) {
+			return fileArgsWithArtifacts(args, artifacts)
+		}, artifacts).Handler
+	case "wow_icon":
+		return cliTool(rt, name, "", []string{"icon", "export"}, func(args map[string]interface{}) ([]string, error) {
+			return iconArgsWithArtifacts(args, artifacts)
+		}, artifacts).Handler
+	case "wow_spell":
+		return cliTool(rt, name, "", []string{"spell"}, spellArgs, artifacts).Handler
+	case "wow_encounter":
+		return cliTool(rt, name, "", []string{"encounter", "get"}, encounterArgs, artifacts).Handler
+	case "wow_item":
+		return cliTool(rt, name, "", []string{"item"}, itemArgs, artifacts).Handler
+	case "wow_creature":
+		return cliTool(rt, name, "", []string{"creature"}, creatureArgs, artifacts).Handler
+	case "wow_decor":
+		return cliTool(rt, name, "", []string{"decor"}, decorArgs, artifacts).Handler
+	case "wow_video":
+		return cliTool(rt, name, "", []string{"video", "demux"}, videoArgs, artifacts).Handler
+	default:
+		return func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
+			return nil, fmt.Errorf("unknown stdio MCP tool: %s", name)
+		}
+	}
 }
 
 func cliTool(rt *Runtime, name, description string, base []string, mapper func(map[string]interface{}) ([]string, error), artifacts artifactConfig) mcpTool {

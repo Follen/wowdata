@@ -73,7 +73,34 @@ func TestHTTPStatusHandlerReturnsServiceStatusWithoutWarmup(t *testing.T) {
 	}
 }
 
-func TestHTTPDB2HandlerInvokesEnsureTableBeforePlaceholderResult(t *testing.T) {
+func TestHTTPBuildsHandlerReturnsDefaultsAndPinnedContexts(t *testing.T) {
+	svc := &fakeHTTPService{
+		builds: httpservice.BuildCatalog{
+			Default: httpservice.ContextDefaults{Region: "cn", Product: "wow", Locale: "zhCN"},
+			Pinned: []httpservice.PinnedContext{
+				{Region: "cn", Product: "wowt", Locale: "zhCN", Label: "PTR"},
+			},
+		},
+	}
+	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_builds")
+
+	result, err := tool.Handler(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("wow_builds handler: %v", err)
+	}
+	if svc.buildCalls != 1 {
+		t.Fatalf("Builds calls = %d, want 1", svc.buildCalls)
+	}
+	data := result.(map[string]interface{})["data"].(httpservice.BuildCatalog)
+	if data.Default.Region != "cn" || data.Default.Product != "wow" || data.Default.Locale != "zhCN" {
+		t.Fatalf("defaults mismatch: %#v", data.Default)
+	}
+	if len(data.Pinned) != 1 || data.Pinned[0].Label != "PTR" {
+		t.Fatalf("pinned contexts mismatch: %#v", data.Pinned)
+	}
+}
+
+func TestHTTPDB2HandlerInvokesEnsureTableAndReturnsMaterializerError(t *testing.T) {
 	svc := &fakeHTTPService{
 		ensureErr: errors.New("materializer unavailable"),
 	}
@@ -96,6 +123,34 @@ func TestHTTPDB2HandlerInvokesEnsureTableBeforePlaceholderResult(t *testing.T) {
 	if got["ok"] != false || got["command"] != "db2" {
 		t.Fatalf("unexpected db2 envelope: %#v", got)
 	}
+	if code := got["error"].(map[string]interface{})["code"]; code != "materializer_unavailable" {
+		t.Fatalf("error code = %#v, want materializer_unavailable", code)
+	}
+}
+
+func TestHTTPDB2HandlerReturnsQueryEngineUnavailableAfterEnsureTable(t *testing.T) {
+	svc := &fakeHTTPService{
+		capabilityErr: httpservice.CapabilityError{Code: "query_engine_unavailable", Message: "query engine unavailable"},
+	}
+	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_db2")
+
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{"table":"SpellName"}`))
+	if err != nil {
+		t.Fatalf("wow_db2 handler: %v", err)
+	}
+	if svc.ensureCalls != 1 {
+		t.Fatalf("EnsureTable calls = %d, want 1", svc.ensureCalls)
+	}
+	if svc.capabilityCalls != 1 || svc.lastCapability != "db2_query" {
+		t.Fatalf("RequireCapability calls/capability = %d/%q", svc.capabilityCalls, svc.lastCapability)
+	}
+	got := result.(map[string]interface{})
+	if got["ok"] != false {
+		t.Fatalf("db2 should return structured error, got %#v", got)
+	}
+	if code := got["error"].(map[string]interface{})["code"]; code != "query_engine_unavailable" {
+		t.Fatalf("error code = %#v, want query_engine_unavailable", code)
+	}
 }
 
 func TestHTTPIconHandlerMapsArtifactLinkResult(t *testing.T) {
@@ -113,15 +168,12 @@ func TestHTTPIconHandlerMapsArtifactLinkResult(t *testing.T) {
 	}
 	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{Artifacts: linker}), "wow_icon")
 
-	result, err := tool.Handler(context.Background(), json.RawMessage(`{"fileDataID":134400}`))
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{"path":"D:\\cache\\icons\\134400.png","mimeType":"image/png"}`))
 	if err != nil {
 		t.Fatalf("wow_icon handler: %v", err)
 	}
-	if linker.reserveCalls != 1 {
-		t.Fatalf("ReserveArtifact calls = %d, want 1", linker.reserveCalls)
-	}
-	if linker.category != "icons" || linker.filename != "134400.png" || linker.mimeType != "image/png" {
-		t.Fatalf("ReserveArtifact args = %q %q %q", linker.category, linker.filename, linker.mimeType)
+	if linker.linkCalls != 1 {
+		t.Fatalf("LinkArtifact calls = %d, want 1", linker.linkCalls)
 	}
 	data := result.(map[string]interface{})["data"].(map[string]interface{})
 	if data["uri"] != "https://mcp.example.com/files/icons/134400.png" || data["sha256"] != "abc123" {
@@ -129,18 +181,87 @@ func TestHTTPIconHandlerMapsArtifactLinkResult(t *testing.T) {
 	}
 }
 
+func TestHTTPIconHandlerReturnsCapabilityErrorWithoutExportPath(t *testing.T) {
+	svc := &fakeHTTPService{
+		capabilityErr: httpservice.CapabilityError{Code: "export_engine_unavailable", Message: "icon export unavailable"},
+	}
+	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_icon")
+
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{"fileDataID":134400}`))
+	if err != nil {
+		t.Fatalf("wow_icon handler: %v", err)
+	}
+	if svc.capabilityCalls != 1 || svc.lastCapability != "icon_export" {
+		t.Fatalf("RequireCapability calls/capability = %d/%q", svc.capabilityCalls, svc.lastCapability)
+	}
+	got := result.(map[string]interface{})
+	if got["ok"] != false {
+		t.Fatalf("icon should return structured error, got %#v", got)
+	}
+	if code := got["error"].(map[string]interface{})["code"]; code != "export_engine_unavailable" {
+		t.Fatalf("error code = %#v, want export_engine_unavailable", code)
+	}
+}
+
+func TestHTTPBusinessHandlersReturnStructuredCapabilityErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		capability string
+	}{
+		{"wow_item", "item_query"},
+		{"wow_spell", "spell_query"},
+		{"wow_file", "file_query"},
+		{"wow_creature", "creature_query"},
+		{"wow_encounter", "encounter_query"},
+		{"wow_decor", "decor_query"},
+		{"wow_video", "video_query"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &fakeHTTPService{
+				capabilityErr: httpservice.CapabilityError{Code: "query_engine_unavailable", Message: "query engine unavailable"},
+			}
+			tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), tc.name)
+
+			result, err := tool.Handler(context.Background(), json.RawMessage(`{"region":"cn","product":"wow","locale":"zhCN"}`))
+			if err != nil {
+				t.Fatalf("%s handler: %v", tc.name, err)
+			}
+			if svc.capabilityCalls != 1 || svc.lastCapability != tc.capability {
+				t.Fatalf("RequireCapability calls/capability = %d/%q, want 1/%q", svc.capabilityCalls, svc.lastCapability, tc.capability)
+			}
+			got := result.(map[string]interface{})
+			if got["ok"] != false {
+				t.Fatalf("%s should return structured error, got %#v", tc.name, got)
+			}
+			if code := got["error"].(map[string]interface{})["code"]; code != "query_engine_unavailable" {
+				t.Fatalf("%s error code = %#v, want query_engine_unavailable", tc.name, code)
+			}
+		})
+	}
+}
+
 type fakeHTTPService struct {
-	status      httpservice.Status
-	statusCalls int
-	ensureErr   error
-	ensureCalls int
-	lastContext httpservice.RequestContext
-	lastTable   string
+	status          httpservice.Status
+	statusCalls     int
+	builds          httpservice.BuildCatalog
+	buildCalls      int
+	ensureErr       error
+	ensureCalls     int
+	lastContext     httpservice.RequestContext
+	lastTable       string
+	capabilityErr   error
+	capabilityCalls int
+	lastCapability  string
 }
 
 func (f *fakeHTTPService) Status() httpservice.Status {
 	f.statusCalls++
 	return f.status
+}
+
+func (f *fakeHTTPService) Builds() httpservice.BuildCatalog {
+	f.buildCalls++
+	return f.builds
 }
 
 func (f *fakeHTTPService) EnsureTable(ctx context.Context, rc httpservice.RequestContext, table string) error {
@@ -150,20 +271,25 @@ func (f *fakeHTTPService) EnsureTable(ctx context.Context, rc httpservice.Reques
 	return f.ensureErr
 }
 
-type fakeArtifactLinker struct {
-	link         ArtifactLink
-	reserveCalls int
-	category     string
-	filename     string
-	mimeType     string
+func (f *fakeHTTPService) RequireCapability(ctx context.Context, rc httpservice.RequestContext, capability string) error {
+	f.capabilityCalls++
+	f.lastContext = rc
+	f.lastCapability = capability
+	return f.capabilityErr
 }
 
-func (f *fakeArtifactLinker) ReserveArtifact(category, filename, mimeType string) (string, ArtifactLink, error) {
-	f.reserveCalls++
-	f.category = category
-	f.filename = filename
+type fakeArtifactLinker struct {
+	link      ArtifactLink
+	linkCalls int
+	path      string
+	mimeType  string
+}
+
+func (f *fakeArtifactLinker) LinkArtifact(path, mimeType string) (ArtifactLink, error) {
+	f.linkCalls++
+	f.path = path
 	f.mimeType = mimeType
-	return f.link.Path, f.link, nil
+	return f.link, nil
 }
 
 func findTool(t *testing.T, tools []mcpserver.Tool, name string) mcpserver.Tool {

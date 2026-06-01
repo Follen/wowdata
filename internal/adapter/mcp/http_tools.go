@@ -3,10 +3,10 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"wowdata/internal/mcpserver"
 	httpservice "wowdata/internal/service/http"
@@ -36,13 +36,23 @@ type StatusProvider interface {
 	Status() httpservice.Status
 }
 
+type BuildProvider interface {
+	Builds() httpservice.BuildCatalog
+}
+
 type TableEnsurer interface {
 	EnsureTable(context.Context, httpservice.RequestContext, string) error
 }
 
+type CapabilityProvider interface {
+	RequireCapability(context.Context, httpservice.RequestContext, string) error
+}
+
 type HTTPService interface {
 	StatusProvider
+	BuildProvider
 	TableEnsurer
+	CapabilityProvider
 }
 
 type ArtifactLink struct {
@@ -56,7 +66,7 @@ type ArtifactLink struct {
 }
 
 type ArtifactReserver interface {
-	ReserveArtifact(category, filename, mimeType string) (string, ArtifactLink, error)
+	LinkArtifact(path, mimeType string) (ArtifactLink, error)
 }
 
 type HTTPToolOptions struct {
@@ -77,33 +87,32 @@ func HTTPTools(svc HTTPService, opts HTTPToolOptions) []mcpserver.Tool {
 		httpBuildsTool(svc),
 		httpStatusTool(svc),
 		httpDB2Tool(svc),
-		httpPlaceholderTool("wow_item", "Query item metadata and assets.", "item"),
-		httpPlaceholderTool("wow_spell", "Inspect spell relationships.", "spell"),
-		httpPlaceholderTool("wow_file", "Query and export CASC files.", "file"),
-		httpIconTool(opts.Artifacts),
-		httpPlaceholderTool("wow_creature", "Query creature displays and models.", "creature"),
-		httpPlaceholderTool("wow_encounter", "Query JournalEncounter data.", "encounter"),
-		httpPlaceholderTool("wow_decor", "Query decor data.", "decor"),
-		httpPlaceholderTool("wow_video", "Process video container data.", "video"),
+		httpCapabilityTool(svc, "wow_item", "Query item metadata and assets.", "item", "item_query"),
+		httpCapabilityTool(svc, "wow_spell", "Inspect spell relationships.", "spell", "spell_query"),
+		httpCapabilityTool(svc, "wow_file", "Query and export CASC files.", "file", "file_query"),
+		httpIconTool(svc, opts.Artifacts),
+		httpCapabilityTool(svc, "wow_creature", "Query creature displays and models.", "creature", "creature_query"),
+		httpCapabilityTool(svc, "wow_encounter", "Query JournalEncounter data.", "encounter", "encounter_query"),
+		httpCapabilityTool(svc, "wow_decor", "Query decor data.", "decor", "decor_query"),
+		httpCapabilityTool(svc, "wow_video", "Process video container data.", "video", "video_query"),
 	}
 	if opts.ExposeAdmin {
 		tools = append(tools,
-			httpPlaceholderTool("wow_refresh_builds", "Refresh known build metadata.", "refresh_builds"),
-			httpPlaceholderTool("wow_prepare", "Prepare cached data for a build context.", "prepare"),
-			httpPlaceholderTool("wow_prune_cache", "Prune old cache artifacts.", "prune_cache"),
+			httpCapabilityTool(svc, "wow_refresh_builds", "Refresh known build metadata.", "refresh_builds", "refresh_builds"),
+			httpCapabilityTool(svc, "wow_prepare", "Prepare cached data for a build context.", "prepare", "prepare"),
+			httpCapabilityTool(svc, "wow_prune_cache", "Prune old cache artifacts.", "prune_cache", "prune_cache"),
 		)
 	}
 	return tools
 }
 
-func httpBuildsTool(svc StatusProvider) mcpserver.Tool {
+func httpBuildsTool(svc BuildProvider) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_builds",
 		Description: "List HTTP service build contexts.",
 		InputSchema: objectSchema(),
 		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
-			status := svc.Status()
-			return okEnvelope("builds", status.Contexts), nil
+			return okEnvelope("builds", svc.Builds()), nil
 		},
 	}
 }
@@ -119,7 +128,10 @@ func httpStatusTool(svc StatusProvider) mcpserver.Tool {
 	}
 }
 
-func httpDB2Tool(svc TableEnsurer) mcpserver.Tool {
+func httpDB2Tool(svc interface {
+	TableEnsurer
+	CapabilityProvider
+}) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_db2",
 		Description: "Query DB2 tables through the HTTP service.",
@@ -135,17 +147,17 @@ func httpDB2Tool(svc TableEnsurer) mcpserver.Tool {
 			}
 			rc := requestContextFromArgs(args)
 			if err := svc.EnsureTable(ctx, rc, table); err != nil {
-				return errorEnvelope("db2", "materializer_unavailable", err.Error()), nil
+				return errorEnvelopeFromError("db2", "materializer_unavailable", err), nil
 			}
-			return okEnvelope("db2", map[string]interface{}{
-				"table":  table,
-				"status": "query placeholder unavailable",
-			}), nil
+			if err := svc.RequireCapability(ctx, rc, "db2_query"); err != nil {
+				return errorEnvelopeFromError("db2", "query_engine_unavailable", err), nil
+			}
+			return errorEnvelope("db2", "query_engine_unavailable", "DB2 query engine is unavailable in the HTTP service"), nil
 		},
 	}
 }
 
-func httpIconTool(artifacts ArtifactReserver) mcpserver.Tool {
+func httpIconTool(svc CapabilityProvider, artifacts ArtifactReserver) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_icon",
 		Description: "Export BLP icons.",
@@ -155,37 +167,42 @@ func httpIconTool(artifacts ArtifactReserver) mcpserver.Tool {
 			if err != nil {
 				return nil, err
 			}
-			fileDataID := stringArg(args, "fileDataID", "")
-			if fileDataID == "" {
-				return errorEnvelope("icon export", "invalid_request", "fileDataID is required"), nil
-			}
-			format := strings.TrimPrefix(stringArg(args, "format", "png"), ".")
-			mimeType := "image/" + format
-			filename := fileDataID + "." + format
-			data := map[string]interface{}{
-				"fileDataID": fileDataID,
-				"status":     "export placeholder unavailable",
-			}
-			if artifacts != nil {
-				path, link, err := artifacts.ReserveArtifact("icons", filename, mimeType)
-				if err != nil {
-					return nil, err
+			artifactPath := stringArg(args, "path", "")
+			mimeType := stringArg(args, "mimeType", "image/png")
+			if artifactPath == "" {
+				if err := svc.RequireCapability(ctx, requestContextFromArgs(args), "icon_export"); err != nil {
+					return errorEnvelopeFromError("icon export", "export_engine_unavailable", err), nil
 				}
-				data["path"] = path
-				addArtifactLinkFields(data, link)
+				return errorEnvelope("icon export", "export_engine_unavailable", "icon export engine is unavailable in the HTTP service"), nil
 			}
+			if artifacts == nil {
+				return errorEnvelope("icon export", "artifact_link_unavailable", "artifact manager is unavailable in the HTTP service"), nil
+			}
+			link, err := artifacts.LinkArtifact(artifactPath, mimeType)
+			if err != nil {
+				return nil, err
+			}
+			data := map[string]interface{}{"path": artifactPath}
+			addArtifactLinkFields(data, link)
 			return okEnvelope("icon export", data), nil
 		},
 	}
 }
 
-func httpPlaceholderTool(name, description, command string) mcpserver.Tool {
+func httpCapabilityTool(svc CapabilityProvider, name, description, command, capability string) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        name,
 		Description: description,
 		InputSchema: objectSchema(),
 		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
-			return errorEnvelope(command, "query_unavailable", "HTTP MCP handler is not implemented yet"), nil
+			args, err := parseArgs(raw)
+			if err != nil {
+				return nil, err
+			}
+			if err := svc.RequireCapability(ctx, requestContextFromArgs(args), capability); err != nil {
+				return errorEnvelopeFromError(command, "query_engine_unavailable", err), nil
+			}
+			return errorEnvelope(command, "query_engine_unavailable", capability+" is unavailable in the HTTP service"), nil
 		},
 	}
 }
@@ -233,6 +250,15 @@ func errorEnvelope(command, code, message string) map[string]interface{} {
 			"message": message,
 		},
 	}
+}
+
+func errorEnvelopeFromError(command, fallbackCode string, err error) map[string]interface{} {
+	code := fallbackCode
+	var capabilityErr httpservice.CapabilityError
+	if errors.As(err, &capabilityErr) && capabilityErr.Code != "" {
+		code = capabilityErr.Code
+	}
+	return errorEnvelope(command, code, err.Error())
 }
 
 func addArtifactLinkFields(data map[string]interface{}, link ArtifactLink) {
