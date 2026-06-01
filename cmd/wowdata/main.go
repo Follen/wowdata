@@ -91,6 +91,7 @@ func newRootCommandForRuntime(rt *Runtime) *cobra.Command {
 	cmd := app.NewRootCommandWithService(svc)
 	registerMCPCommand(cmd, rt)
 	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		syncRuntimeFromPersistentFlags(cmd, rt)
 		autoWarmup, _ := commandBoolFlag(cmd, "auto-warmup")
 		if !autoWarmup || cmd.CommandPath() == "wowdata warmup" || strings.HasPrefix(cmd.CommandPath(), "wowdata mcp") {
 			return nil

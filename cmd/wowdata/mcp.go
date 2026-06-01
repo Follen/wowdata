@@ -92,6 +92,7 @@ Compatibility notes:
   The HTTP server accepts GET, HEAD, OPTIONS, and POST on /mcp.
   JSON-RPC notifications such as notifications/initialized return HTTP 202 with no JSON-RPC error.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			syncRuntimeFromPersistentFlags(cmd, rt)
 			rt.enableHTTPWarmupGate()
 			rt.enableContextCache(httpMaxContexts)
 			server := newMCPServerForRuntimeWithArtifacts(rt, artifactConfig{
@@ -100,7 +101,7 @@ Compatibility notes:
 			})
 			addr := fmt.Sprintf("%s:%d", httpHost, httpPort)
 			mux := http.NewServeMux()
-			registerMCPHTTPHandlers(mux, server, httpBaseURL)
+			registerMCPHTTPHandlers(mux, server, httpBaseURL, rt)
 			httpServer := &http.Server{
 				Addr:              addr,
 				Handler:           mux,
@@ -129,7 +130,7 @@ func newMCPServerForRuntimeWithArtifacts(rt *Runtime, artifacts artifactConfig) 
 	return mcpserver.NewServer("wowdata", mcpToolsForRuntimeWithArtifacts(rt, artifacts))
 }
 
-func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseURL string) {
+func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseURL string, rt *Runtime) {
 	mux.Handle("/mcp", server)
 	mux.Handle("/mcp/", server)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -138,6 +139,7 @@ func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseU
 			"service":   "wowdata-mcp",
 			"endpoint":  publicURL(baseURL, "/mcp"),
 			"transport": "streamable_http",
+			"cacheRoot": filepath.ToSlash(rt.CacheRoot),
 		})
 	})
 	mux.HandleFunc("/help", func(w http.ResponseWriter, r *http.Request) {
@@ -330,6 +332,7 @@ func mcpStringValue(value interface{}) (string, bool) {
 
 func executeCLIJSON(ctx context.Context, rt *Runtime, args []string) (interface{}, error) {
 	cmd := newRootCommandForRuntime(rt)
+	applyRuntimePersistentFlags(cmd, rt)
 	var stdout, stderr bytes.Buffer
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stderr)
@@ -346,6 +349,20 @@ func executeCLIJSON(ctx context.Context, rt *Runtime, args []string) (interface{
 		return nil, fmt.Errorf("decode CLI JSON for %v: %w; stdout=%s", args, err, stdout.String())
 	}
 	return decoded, nil
+}
+
+func syncRuntimeFromPersistentFlags(cmd *cobra.Command, rt *Runtime) {
+	cacheRoot, _ := commandStringFlag(cmd, "cache")
+	if cacheRoot != "" {
+		rt.CacheRoot = resolveCacheRoot(cacheRoot, os.Executable)
+	}
+}
+
+func applyRuntimePersistentFlags(cmd *cobra.Command, rt *Runtime) {
+	if rt.CacheRoot == "" {
+		return
+	}
+	_ = cmd.PersistentFlags().Set("cache", rt.CacheRoot)
 }
 
 func warmupArgs(args map[string]interface{}) ([]string, error) {

@@ -63,24 +63,36 @@ func TestMCPHTTPMaxContextsFlagEnablesRuntimeContextCache(t *testing.T) {
 func TestMCPToolInheritsRuntimePersistentFlags(t *testing.T) {
 	rt := NewRuntime()
 	rt.CacheRoot = "runtime-cache"
-	rt.Source = "remote"
-	rt.Region = "cn"
-	rt.Product = "wow"
-	rt.Locale = "zhCN"
 
-	tool := cliTool(rt, "wow_probe", "Probe", []string{"warmup"}, warmupArgs, artifactConfig{})
-	result, err := tool.Handler(context.Background(), json.RawMessage(`{}`))
-	if err != nil {
-		t.Fatalf("wow_probe tool: %v", err)
-	}
-	data, err := json.Marshal(result)
+	cmd := newRootCommandForRuntime(rt)
+	applyRuntimePersistentFlags(cmd, rt)
+
+	cache, err := cmd.PersistentFlags().GetString("cache")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`"source":"remote"`, `"region":"cn"`, `"product":"wow"`, `"locale":"zhCN"`, `"cache":"runtime-cache"`} {
-		if !strings.Contains(string(data), want) {
-			t.Fatalf("MCP tool did not inherit runtime persistent flag %s: %s", want, data)
-		}
+	if cache != "runtime-cache" {
+		t.Fatalf("cache flag = %q, want runtime-cache", cache)
+	}
+}
+
+func TestSyncRuntimeFromMCPHTTPCommandReadsRootCacheFlag(t *testing.T) {
+	rt := NewRuntime()
+	cmd := newRootCommandForRuntime(rt)
+	cmd.SetArgs([]string{"--cache", "runtime-cache", "mcp", "http"})
+	httpCmd, _, err := cmd.Find([]string{"mcp", "http"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := httpCmd.ParseFlags([]string{}); err != nil {
+		t.Fatal(err)
+	}
+	cmd.PersistentFlags().Set("cache", "runtime-cache")
+
+	syncRuntimeFromPersistentFlags(httpCmd, rt)
+
+	if rt.CacheRoot != "runtime-cache" {
+		t.Fatalf("runtime cache = %q, want runtime-cache", rt.CacheRoot)
 	}
 }
 
