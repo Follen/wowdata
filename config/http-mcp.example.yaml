@@ -1,0 +1,84 @@
+server:
+  host: 127.0.0.1
+  port: 9788
+  base_url: http://211.154.18.253:11224
+
+defaults:
+  region: cn
+  product: wow
+  locale: zhCN
+
+contexts:
+  max_contexts: 4
+  pinned:
+    - region: cn
+      product: wow
+      locale: zhCN
+      label: CN Retail
+    - region: cn
+      product: wowt
+      locale: zhCN
+      label: CN PTR
+    - region: cn
+      product: wow_classic
+      locale: zhCN
+      label: CN Classic
+    - region: cn
+      product: wow_classic_titan
+      locale: zhCN
+      label: CN Titan
+
+# Default pinned contexts are CN Retail, CN PTR, CN Classic, and CN Titan.
+# CN Classic Era is intentionally not pinned by default; lazy prepare serves it on demand.
+
+cache:
+  root: /opt/wowdata/cache
+  metadata_db: /opt/wowdata/cache/metadata.sqlite
+  raw_dir: /opt/wowdata/cache/raw
+  db2_dir: /opt/wowdata/cache/db2
+  duckdb_path: /opt/wowdata/cache/duckdb/wowdata.duckdb
+
+artifacts:
+  root: /opt/wowdata/output
+  base_url: http://211.154.18.253:11224/files
+  retention_hours: 24
+
+prepare:
+  lazy: true
+  prewarm_on_start: true
+  dbd_manifest: true
+  listfile: false
+  default_tables:
+    - SpellName
+    - Spell
+    - SpellEffect
+    - SpellMisc
+    - Item
+    - ItemSparse
+    - ItemEffect
+    - ItemModifiedAppearance
+    - ItemAppearance
+    - ItemDisplayInfo
+    - TextureFileData
+    - ModelFileData
+    - CreatureDisplayInfo
+    - CreatureModelData
+    - HouseDecor
+
+refresh:
+  product_check_interval_minutes: 30
+  auto_prepare_new_builds: true
+  keep_builds_per_product: 2
+  prune_on_start: true
+  max_cache_gb: 80
+
+limits:
+  max_concurrent_prepares: 1
+  max_concurrent_materializations: 2
+  max_concurrent_queries: 8
+  request_timeout_seconds: 120
+  materialize_timeout_seconds: 600
+
+tools:
+  expose_admin_tools: false
+  expose_debug_tools: false

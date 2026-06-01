@@ -1,0 +1,82 @@
+package config
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestDefaultHTTPConfig(t *testing.T) {
+	cfg := DefaultHTTPConfig()
+	if cfg.Server.Host != "127.0.0.1" || cfg.Server.Port != 9788 {
+		t.Fatalf("server default = %#v", cfg.Server)
+	}
+	if cfg.Defaults.Region != "cn" || cfg.Defaults.Product != "wow" || cfg.Defaults.Locale != "zhCN" {
+		t.Fatalf("defaults = %#v", cfg.Defaults)
+	}
+	if cfg.Tools.ExposeAdminTools {
+		t.Fatal("admin tools must be disabled by default")
+	}
+}
+
+func TestDefaultHTTPConfigPinnedContexts(t *testing.T) {
+	cfg := DefaultHTTPConfig()
+	want := []HTTPPinnedContext{
+		{Region: "cn", Product: "wow", Locale: "zhCN", Label: "CN Retail"},
+		{Region: "cn", Product: "wowt", Locale: "zhCN", Label: "CN PTR"},
+		{Region: "cn", Product: "wow_classic", Locale: "zhCN", Label: "CN Classic"},
+		{Region: "cn", Product: "wow_classic_titan", Locale: "zhCN", Label: "CN Titan"},
+	}
+	if len(cfg.Contexts.Pinned) != len(want) {
+		t.Fatalf("pinned contexts = %#v, want exactly %#v", cfg.Contexts.Pinned, want)
+	}
+	for i := range want {
+		if cfg.Contexts.Pinned[i] != want[i] {
+			t.Fatalf("pinned[%d] = %#v, want %#v", i, cfg.Contexts.Pinned[i], want[i])
+		}
+		if cfg.Contexts.Pinned[i].Product == "wow_classic_era" {
+			t.Fatal("wow_classic_era must not be pinned by default")
+		}
+	}
+}
+
+func TestLoadHTTPConfigFromYAML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "http-mcp.yaml")
+	data := []byte("server:\n  host: 0.0.0.0\n  port: 9999\ncontexts:\n  max_contexts: 2\n")
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	cfg, err := LoadHTTPConfig(path)
+	if err != nil {
+		t.Fatalf("LoadHTTPConfig: %v", err)
+	}
+	if cfg.Server.Host != "0.0.0.0" || cfg.Server.Port != 9999 || cfg.Contexts.MaxContexts != 2 {
+		t.Fatalf("cfg = %#v", cfg)
+	}
+	if cfg.Defaults.Locale != "zhCN" {
+		t.Fatalf("default locale not retained: %#v", cfg.Defaults)
+	}
+}
+
+func TestHTTPConfigRejectsInvalidPort(t *testing.T) {
+	cfg := DefaultHTTPConfig()
+	cfg.Server.Port = 0
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("Validate accepted port 0")
+	}
+}
+
+func TestHTTPConfigRejectsMissingDefaultsAndZeroConcurrency(t *testing.T) {
+	cfg := DefaultHTTPConfig()
+	cfg.Defaults = HTTPDefaultsConfig{}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("Validate accepted missing defaults")
+	}
+
+	cfg = DefaultHTTPConfig()
+	cfg.Limits.MaxConcurrentQueries = 0
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("Validate accepted zero concurrency")
+	}
+}

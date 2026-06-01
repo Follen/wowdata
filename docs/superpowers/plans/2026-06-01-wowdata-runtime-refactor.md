@@ -1060,7 +1060,7 @@ git commit -m "cmd split cli and stdio startup"
 - Modify: `go.mod`
 - Modify: `go.sum`
 
-- [ ] **Step 1: Add YAML dependency**
+- [x] **Step 1: Add YAML dependency**
 
 Run:
 
@@ -1070,7 +1070,7 @@ go get gopkg.in/yaml.v3@v3.0.1
 
 Expected: `go.mod` and `go.sum` include `gopkg.in/yaml.v3`.
 
-- [ ] **Step 2: Write config tests**
+- [x] **Step 2: Write config tests**
 
 Create `internal/config/http_test.go`:
 
@@ -1124,7 +1124,7 @@ func TestHTTPConfigRejectsInvalidPort(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Implement config loader**
+- [x] **Step 3: Implement config loader**
 
 Create `internal/config/http.go` with structs matching the spec and these functions:
 
@@ -1274,11 +1274,11 @@ func (c HTTPConfig) Validate() error {
 }
 ```
 
-- [ ] **Step 4: Add example config**
+- [x] **Step 4: Add example config**
 
 Create `config/http-mcp.example.yaml` using the exact values from the spec, with `server.base_url: http://211.154.18.253:11224` and `artifacts.base_url: http://211.154.18.253:11224/files`.
 
-- [ ] **Step 5: Run config tests**
+- [x] **Step 5: Run config tests**
 
 Run:
 
@@ -1288,7 +1288,7 @@ go test ./internal/config -count=1
 
 Expected: package passes.
 
-- [ ] **Step 6: Prove CLI and stdio do not read HTTP config**
+- [x] **Step 6: Prove CLI and stdio do not read HTTP config**
 
 Run:
 
@@ -1298,7 +1298,7 @@ go test ./cmd/wowdata -run "TestStdioMCPToolNamesStayStable|TestMCPCommandHasStd
 
 Expected: tests pass without a config file.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 
