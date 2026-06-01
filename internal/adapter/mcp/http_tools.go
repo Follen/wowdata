@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"wowdata/internal/mcpserver"
 	httpservice "wowdata/internal/service/http"
@@ -44,6 +45,10 @@ type TableEnsurer interface {
 	EnsureTable(context.Context, httpservice.RequestContext, string) error
 }
 
+type DB2Querier interface {
+	QueryDB2(context.Context, httpservice.DB2Query) ([]map[string]interface{}, error)
+}
+
 type CapabilityProvider interface {
 	RequireCapability(context.Context, httpservice.RequestContext, string) error
 }
@@ -52,6 +57,7 @@ type HTTPService interface {
 	StatusProvider
 	BuildProvider
 	TableEnsurer
+	DB2Querier
 	CapabilityProvider
 }
 
@@ -130,7 +136,7 @@ func httpStatusTool(svc StatusProvider) mcpserver.Tool {
 
 func httpDB2Tool(svc interface {
 	TableEnsurer
-	CapabilityProvider
+	DB2Querier
 }) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_db2",
@@ -149,10 +155,23 @@ func httpDB2Tool(svc interface {
 			if err := svc.EnsureTable(ctx, rc, table); err != nil {
 				return errorEnvelopeFromError("db2", "materializer_unavailable", err), nil
 			}
-			if err := svc.RequireCapability(ctx, rc, "db2_query"); err != nil {
+			rows, err := svc.QueryDB2(ctx, httpservice.DB2Query{
+				RequestContext: rc,
+				Table:          table,
+				IDs:            uint32ListArg(args, "id", "ids"),
+				IDField:        stringArg(args, "field", "ID"),
+				Fields:         stringListArg(args, "fields"),
+				Filter:         stringArg(args, "filter", ""),
+				Limit:          intArg(args, "limit", 0),
+			})
+			if err != nil {
 				return errorEnvelopeFromError("db2", "query_engine_unavailable", err), nil
 			}
-			return errorEnvelope("db2", "query_engine_unavailable", "DB2 query engine is unavailable in the HTTP service"), nil
+			return okEnvelope("db2", map[string]interface{}{
+				"table": table,
+				"rows":  rows,
+				"count": len(rows),
+			}), nil
 		},
 	}
 }
@@ -305,4 +324,90 @@ func stringArg(args map[string]interface{}, key, fallback string) string {
 	default:
 		return fmt.Sprint(v)
 	}
+}
+
+func intArg(args map[string]interface{}, key string, fallback int) int {
+	value, ok := args[key]
+	if !ok {
+		return fallback
+	}
+	switch v := value.(type) {
+	case float64:
+		return int(v)
+	case string:
+		parsed, err := strconv.Atoi(strings.TrimSpace(v))
+		if err != nil {
+			return fallback
+		}
+		return parsed
+	default:
+		return fallback
+	}
+}
+
+func stringListArg(args map[string]interface{}, key string) []string {
+	value, ok := args[key]
+	if !ok {
+		return nil
+	}
+	switch v := value.(type) {
+	case []interface{}:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s := strings.TrimSpace(fmt.Sprint(item)); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case string:
+		parts := strings.Split(v, ",")
+		out := make([]string, 0, len(parts))
+		for _, part := range parts {
+			if s := strings.TrimSpace(part); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func uint32ListArg(args map[string]interface{}, keys ...string) []uint32 {
+	var out []uint32
+	for _, key := range keys {
+		value, ok := args[key]
+		if !ok {
+			continue
+		}
+		switch v := value.(type) {
+		case []interface{}:
+			for _, item := range v {
+				out = appendUint32Arg(out, fmt.Sprint(item))
+			}
+		case string:
+			for _, part := range strings.Split(v, ",") {
+				out = appendUint32Arg(out, part)
+			}
+		case float64:
+			if v >= 0 {
+				out = append(out, uint32(v))
+			}
+		default:
+			out = appendUint32Arg(out, fmt.Sprint(v))
+		}
+	}
+	return out
+}
+
+func appendUint32Arg(out []uint32, value string) []uint32 {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return out
+	}
+	parsed, err := strconv.ParseUint(value, 10, 32)
+	if err != nil {
+		return out
+	}
+	return append(out, uint32(parsed))
 }

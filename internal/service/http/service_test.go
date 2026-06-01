@@ -3,9 +3,12 @@ package http
 import (
 	"context"
 	"errors"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"wowdata/internal/cache/duckdb"
+	"wowdata/internal/cache/metadata"
 	"wowdata/internal/config"
 )
 
@@ -179,6 +182,82 @@ func TestServiceEnsureTableMapsQueryEngineUnavailable(t *testing.T) {
 	}
 }
 
+func TestServiceQueryDB2MapsUnavailableEngine(t *testing.T) {
+	svc := NewService(config.DefaultHTTPConfig(), nil)
+
+	_, err := svc.QueryDB2(context.Background(), DB2Query{
+		RequestContext: RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"},
+		Table:          "SpellName",
+		IDField:        "ID",
+		IDs:            []uint32{123},
+		Fields:         []string{"ID", "Name_lang"},
+		Limit:          1,
+	})
+
+	var capabilityErr CapabilityError
+	if !errors.As(err, &capabilityErr) {
+		t.Fatalf("QueryDB2 error = %T %[1]v, want CapabilityError", err)
+	}
+	if capabilityErr.Code != "query_engine_unavailable" {
+		t.Fatalf("QueryDB2 error code = %q, want query_engine_unavailable", capabilityErr.Code)
+	}
+}
+
+func TestServiceQueryDB2UsesMaterializedParquetRecord(t *testing.T) {
+	db, err := metadata.Open(filepath.Join(t.TempDir(), "metadata.sqlite"), "../../../migrations/sqlite")
+	if err != nil {
+		t.Fatalf("open metadata db: %v", err)
+	}
+	defer db.Close()
+	parquetPath := filepath.Join(t.TempDir(), "SpellName.parquet")
+	if err := metadata.UpsertMaterializedTable(db, metadata.MaterializedTable{
+		Region:              "cn",
+		Product:             "wow",
+		BuildKey:            "build-key",
+		BuildName:           "12.0.0.61234",
+		Locale:              "zhCN",
+		TableName:           "SpellName",
+		DB2FileDataID:       123,
+		DBDDefinitionHash:   "dbd-hash",
+		DecoderVersion:      "decoder-v1",
+		MaterializerVersion: "materializer-v1",
+		ParquetPath:         parquetPath,
+		RowCount:            1,
+		State:               metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert materialized table: %v", err)
+	}
+	engine := &fakeParquetQueryEngine{rows: []map[string]interface{}{{"ID": uint32(123)}}}
+	svc := NewService(config.DefaultHTTPConfig(), nil)
+	svc.SetMetadataDBForTest(db)
+	svc.SetQueryEngineForTest(engine)
+	svc.SetMaterializeFuncForTest(func(context.Context, RequestContext, string) error { return nil })
+
+	rows, err := svc.QueryDB2(context.Background(), DB2Query{
+		RequestContext: RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"},
+		Table:          "SpellName",
+		IDField:        "ID",
+		IDs:            []uint32{123},
+		Fields:         []string{"ID"},
+		Limit:          1,
+	})
+	if err != nil {
+		t.Fatalf("QueryDB2: %v", err)
+	}
+	if len(rows) != 1 || rows[0]["ID"] != uint32(123) {
+		t.Fatalf("rows = %#v", rows)
+	}
+	if engine.calls != 1 {
+		t.Fatalf("query engine calls = %d, want 1", engine.calls)
+	}
+	if !strings.Contains(engine.query, strings.ReplaceAll(parquetPath, `\`, `/`)) {
+		t.Fatalf("query = %q, want parquet path %q", engine.query, parquetPath)
+	}
+	if len(engine.args) != 1 || engine.args[0] != uint32(123) {
+		t.Fatalf("query args = %#v", engine.args)
+	}
+}
+
 func TestServiceStatusReportsCacheAndContextLimits(t *testing.T) {
 	cfg := config.DefaultHTTPConfig()
 	cfg.Cache.Root = "test-cache"
@@ -196,4 +275,19 @@ func TestServiceStatusReportsCacheAndContextLimits(t *testing.T) {
 	if status.Memory.MaxContexts != 7 {
 		t.Fatalf("max contexts = %d, want 7", status.Memory.MaxContexts)
 	}
+}
+
+type fakeParquetQueryEngine struct {
+	rows  []map[string]interface{}
+	err   error
+	calls int
+	query string
+	args  []interface{}
+}
+
+func (f *fakeParquetQueryEngine) QueryParquet(ctx context.Context, query string, args []interface{}) ([]map[string]interface{}, error) {
+	f.calls++
+	f.query = query
+	f.args = args
+	return f.rows, f.err
 }

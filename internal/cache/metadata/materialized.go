@@ -90,6 +90,39 @@ WHERE region = ? AND product = ? AND build_key = ? AND locale = ? AND table_name
 	return table, err
 }
 
+func LatestMaterializedTable(db *sql.DB, region, product, locale, tableName string) (MaterializedTable, error) {
+	var table MaterializedTable
+	err := db.QueryRow(`
+SELECT region, product, build_key, build_name, locale, table_name,
+  db2_file_data_id, dbd_definition_hash, decoder_version, materializer_version,
+  parquet_path, row_count, state
+FROM materialized_tables
+WHERE region = ? AND product = ? AND locale = ? AND table_name = ? AND state = ?
+ORDER BY updated_at DESC
+LIMIT 1`,
+		region,
+		product,
+		locale,
+		tableName,
+		StateValid,
+	).Scan(
+		&table.Region,
+		&table.Product,
+		&table.BuildKey,
+		&table.BuildName,
+		&table.Locale,
+		&table.TableName,
+		&table.DB2FileDataID,
+		&table.DBDDefinitionHash,
+		&table.DecoderVersion,
+		&table.MaterializerVersion,
+		&table.ParquetPath,
+		&table.RowCount,
+		&table.State,
+	)
+	return table, err
+}
+
 func MarkMaterializedTableStale(db *sql.DB, region, product, buildKey, locale, tableName string) error {
 	_, err := db.Exec(`
 UPDATE materialized_tables

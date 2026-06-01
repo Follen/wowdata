@@ -128,28 +128,38 @@ func TestHTTPDB2HandlerInvokesEnsureTableAndReturnsMaterializerError(t *testing.
 	}
 }
 
-func TestHTTPDB2HandlerReturnsQueryEngineUnavailableAfterEnsureTable(t *testing.T) {
+func TestHTTPDB2HandlerQueriesDB2AfterEnsureTable(t *testing.T) {
 	svc := &fakeHTTPService{
-		capabilityErr: httpservice.CapabilityError{Code: "query_engine_unavailable", Message: "query engine unavailable"},
+		queryRows: []map[string]interface{}{{"ID": uint32(123), "Name_lang": "Fireball"}},
 	}
 	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_db2")
 
-	result, err := tool.Handler(context.Background(), json.RawMessage(`{"table":"SpellName"}`))
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{"table":"SpellName","id":123,"field":"ID","filter":"Name_lang LIKE 'Fire%'","limit":1,"fields":["ID","Name_lang"]}`))
 	if err != nil {
 		t.Fatalf("wow_db2 handler: %v", err)
 	}
 	if svc.ensureCalls != 1 {
 		t.Fatalf("EnsureTable calls = %d, want 1", svc.ensureCalls)
 	}
-	if svc.capabilityCalls != 1 || svc.lastCapability != "db2_query" {
-		t.Fatalf("RequireCapability calls/capability = %d/%q", svc.capabilityCalls, svc.lastCapability)
+	if svc.queryCalls != 1 {
+		t.Fatalf("QueryDB2 calls = %d, want 1", svc.queryCalls)
+	}
+	if svc.lastQuery.Table != "SpellName" || svc.lastQuery.IDField != "ID" || len(svc.lastQuery.IDs) != 1 || svc.lastQuery.IDs[0] != 123 {
+		t.Fatalf("QueryDB2 query = %#v", svc.lastQuery)
+	}
+	if svc.lastQuery.Filter != "Name_lang LIKE 'Fire%'" || svc.lastQuery.Limit != 1 {
+		t.Fatalf("QueryDB2 filter/limit = %#v", svc.lastQuery)
+	}
+	if len(svc.lastQuery.Fields) != 2 || svc.lastQuery.Fields[0] != "ID" || svc.lastQuery.Fields[1] != "Name_lang" {
+		t.Fatalf("QueryDB2 fields = %#v", svc.lastQuery.Fields)
 	}
 	got := result.(map[string]interface{})
-	if got["ok"] != false {
-		t.Fatalf("db2 should return structured error, got %#v", got)
+	if got["ok"] != true || got["command"] != "db2" {
+		t.Fatalf("unexpected db2 envelope: %#v", got)
 	}
-	if code := got["error"].(map[string]interface{})["code"]; code != "query_engine_unavailable" {
-		t.Fatalf("error code = %#v, want query_engine_unavailable", code)
+	rows := got["data"].(map[string]interface{})["rows"].([]map[string]interface{})
+	if len(rows) != 1 || rows[0]["Name_lang"] != "Fireball" {
+		t.Fatalf("rows = %#v", rows)
 	}
 }
 
@@ -252,6 +262,10 @@ type fakeHTTPService struct {
 	capabilityErr   error
 	capabilityCalls int
 	lastCapability  string
+	queryRows       []map[string]interface{}
+	queryErr        error
+	queryCalls      int
+	lastQuery       httpservice.DB2Query
 }
 
 func (f *fakeHTTPService) Status() httpservice.Status {
@@ -276,6 +290,12 @@ func (f *fakeHTTPService) RequireCapability(ctx context.Context, rc httpservice.
 	f.lastContext = rc
 	f.lastCapability = capability
 	return f.capabilityErr
+}
+
+func (f *fakeHTTPService) QueryDB2(ctx context.Context, query httpservice.DB2Query) ([]map[string]interface{}, error) {
+	f.queryCalls++
+	f.lastQuery = query
+	return f.queryRows, f.queryErr
 }
 
 type fakeArtifactLinker struct {
