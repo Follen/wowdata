@@ -8,7 +8,7 @@ import (
 )
 
 func TestServerDoesNotImportLocalPackages(t *testing.T) {
-	cmd := exec.Command("go", "list", "-deps", "./internal/server/...")
+	cmd := exec.Command("go", "list", "-deps", "./cmd/wowdata-server", "./internal/server/...")
 	cmd.Dir = "../.."
 	var out bytes.Buffer
 	cmd.Stdout = &out
