@@ -81,3 +81,72 @@ func TestSingleflightErrorSharedAndNextCallRetries(t *testing.T) {
 		t.Fatalf("calls after retry = %d, want 2", calls)
 	}
 }
+
+func TestSingleflightReleasesWaitersBeforeDeletingInflight(t *testing.T) {
+	group := NewSingleflight()
+	firstStarted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	firstDone := make(chan error, 1)
+	waiterReady := make(chan struct{})
+	waiterDone := make(chan error, 1)
+	lateStarted := make(chan struct{})
+	lateDone := make(chan error, 1)
+	var calls int32
+
+	go func() {
+		_, err := group.Do("cn/wow/SpellName", func() (interface{}, error) {
+			atomic.AddInt32(&calls, 1)
+			close(firstStarted)
+			<-releaseFirst
+			return "ok", nil
+		})
+		firstDone <- err
+	}()
+	<-firstStarted
+
+	go func() {
+		close(waiterReady)
+		value, err := group.Do("cn/wow/SpellName", func() (interface{}, error) {
+			atomic.AddInt32(&calls, 1)
+			return "unexpected waiter run", nil
+		})
+		if err == nil && value.(string) != "ok" {
+			err = errors.New("waiter received unexpected value")
+		}
+		waiterDone <- err
+	}()
+	<-waiterReady
+
+	group.mu.Lock()
+	close(releaseFirst)
+
+	go func() {
+		close(lateStarted)
+		_, err := group.Do("cn/wow/SpellName", func() (interface{}, error) {
+			atomic.AddInt32(&calls, 1)
+			return "late", nil
+		})
+		lateDone <- err
+	}()
+	<-lateStarted
+
+	select {
+	case err := <-waiterDone:
+		if err != nil {
+			t.Fatalf("waiter err = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("waiter was not released before inflight deletion needed the mutex")
+	}
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Fatalf("calls before releasing delete lock = %d, want 1", got)
+	}
+
+	group.mu.Unlock()
+	if err := <-firstDone; err != nil {
+		t.Fatalf("first err = %v", err)
+	}
+	if err := <-lateDone; err != nil {
+		t.Fatalf("late err = %v", err)
+	}
+}

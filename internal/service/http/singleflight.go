@@ -32,10 +32,10 @@ func (g *Singleflight) Do(key string, fn func() (interface{}, error)) (interface
 
 	call.value, call.err = fn()
 
+	close(call.done)
 	g.mu.Lock()
 	delete(g.inflight, key)
 	g.mu.Unlock()
-	close(call.done)
 
 	return call.value, call.err
 }
