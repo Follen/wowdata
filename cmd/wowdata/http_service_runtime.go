@@ -139,7 +139,7 @@ func sqliteMigrationsDir() string {
 func parquetFields(schema []appruntime.SchemaField) []cacheparquet.Field {
 	fields := make([]cacheparquet.Field, 0, len(schema))
 	for _, field := range schema {
-		fields = append(fields, cacheparquet.Field{Name: field.Name, Type: field.Type})
+		fields = append(fields, cacheparquet.Field{Name: field.Name, Type: field.Type, ArrayLen: field.ArrayLen})
 	}
 	return fields
 }

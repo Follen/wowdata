@@ -144,6 +144,127 @@ func TestWriteRowsFileWritesDB2RowsAndMetadataFooter(t *testing.T) {
 	}
 }
 
+func TestWriteRowsFileAcceptsRuntimeDB2FieldTypes(t *testing.T) {
+	root := t.TempDir()
+	meta := testMetadata()
+	path := PathFor(root, meta)
+	rows := []map[string]interface{}{
+		{"ID": uint32(123), "Name_lang": "Fireball", "Parent": int32(7)},
+	}
+
+	if err := WriteRowsFile(path, meta, []Field{
+		{Name: "ID", Type: "dbFieldUInt32"},
+		{Name: "Name_lang", Type: "dbFieldString"},
+		{Name: "Parent", Type: "dbFieldNonInlineID"},
+	}, rows); err != nil {
+		t.Fatalf("WriteRowsFile: %v", err)
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open parquet: %v", err)
+	}
+	defer file.Close()
+	type runtimeTypeRow struct {
+		ID       uint32 `parquet:"ID"`
+		NameLang string `parquet:"Name_lang"`
+		Parent   int32  `parquet:"Parent"`
+	}
+	reader := parquetgo.NewGenericReader[runtimeTypeRow](file)
+	got := make([]runtimeTypeRow, 1)
+	n, err := reader.Read(got)
+	if err != nil && !errors.Is(err, io.EOF) {
+		t.Fatalf("read parquet rows: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("read rows = %d, want 1", n)
+	}
+	if got[0].ID != 123 || got[0].NameLang != "Fireball" || got[0].Parent != 7 {
+		t.Fatalf("row = %#v", got[0])
+	}
+}
+
+func TestWriteRowsFileExpandsDB2ArrayFields(t *testing.T) {
+	root := t.TempDir()
+	meta := testMetadata()
+	path := PathFor(root, meta)
+	rows := []map[string]interface{}{
+		{"EffectMiscValue": []interface{}{int32(11), int32(22)}},
+	}
+
+	if err := WriteRowsFile(path, meta, []Field{
+		{Name: "EffectMiscValue", Type: "dbFieldInt32", ArrayLen: 2},
+	}, rows); err != nil {
+		t.Fatalf("WriteRowsFile: %v", err)
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open parquet: %v", err)
+	}
+	defer file.Close()
+	type arrayRow struct {
+		EffectMiscValue0 int32 `parquet:"EffectMiscValue_0"`
+		EffectMiscValue1 int32 `parquet:"EffectMiscValue_1"`
+	}
+	reader := parquetgo.NewGenericReader[arrayRow](file)
+	got := make([]arrayRow, 1)
+	n, err := reader.Read(got)
+	if err != nil && !errors.Is(err, io.EOF) {
+		t.Fatalf("read parquet rows: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("read rows = %d, want 1", n)
+	}
+	if got[0].EffectMiscValue0 != 11 || got[0].EffectMiscValue1 != 22 {
+		t.Fatalf("array values = %#v, want 11 and 22", got[0])
+	}
+}
+
+func TestWriteRowsFileReturnsConversionErrors(t *testing.T) {
+	cases := []struct {
+		name  string
+		field Field
+		value interface{}
+		want  string
+	}{
+		{
+			name:  "uint64 to int32 overflow",
+			field: Field{Name: "Value", Type: "dbFieldInt32"},
+			value: uint64(1 << 40),
+			want:  "overflows int32",
+		},
+		{
+			name:  "negative signed to uint",
+			field: Field{Name: "Value", Type: "dbFieldUInt32"},
+			value: int32(-1),
+			want:  "cannot convert negative",
+		},
+		{
+			name:  "unsupported numeric type",
+			field: Field{Name: "Value", Type: "dbFieldInt32"},
+			value: "not-a-number",
+			want:  "cannot convert string",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := PathFor(t.TempDir(), testMetadata())
+			err := WriteRowsFile(path, testMetadata(), []Field{tc.field}, []map[string]interface{}{{"Value": tc.value}})
+			if err == nil {
+				t.Fatal("WriteRowsFile error = nil, want conversion error")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("WriteRowsFile error = %v, want substring %q", err, tc.want)
+			}
+			if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
+				t.Fatalf("parquet path exists after conversion failure: stat err = %v", statErr)
+			}
+		})
+	}
+}
+
 func TestValidateExistingReturnsErrStaleOnFingerprintMismatch(t *testing.T) {
 	root := t.TempDir()
 	meta := testMetadata()
