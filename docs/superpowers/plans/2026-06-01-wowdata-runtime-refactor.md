@@ -2303,7 +2303,7 @@ git commit -m "http add build refresh and prune"
 - Create: `docs/mcp-tools.md`
 - Create: `docs/http-service-runtime.md`
 
-- [ ] **Step 1: Write help tests**
+- [x] **Step 1: Write help tests**
 
 Add to `cmd/wowdata/mcp_compatibility_test.go`:
 
@@ -2326,7 +2326,7 @@ func TestHTTPHelpListsCodexClaudeAndCCSwitch(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Update help HTML**
+- [x] **Step 2: Update help HTML**
 
 Modify `mcpHelpHTML` so `/help` shows:
 
@@ -2342,11 +2342,11 @@ Artifact download behavior
 
 Do not mention internal golden fixtures.
 
-- [ ] **Step 3: Write docs**
+- [x] **Step 3: Write docs**
 
 Create `docs/mcp-tools.md` with exact stdio and HTTP tool lists. Create `docs/http-service-runtime.md` with config path, default contexts, lazy prepare, artifact URL behavior, build watcher, and admin tool gate.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run:
 
@@ -2356,7 +2356,7 @@ go test ./cmd/wowdata -count=1
 
 Expected: package passes.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
