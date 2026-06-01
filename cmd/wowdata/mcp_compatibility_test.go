@@ -78,6 +78,28 @@ func TestHTTPMCPBusinessToolsUseRuntimeHandlersInsteadOfCapabilityPlaceholders(t
 	}
 }
 
+func TestHTTPFileAndIconPrepareAvoidsListfileWhenFileDataIDIsEnough(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		raw  json.RawMessage
+		want bool
+	}{
+		{name: "wow_icon", raw: json.RawMessage(`{"fileDataID":134400}`), want: false},
+		{name: "wow_file", raw: json.RawMessage(`{"mode":"exists","fileDataID":134400}`), want: false},
+		{name: "wow_file", raw: json.RawMessage(`{"mode":"encoding","fileDataID":134400}`), want: false},
+		{name: "wow_file", raw: json.RawMessage(`{"mode":"get","fileDataID":134400}`), want: false},
+		{name: "wow_file", raw: json.RawMessage(`{"mode":"export","fileDataID":134400}`), want: false},
+		{name: "wow_file", raw: json.RawMessage(`{"mode":"lookup","fileDataID":134400}`), want: true},
+		{name: "wow_file", raw: json.RawMessage(`{"mode":"search","query":"interface/icons"}`), want: true},
+		{name: "wow_file", raw: json.RawMessage(`{"mode":"extension","extension":"blp"}`), want: true},
+		{name: "wow_file", raw: json.RawMessage(`{"mode":"get","filename":"interface/icons/inv_misc_questionmark.blp"}`), want: true},
+	} {
+		if got := httpRuntimeNeedsListfile(tc.name, tc.raw); got != tc.want {
+			t.Fatalf("%s %s listfile = %v, want %v", tc.name, tc.raw, got, tc.want)
+		}
+	}
+}
+
 func TestHTTPHealthReportsConfiguredCacheRoot(t *testing.T) {
 	rt := NewRuntime()
 	rt.CacheRoot = filepath.Join(t.TempDir(), "runtime-cache")

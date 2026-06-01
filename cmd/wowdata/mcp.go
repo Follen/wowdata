@@ -305,16 +305,31 @@ func prepareHTTPRuntimeForTool(rt *Runtime, name string, raw json.RawMessage, de
 		CacheRoot:       rt.CacheRoot,
 		WarmDBDManifest: true,
 		Tables:          httpRuntimeTablesForTool(name),
-		WarmListfile:    httpRuntimeNeedsListfile(name),
+		WarmListfile:    httpRuntimeNeedsListfile(name, raw),
 	}
 	_, err := rt.initialize(opts)
 	return err
 }
 
-func httpRuntimeNeedsListfile(name string) bool {
+func httpRuntimeNeedsListfile(name string, raw json.RawMessage) bool {
 	switch name {
-	case "wow_file", "wow_icon":
-		return true
+	case "wow_icon":
+		return false
+	case "wow_file":
+		var args map[string]interface{}
+		if len(raw) > 0 {
+			_ = json.Unmarshal(raw, &args)
+		}
+		mode := stringArg(args, "mode", "lookup")
+		if stringArg(args, "filename", "") != "" {
+			return true
+		}
+		switch mode {
+		case "search", "extension", "lookup":
+			return true
+		default:
+			return false
+		}
 	default:
 		return false
 	}
