@@ -24,7 +24,7 @@
 4. 将查询能力从 Cobra/CLI JSON stdout 包装中抽离，形成可被 CLI、stdio、HTTP 共同调用的 query service。
 5. HTTP 持久化层采用 SQLite + Parquet + DuckDB + Go memory + raw CASC cache 的组合。
 6. HTTP 配置独立于 CLI/stdio，只在 `wowdata mcp http` 启动时读取。
-7. 使用已配置的远端开发服务器验证 HTTP 服务路径，公开服务地址为 `211.154.18.253:11224`。远端已安装 Docker `20.10.24`，HTTP MCP 验收部署必须优先使用 Docker 容器运行。SSH、key、部署细节从 `.local/wowdata/deploy-release.ps1` 等本地材料读取，不提交到仓库。
+7. 使用已配置的远端开发服务器验证 HTTP 服务路径，公开服务地址为 `http://211.154.18.253:11223`。远端使用 Docker CE，HTTP MCP 验收部署必须使用 Docker 容器运行。SSH、key、部署细节从 `.local/wowdata/` 本地材料读取，不提交到仓库。
 
 ## 非目标
 
@@ -329,9 +329,9 @@ HTTP 是远端多人共享数据服务。
 
 ```text
 Remote agents / users
-        │ HTTP/HTTPS
+        │ HTTP
         ▼
-nginx / TLS / static artifact serving
+public IP port forwarding
         │
         ▼
 wowdata mcp http
@@ -415,7 +415,7 @@ defaults:
 server:
   host: 127.0.0.1
   port: 9788
-  base_url: http://211.154.18.253:11224
+  base_url: http://211.154.18.253:11223
 
 defaults:
   region: cn
@@ -455,7 +455,7 @@ cache:
 
 artifacts:
   root: /opt/wowdata/output
-  base_url: http://211.154.18.253:11224/files
+  base_url: http://211.154.18.253:11223/files
   retention_hours: 24
 
 prepare:
@@ -752,19 +752,19 @@ HTTP artifact manager 负责导出文件、图标、贴图、视频片段的本�
 HTTP 服务开发和验收使用已配置的远端服务器，公开地址为：
 
 ```text
-http://211.154.18.253:11224
+http://211.154.18.253:11223
 ```
 
-本地部署材料位于 `.local/wowdata/`，其中 `.local/wowdata/deploy-release.ps1` 已包含远端 host、SSH 端口、key 路径、`/opt/wowdata`、systemd、nginx、artifact 目录等配置。实现和验证脚本可以读取这些本地材料，但不能提交 `.local/` 内容。
+本地部署材料位于 `.local/wowdata/`，其中私有部署脚本包含远端 host、SSH 端口、key 路径、Docker、cache 和 artifact 目录等配置。实现和验证脚本可以读取这些本地材料，但不能提交 `.local/` 内容。
 
-远端已安装 Docker `20.10.24`。HTTP service 的开发验收部署必须使用 Docker，避免直接污染宿主机 Go runtime、动态库和未来 DuckDB/Parquet 依赖。容器镜像由当前仓库构建，镜像内只包含运行 HTTP MCP 所需的二进制、配置入口、迁移文件和必要证书/CA 依赖；不得把 `.local/`、SSH key 或私有配置打进镜像。
+远端使用 Docker CE。HTTP service 的开发验收部署必须使用 Docker，避免直接污染宿主机 Go runtime、动态库和 DuckDB/Parquet 依赖。容器镜像由当前仓库构建，镜像内只包含运行 HTTP MCP 所需的二进制、配置入口、迁移文件和必要证书/CA 依赖；不得把 `.local/`、SSH key 或私有配置打进镜像。
 
 目标容器运行形态：
 
 ```text
 docker run -d --name wowdata-mcp \
   --restart unless-stopped \
-  -p 127.0.0.1:9788:9788 \
+  -p 0.0.0.0:9443:9788 \
   -v /opt/wowdata/config/http-mcp.yaml:/etc/wowdata/http-mcp.yaml:ro \
   -v /opt/wowdata/cache:/var/lib/wowdata/cache \
   -v /opt/wowdata/output:/var/lib/wowdata/artifacts \
@@ -772,7 +772,7 @@ docker run -d --name wowdata-mcp \
   /usr/local/bin/wowdata mcp http --config /etc/wowdata/http-mcp.yaml
 ```
 
-nginx 继续代理公开地址 `211.154.18.253:11224` 到宿主机 `127.0.0.1:9788`。容器内 HTTP service 仍监听 `127.0.0.1:9788` 或 `0.0.0.0:9788`，以最终 Docker 网络配置为准；公开入口由 nginx 控制。
+公网访问统一使用 `http://211.154.18.253:11223`，服务链路为 `211.154.18.253:11223 -> host 9443 -> Docker 0.0.0.0:9443 -> container 9788`。容器内 HTTP service 监听 `0.0.0.0:9788`，公开入口由服务器端口转发控制。
 
 生产 systemd 不直接执行 `wowdata mcp http`，而是管理容器生命周期。systemd unit 应使用 Docker 启停命令，并保留资源限制和重启策略。
 
@@ -788,13 +788,13 @@ nginx 继续代理公开地址 `211.154.18.253:11224` 到宿主机 `127.0.0.1:97
 /usr/local/bin/wowdata mcp http \
   --config /etc/wowdata/http-mcp.yaml \
   --max-contexts 4 \
-  --base-url http://211.154.18.253:11224
+  --base-url http://211.154.18.253:11223
 ```
 
 Docker 验收要求：
 
-- `docker version` 在远端返回 Server `20.10.24`。
-- 镜像构建脚本在本地交叉编译 Linux amd64 二进制，并构建可运行镜像。
+- `docker version` 在远端返回 Docker CE Server 版本。
+- 镜像构建脚本使用 Docker multi-stage 构建 Linux amd64 二进制，并构建可运行镜像。
 - 容器启动后 `/health` 返回 `ok: true`。
 - 容器重启后 SQLite metadata、Parquet DB2 cache、raw CASC cache 和 artifacts 通过 volume 保留。
 - 容器日志可通过 `docker logs wowdata-mcp` 查看。
@@ -881,7 +881,7 @@ Docker 验收要求：
 6. HTTP 配置只在 `mcp http` 路径读取。
 7. SQLite、Parquet、DuckDB 路径有测试覆盖。
 8. Artifact download URL 在远端 HTTP 模式可用。
-9. 远端开发服务器 `http://211.154.18.253:11224/health`、`/help`、`/mcp` 验证通过。
+9. 远端开发服务器 `http://211.154.18.253:11223/health`、`/help`、`/mcp` 验证通过。
 10. 远端 Docker `20.10.24` 容器部署验证通过，容器重启后持久化 cache 保留。
 11. HTTP build watcher、原子切换、stale Parquet、admin force refresh 和 cache prune 测试通过。
 12. 真实 region/product/build 审计通过，失败项必须分类为网络、当前 build 不可用、schema 缺失或真实业务 bug，不允许吞错。

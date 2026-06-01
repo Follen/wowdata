@@ -6,7 +6,7 @@
 
 **Architecture:** Keep the current CLI and stdio command semantics stable while extracting reusable runtime context and query services underneath them. Build HTTP as a separate service runtime with its own config, context pool, lazy prepare, SQLite metadata, Parquet materialization, DuckDB querying, artifact manager, build watcher, and Docker deployment path.
 
-**Tech Stack:** Go 1.26.1, Cobra, existing CASC/DB2/DBD/listfile readers, Go MCP server, SQLite, Parquet, DuckDB, Docker 20.10.24 on remote `211.154.18.253:11224`, nginx reverse proxy, PowerShell deployment scripts under `.local/wowdata/`.
+**Tech Stack:** Go 1.26.1, Cobra, existing CASC/DB2/DBD/listfile readers, Go MCP server, SQLite, Parquet, DuckDB, Docker CE on remote `211.154.18.253`, pure HTTP public endpoint `http://211.154.18.253:11223`, PowerShell deployment scripts under `.local/wowdata/`.
 
 ---
 
@@ -105,7 +105,7 @@ Create or modify these files. Each file has one responsibility.
 - Create `docs/http-service-runtime.md`: HTTP runtime operation guide.
 - Create `docs/cache-layout.md`: cache layout and invalidation rules.
 - Create `docs/mcp-tools.md`: stdio and HTTP tool lists.
-- Create `docs/deployment.md`: Docker and nginx deployment guide.
+- Create `docs/deployment.md`: pure Docker HTTP deployment guide.
 - Create `docs/performance.md`: benchmark interpretation guide.
 - Modify `README.md`: public summary and links to detailed docs.
 - Modify `CHANGELOG.md`: record the refactor.
@@ -1276,7 +1276,7 @@ func (c HTTPConfig) Validate() error {
 
 - [x] **Step 4: Add example config**
 
-Create `config/http-mcp.example.yaml` using the exact values from the spec, with `server.base_url: http://211.154.18.253:11224` and `artifacts.base_url: http://211.154.18.253:11224/files`.
+Create `config/http-mcp.example.yaml` using the final public HTTP values from the spec, with `server.base_url: http://211.154.18.253:11223` and `artifacts.base_url: http://211.154.18.253:11223/files`.
 
 - [x] **Step 5: Run config tests**
 
@@ -2309,10 +2309,10 @@ Add to `cmd/wowdata/mcp_compatibility_test.go`:
 
 ```go
 func TestHTTPHelpListsCodexClaudeAndCCSwitch(t *testing.T) {
-	html := mcpHelpHTML("https://mcp.lychee-addon.online:9443")
+	html := mcpHelpHTML("http://211.154.18.253:11223")
 	for _, want := range []string{
-		"codex mcp add wowdata --url https://mcp.lychee-addon.online:9443/mcp",
-		"claude mcp add --transport http wowdata https://mcp.lychee-addon.online:9443/mcp",
+		"codex mcp add wowdata --url http://211.154.18.253:11223/mcp",
+		"claude mcp add --transport http wowdata http://211.154.18.253:11223/mcp",
 		"cc-switch",
 		"wow_builds",
 		"wow_status",
@@ -2414,8 +2414,8 @@ go build -o dist/linux-amd64/wowdata ./cmd/wowdata
 docker build -f Dockerfile.http -t wowdata:http-refactor .
 docker save wowdata:http-refactor -o dist/wowdata-http-refactor.tar
 scp -P $DEPLOY_PORT -i $DEPLOY_KEY dist/wowdata-http-refactor.tar "$DEPLOY_USER@$DEPLOY_HOST:/tmp/wowdata-http-refactor.tar"
-ssh -p $DEPLOY_PORT -i $DEPLOY_KEY "$DEPLOY_USER@$DEPLOY_HOST" "docker load -i /tmp/wowdata-http-refactor.tar && docker run -d --name wowdata-mcp-next --restart unless-stopped -p 127.0.0.1:9788:9788 -v /opt/wowdata/config/http-mcp.yaml:/etc/wowdata/http-mcp.yaml:ro -v /opt/wowdata/cache:/var/lib/wowdata/cache -v /opt/wowdata/output:/var/lib/wowdata/artifacts wowdata:http-refactor"
-ssh -p $DEPLOY_PORT -i $DEPLOY_KEY "$DEPLOY_USER@$DEPLOY_HOST" "curl -fsS http://127.0.0.1:9788/health"
+ssh -p $DEPLOY_PORT -i $DEPLOY_KEY "$DEPLOY_USER@$DEPLOY_HOST" "docker load -i /tmp/wowdata-http-refactor.tar && docker run -d --name wowdata-mcp-next --restart unless-stopped -p 0.0.0.0:9443:9788 -v /opt/wowdata/config/http-mcp.yaml:/etc/wowdata/http-mcp.yaml:ro -v /opt/wowdata/cache:/var/lib/wowdata/cache -v /opt/wowdata/output:/var/lib/wowdata/artifacts wowdata:http-refactor"
+ssh -p $DEPLOY_PORT -i $DEPLOY_KEY "$DEPLOY_USER@$DEPLOY_HOST" "curl -fsS http://127.0.0.1:9443/health"
 ssh -p $DEPLOY_PORT -i $DEPLOY_KEY "$DEPLOY_USER@$DEPLOY_HOST" "docker rm -f wowdata-mcp 2>/dev/null || true; docker rename wowdata-mcp-next wowdata-mcp"
 ```
 
@@ -2430,7 +2430,7 @@ go build -o dist/linux-amd64/wowdata ./cmd/wowdata
 docker build -f Dockerfile.http -t wowdata:http-refactor .
 ```
 
-Document the container run shape from the spec and nginx proxy `211.154.18.253:11224 -> 127.0.0.1:9788`.
+Document the container run shape from the spec and public route `211.154.18.253:11223 -> host 9443 -> Docker 0.0.0.0:9443 -> container 9788`.
 
 - [x] **Step 5: Build image locally**
 
@@ -2466,7 +2466,7 @@ Do not add `.local/wowdata/deploy-http-docker.ps1`.
 Run:
 
 ```powershell
-ssh -p 11224 211.154.18.253 "docker version --format '{{.Server.Version}}'"
+ssh -p 10042 211.154.18.253 "docker version --format '{{.Server.Version}}'"
 ```
 
 Expected:
@@ -2550,7 +2550,7 @@ Do not add `.local/wowdata/bench-http.ps1` or benchmark output.
 - Create: `docs/architecture.md`
 - Create: `docs/cache-layout.md`
 
-- [ ] **Step 1: Update architecture docs**
+- [x] **Step 1: Update architecture docs**
 
 Create `docs/architecture.md` with sections:
 
@@ -2565,11 +2565,11 @@ Failure and rollback behavior
 
 Create `docs/cache-layout.md` with exact raw CASC, SQLite, Parquet, DuckDB, artifact, buildKey, stale fingerprint, and prune rules.
 
-- [ ] **Step 2: Update README and CHANGELOG**
+- [x] **Step 2: Update README and CHANGELOG**
 
 Modify `README.md` to link to architecture, MCP tools, deployment, cache layout, and performance docs. Modify `CHANGELOG.md` under version `v0.0.1` with the runtime refactor summary.
 
-- [ ] **Step 3: Run full local tests**
+- [x] **Step 3: Run full local tests**
 
 Run:
 
@@ -2579,7 +2579,7 @@ go test ./... -count=1
 
 Expected: all packages pass.
 
-- [ ] **Step 4: Run real remote audit**
+- [x] **Step 4: Run real remote audit**
 
 Run the existing real-data audit command from `.local/wowdata/` for:
 
@@ -2607,7 +2607,7 @@ business_bug
 
 Any `business_bug` stops the release until fixed.
 
-- [ ] **Step 5: Verify no private files are staged**
+- [x] **Step 5: Verify no private files are staged**
 
 Run:
 
@@ -2623,7 +2623,7 @@ Expected:
 no cache, SQLite, DuckDB, Parquet, dist, SSH, or benchmark files are staged
 ```
 
-- [ ] **Step 6: Commit final docs**
+- [x] **Step 6: Commit final docs**
 
 Run:
 
@@ -2632,14 +2632,14 @@ git add README.md CHANGELOG.md docs/architecture.md docs/cache-layout.md
 git commit -m "docs finalize runtime refactor"
 ```
 
-- [ ] **Step 7: Final verification**
+- [x] **Step 7: Final verification**
 
 Run:
 
 ```powershell
 git status --short
 go test ./... -count=1
-curl.exe -fsS http://211.154.18.253:11224/health
+curl.exe -fsS http://211.154.18.253:11223/health
 ```
 
 Expected:

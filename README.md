@@ -13,7 +13,7 @@
   <img alt="Version v0.0.1" src="https://img.shields.io/badge/version-v0.0.1-7c3aed?style=for-the-badge">
   <img alt="CLI Supported" src="https://img.shields.io/badge/CLI-Supported-16a34a?style=for-the-badge">
   <img alt="MCP Supported" src="https://img.shields.io/badge/MCP-Supported-0ea5e9?style=for-the-badge">
-  <img alt="Go 1.22.2" src="https://img.shields.io/badge/Go-1.22.2-00ADD8?style=for-the-badge&logo=go&logoColor=white">
+  <img alt="Go 1.26.1" src="https://img.shields.io/badge/Go-1.26.1-00ADD8?style=for-the-badge&logo=go&logoColor=white">
   <img alt="Windows" src="https://img.shields.io/badge/Windows-amd64-0078D4?style=for-the-badge&logo=windows&logoColor=white">
   <img alt="macOS" src="https://img.shields.io/badge/macOS-arm64%20%7C%20amd64-111827?style=for-the-badge&logo=apple&logoColor=white">
   <img alt="Linux" src="https://img.shields.io/badge/Linux-amd64%20%7C%20arm64-FCC624?style=for-the-badge&logo=linux&logoColor=black">
@@ -97,7 +97,7 @@ wowdata --mcp
 作为远端 MCP Streamable HTTP server 运行：
 
 ```powershell
-wowdata mcp http --host 127.0.0.1 --port 9788 --base-url https://mcp.example.com:9443 --max-contexts 3
+wowdata mcp http --host 0.0.0.0 --port 9788 --base-url http://211.154.18.253:11223 --artifact-root /var/lib/wowdata/artifacts --artifact-base-url http://211.154.18.253:11223/files --max-contexts 3
 ```
 
 HTTP endpoint:
@@ -106,23 +106,29 @@ HTTP endpoint:
 - `GET|HEAD /mcp`：健康探测和客户端 reachability 检查
 - `GET /health`：服务健康状态
 - `GET /help`：面向用户和 agent 的配置指南
+- `GET /files/...`：导出图标、贴图和原始文件的静态下载入口
 
-`--base-url` 只用于生成运行时返回的公开 endpoint。生产环境可以在 nginx/CDN 层用静态 `/help` 覆盖 Go 的内置帮助页，把实际域名、NAT 端口和客户端配置留在部署层维护。
+当前公开 HTTP 地址：
+
+- `http://211.154.18.253:11223/mcp`
+- `http://211.154.18.253:11223/help`
+- `http://211.154.18.253:11223/health`
+- `http://211.154.18.253:11223/files/...`
+
+`--base-url` 用于生成运行时返回的公开 endpoint。`--artifact-root` 是容器或主机内的写入目录，`--artifact-base-url` 是用户可访问的公开下载 URL 前缀。HTTP runtime 会内置服务 `/files/...`，导出图标、贴图和原始文件后，MCP 结果会返回可下载地址。
 
 `--max-contexts` 只对远端 HTTP MCP 生效，用来控制最多有多少个已 warmup 的 build context 常驻内存。比如 `--max-contexts 3` 可以同时保留 Retail、Classic 和 Titan；超过上限时会按 LRU 淘汰最久未使用的 context。stdio 和普通 CLI 仍使用单上下文模型。
 
-如果远端 MCP 需要让用户下载导出的图标、贴图或原始文件，可以把一个服务器目录交给 nginx/CDN 暴露，并把这两个值传给 Go：
+公网部署链路：
 
-```powershell
-wowdata mcp http --host 127.0.0.1 --port 9788 --base-url https://mcp.example.com:9443 --artifact-root /opt/wowdata/output --artifact-base-url https://mcp.example.com:9443/files
+```text
+211.154.18.253:11223 -> host 9443 -> Docker 0.0.0.0:9443 -> wowdata container 9788
 ```
-
-`--artifact-root` 是本机写入目录，`--artifact-base-url` 是用户可访问的公开 URL 前缀。MCP 层只做路径到 URL 的映射；静态文件服务、缓存、鉴权和域名端口仍由 nginx/CDN 管。
 
 Codex:
 
 ```powershell
-codex mcp add wowdata --url https://mcp.example.com:9443/mcp
+codex mcp add wowdata --url http://211.154.18.253:11223/mcp
 ```
 
 cc-switch custom MCP:
@@ -130,14 +136,14 @@ cc-switch custom MCP:
 ```json
 {
   "type": "http",
-  "url": "https://mcp.example.com:9443/mcp"
+  "url": "http://211.154.18.253:11223/mcp"
 }
 ```
 
 Claude Code:
 
 ```powershell
-claude mcp add --transport http wowdata https://mcp.example.com:9443/mcp
+claude mcp add --transport http wowdata http://211.154.18.253:11223/mcp
 ```
 
 Claude Code 本地 stdio：
@@ -147,6 +153,15 @@ claude mcp add --transport stdio wowdata -- wowdata mcp stdio
 ```
 
 导出类工具会返回 `path`、`uri`、`mimeType`、`size` 和 `sha256`。在 MCP 调用里，结果同时包含 `structuredContent` 和 `resource_link`。本地 stdio 默认返回 `file://` URI；远端 HTTP 配置了 artifact 参数后会额外返回 `downloadUrl`，并让 `resource_link.uri` 指向公开 HTTP/HTTPS 下载地址。
+
+### 详细文档
+
+- [架构说明](docs/architecture.md)
+- [MCP 工具列表](docs/mcp-tools.md)
+- [HTTP runtime](docs/http-service-runtime.md)
+- [Docker 部署](docs/deployment.md)
+- [缓存布局](docs/cache-layout.md)
+- [性能验证](docs/performance.md)
 
 暴露的 MCP 工具：
 
@@ -277,7 +292,7 @@ wowdata --mcp
 Run as an MCP Streamable HTTP server:
 
 ```bash
-wowdata mcp http --host 127.0.0.1 --port 9788 --base-url https://mcp.example.com:9443 --max-contexts 3
+wowdata mcp http --host 0.0.0.0 --port 9788 --base-url http://211.154.18.253:11223 --artifact-root /var/lib/wowdata/artifacts --artifact-base-url http://211.154.18.253:11223/files --max-contexts 3
 ```
 
 HTTP endpoints:
@@ -286,23 +301,29 @@ HTTP endpoints:
 - `GET|HEAD /mcp`: health/reachability checks for clients
 - `GET /health`: service health
 - `GET /help`: setup guide for users and agents
+- `GET /files/...`: static downloads for exported icons, textures, and raw files
 
-`--base-url` is only used to generate the public endpoint returned at runtime. Production deployments can serve a static `/help` page from nginx/CDN instead of the built-in Go help page, keeping the real domain, NAT port, and client setup in the deployment layer.
+Current public HTTP URLs:
+
+- `http://211.154.18.253:11223/mcp`
+- `http://211.154.18.253:11223/help`
+- `http://211.154.18.253:11223/health`
+- `http://211.154.18.253:11223/files/...`
+
+`--base-url` generates the public endpoint returned at runtime. `--artifact-root` is the container or host write directory, and `--artifact-base-url` is the public download URL prefix. The HTTP runtime serves `/files/...` directly, so exported icons, textures, and raw files can be downloaded from MCP results.
 
 `--max-contexts` only affects remote HTTP MCP. It controls how many warmed build contexts stay resident in memory. For example, `--max-contexts 3` can keep Retail, Classic, and Titan warm at the same time; extra contexts are evicted by LRU. stdio and normal CLI keep the single-context model.
 
-For remote MCP deployments that need downloadable exported icons, textures, or raw files, expose a server directory through nginx/CDN and pass both values to Go:
+Public deployment path:
 
-```bash
-wowdata mcp http --host 127.0.0.1 --port 9788 --base-url https://mcp.example.com:9443 --artifact-root /opt/wowdata/output --artifact-base-url https://mcp.example.com:9443/files
+```text
+211.154.18.253:11223 -> host 9443 -> Docker 0.0.0.0:9443 -> wowdata container 9788
 ```
-
-`--artifact-root` is the local write directory, and `--artifact-base-url` is the public URL prefix. The MCP layer only maps paths to URLs; static serving, cache policy, auth, domains, and ports stay in nginx/CDN.
 
 Codex:
 
 ```bash
-codex mcp add wowdata --url https://mcp.example.com:9443/mcp
+codex mcp add wowdata --url http://211.154.18.253:11223/mcp
 ```
 
 cc-switch custom MCP:
@@ -310,14 +331,14 @@ cc-switch custom MCP:
 ```json
 {
   "type": "http",
-  "url": "https://mcp.example.com:9443/mcp"
+  "url": "http://211.154.18.253:11223/mcp"
 }
 ```
 
 Claude Code:
 
 ```bash
-claude mcp add --transport http wowdata https://mcp.example.com:9443/mcp
+claude mcp add --transport http wowdata http://211.154.18.253:11223/mcp
 ```
 
 Claude Code local stdio:
@@ -327,6 +348,15 @@ claude mcp add --transport stdio wowdata -- wowdata mcp stdio
 ```
 
 Export tools return `path`, `uri`, `mimeType`, `size`, and `sha256`. MCP tool calls also include `structuredContent` and `resource_link`. Local stdio returns `file://` URIs by default; remote HTTP deployments configured with artifact options also return `downloadUrl` and point `resource_link.uri` at the public HTTP/HTTPS download URL.
+
+### Documentation
+
+- [Architecture](docs/architecture.md)
+- [MCP tools](docs/mcp-tools.md)
+- [HTTP runtime](docs/http-service-runtime.md)
+- [Docker deployment](docs/deployment.md)
+- [Cache layout](docs/cache-layout.md)
+- [Performance verification](docs/performance.md)
 
 Exposed MCP tools:
 
