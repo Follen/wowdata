@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -104,6 +105,54 @@ func TestMissingFileDataIDReturnsNotFound(t *testing.T) {
 	_, err := ResolveFileDataID(ctx, db, 404)
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("ResolveFileDataID missing error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestResolveFileDataIDSpansAllowsCascMultiplicity(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t)
+
+	err := ReplaceIndex(ctx, db, "build-1",
+		[]RootMapping{
+			{FileDataID: 7, ContentKey: "content-a"},
+			{FileDataID: 7, ContentKey: "content-b"},
+		},
+		[]EncodingMapping{
+			{ContentKey: "content-a", EncodingKey: "encoding-a1", Size: 100},
+			{ContentKey: "content-a", EncodingKey: "encoding-a2", Size: 101},
+			{ContentKey: "content-b", EncodingKey: "encoding-b1", Size: 102},
+		},
+		[]ArchiveMapping{
+			{EncodingKey: "encoding-a1", ArchiveKey: "archive-a1", Offset: 10, Size: 100},
+			{EncodingKey: "encoding-a1", ArchiveKey: "archive-a1b", Offset: 20, Size: 100},
+			{EncodingKey: "encoding-a2", ArchiveKey: "archive-a2", Offset: 30, Size: 101},
+			{EncodingKey: "encoding-b1", ArchiveKey: "archive-b1", Offset: 40, Size: 102},
+		},
+	)
+	if err != nil {
+		t.Fatalf("ReplaceIndex with CASC multiplicity: %v", err)
+	}
+
+	want := []ArchiveSpan{
+		{FileDataID: 7, ContentKey: "content-a", EncodingKey: "encoding-a1", ArchiveKey: "archive-a1", Offset: 10, Size: 100},
+		{FileDataID: 7, ContentKey: "content-a", EncodingKey: "encoding-a1", ArchiveKey: "archive-a1b", Offset: 20, Size: 100},
+		{FileDataID: 7, ContentKey: "content-a", EncodingKey: "encoding-a2", ArchiveKey: "archive-a2", Offset: 30, Size: 101},
+		{FileDataID: 7, ContentKey: "content-b", EncodingKey: "encoding-b1", ArchiveKey: "archive-b1", Offset: 40, Size: 102},
+	}
+	got, err := ResolveFileDataIDSpans(ctx, db, 7)
+	if err != nil {
+		t.Fatalf("ResolveFileDataIDSpans: %v", err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ResolveFileDataIDSpans() = %#v, want %#v", got, want)
+	}
+
+	first, err := ResolveFileDataID(ctx, db, 7)
+	if err != nil {
+		t.Fatalf("ResolveFileDataID: %v", err)
+	}
+	if first != want[0] {
+		t.Fatalf("ResolveFileDataID() = %#v, want deterministic first %#v", first, want[0])
 	}
 }
 

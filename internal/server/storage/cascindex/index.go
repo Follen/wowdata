@@ -119,28 +119,52 @@ func ReplaceIndex(ctx context.Context, db *sql.DB, sourceVersion string, roots [
 }
 
 func ResolveFileDataID(ctx context.Context, db *sql.DB, fileDataID uint32) (ArchiveSpan, error) {
-	if db == nil {
-		return ArchiveSpan{}, errors.New("casc index: nil db")
-	}
-	if err := ensureSchema(ctx, db); err != nil {
+	spans, err := ResolveFileDataIDSpans(ctx, db, fileDataID)
+	if err != nil {
 		return ArchiveSpan{}, err
 	}
+	return spans[0], nil
+}
 
-	var span ArchiveSpan
-	if err := db.QueryRowContext(ctx, `
+func ResolveFileDataIDSpans(ctx context.Context, db *sql.DB, fileDataID uint32) ([]ArchiveSpan, error) {
+	if db == nil {
+		return nil, errors.New("casc index: nil db")
+	}
+	if err := ensureSchema(ctx, db); err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
 		SELECT r.file_data_id, r.content_key, e.encoding_key, a.archive_key, a.offset, a.size
 		  FROM server_casc_root_entries r
 		  JOIN server_casc_encoding_entries e ON e.content_key = r.content_key
 		  JOIN server_casc_archive_entries a ON a.encoding_key = e.encoding_key
-		 WHERE r.file_data_id = ?`,
+		 WHERE r.file_data_id = ?
+		 ORDER BY r.content_key ASC, e.encoding_key ASC, a.archive_key ASC, a.offset ASC, a.size ASC`,
 		fileDataID,
-	).Scan(&span.FileDataID, &span.ContentKey, &span.EncodingKey, &span.ArchiveKey, &span.Offset, &span.Size); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ArchiveSpan{}, ErrNotFound
-		}
-		return ArchiveSpan{}, err
+	)
+	if err != nil {
+		return nil, err
 	}
-	return span, nil
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	var spans []ArchiveSpan
+	for rows.Next() {
+		var span ArchiveSpan
+		if err := rows.Scan(&span.FileDataID, &span.ContentKey, &span.EncodingKey, &span.ArchiveKey, &span.Offset, &span.Size); err != nil {
+			return nil, err
+		}
+		spans = append(spans, span)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(spans) == 0 {
+		return nil, ErrNotFound
+	}
+	return spans, nil
 }
 
 func UpsertSourceVersion(ctx context.Context, db *sql.DB, sourceVersion string) (bool, error) {
@@ -209,25 +233,31 @@ func ensureSchema(ctx context.Context, db schemaExec) error {
 			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE TABLE IF NOT EXISTS server_casc_root_entries (
-			file_data_id INTEGER PRIMARY KEY,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			file_data_id INTEGER NOT NULL,
 			content_key TEXT NOT NULL,
 			source_version TEXT NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS server_casc_encoding_entries (
-			content_key TEXT PRIMARY KEY,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			content_key TEXT NOT NULL,
 			encoding_key TEXT NOT NULL,
 			size INTEGER NOT NULL,
 			source_version TEXT NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS server_casc_archive_entries (
-			encoding_key TEXT PRIMARY KEY,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			encoding_key TEXT NOT NULL,
 			archive_key TEXT NOT NULL,
 			offset INTEGER NOT NULL,
 			size INTEGER NOT NULL,
 			source_version TEXT NOT NULL
 		)`,
+		`CREATE INDEX IF NOT EXISTS idx_server_casc_root_file_data_id ON server_casc_root_entries(file_data_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_server_casc_root_content_key ON server_casc_root_entries(content_key)`,
+		`CREATE INDEX IF NOT EXISTS idx_server_casc_encoding_content_key ON server_casc_encoding_entries(content_key)`,
 		`CREATE INDEX IF NOT EXISTS idx_server_casc_encoding_encoding_key ON server_casc_encoding_entries(encoding_key)`,
+		`CREATE INDEX IF NOT EXISTS idx_server_casc_archive_encoding_key ON server_casc_archive_entries(encoding_key)`,
 		`CREATE INDEX IF NOT EXISTS idx_server_casc_archive_archive_key ON server_casc_archive_entries(archive_key)`,
 	}
 

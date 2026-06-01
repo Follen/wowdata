@@ -193,6 +193,50 @@ func TestDifferentEncodingKeysRunConcurrently(t *testing.T) {
 	}
 }
 
+func TestSymlinkedCacheAncestorCannotEscapeRoot(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	outside := t.TempDir()
+	cascLink := filepath.Join(root, "casc")
+	if err := os.Symlink(outside, cascLink); err != nil {
+		t.Skipf("os.Symlink unavailable on this platform or filesystem: %v", err)
+	}
+
+	body := []byte("remote body")
+	var calls atomic.Int64
+	_, err := New(root).Get(ctx, "us", "wow", "build-a", "encoding-a", testSHA256Hex(body), func(context.Context, string) ([]byte, error) {
+		calls.Add(1)
+		return body, nil
+	})
+	if err == nil {
+		t.Fatal("Get with symlinked cache ancestor succeeded, want error")
+	}
+	if calls.Load() != 0 {
+		t.Fatalf("remote calls = %d, want 0", calls.Load())
+	}
+
+	outsidePath := filepath.Join(outside, "us", "wow", "build-a", "data", "encoding-a")
+	if _, err := os.Stat(outsidePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("outside cache file stat error = %v, want not exist", err)
+	}
+}
+
+func TestEmptyExpectedSHA256RejectedBeforeFetch(t *testing.T) {
+	ctx := context.Background()
+
+	var calls atomic.Int64
+	_, err := New(t.TempDir()).Get(ctx, "us", "wow", "build-a", "encoding-a", "", func(context.Context, string) ([]byte, error) {
+		calls.Add(1)
+		return []byte("remote body"), nil
+	})
+	if err == nil {
+		t.Fatal("Get with empty expectedSHA256 succeeded, want error")
+	}
+	if calls.Load() != 0 {
+		t.Fatalf("remote calls = %d, want 0", calls.Load())
+	}
+}
+
 func testSHA256Hex(body []byte) string {
 	sum := sha256.Sum256(body)
 	return hex.EncodeToString(sum[:])

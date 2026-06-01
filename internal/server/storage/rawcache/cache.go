@@ -40,9 +40,15 @@ func (c *Cache) Get(ctx context.Context, region, product, buildKey, encodingKey,
 	if fetch == nil {
 		return nil, errors.New("raw cache: nil fetch")
 	}
+	if expectedSHA256 == "" {
+		return nil, errors.New("raw cache: empty expected sha256")
+	}
 
 	path, err := Path(c.root, region, product, buildKey, encodingKey)
 	if err != nil {
+		return nil, err
+	}
+	if err := rejectSymlinkPath(c.root, path); err != nil {
 		return nil, err
 	}
 	if body, ok := readValid(path, expectedSHA256); ok {
@@ -85,10 +91,10 @@ func (c *Cache) fetchAndStore(ctx context.Context, path, encodingKey, expectedSH
 	if err != nil {
 		return nil, err
 	}
-	if expectedSHA256 != "" && sha256Hex(body) != strings.ToLower(expectedSHA256) {
+	if sha256Hex(body) != strings.ToLower(expectedSHA256) {
 		return nil, errors.New("raw cache: fetched blob sha256 mismatch")
 	}
-	if err := writeAtomic(path, body); err != nil {
+	if err := writeAtomic(c.root, path, body); err != nil {
 		return nil, err
 	}
 	return body, nil
@@ -132,14 +138,17 @@ func readValid(path, expectedSHA256 string) ([]byte, bool) {
 	if err != nil {
 		return nil, false
 	}
-	if expectedSHA256 != "" && sha256Hex(body) != strings.ToLower(expectedSHA256) {
+	if sha256Hex(body) != strings.ToLower(expectedSHA256) {
 		return nil, false
 	}
 	return body, true
 }
 
-func writeAtomic(path string, body []byte) error {
+func writeAtomic(root, path string, body []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	if err := rejectSymlinkPath(root, path); err != nil {
 		return err
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
@@ -164,4 +173,44 @@ func writeAtomic(path string, body []byte) error {
 func sha256Hex(body []byte) string {
 	sum := sha256.Sum256(body)
 	return hex.EncodeToString(sum[:])
+}
+
+func rejectSymlinkPath(root, path string) error {
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return err
+	}
+	pathAbs, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(rootAbs, pathAbs)
+	if err != nil {
+		return err
+	}
+	if rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return errors.New("raw cache: path escapes root")
+	}
+
+	current := rootAbs
+	if info, err := os.Lstat(current); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("raw cache: symlinked cache path %q", current)
+	}
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		if part == "" || part == "." {
+			continue
+		}
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("raw cache: symlinked cache path %q", current)
+		}
+	}
+	return nil
 }
