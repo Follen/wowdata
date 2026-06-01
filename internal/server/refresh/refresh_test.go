@@ -55,13 +55,38 @@ func TestRefreshCandidateSuccessActivatesNewBuild(t *testing.T) {
 func TestRefreshCandidateFailurePreservesOldActiveBuild(t *testing.T) {
 	ctx := context.Background()
 	db := openRefreshTestDB(t)
-	seedActiveBuild(t, ctx, db, "old")
+	seedActiveBuild(t, ctx, db, "build-1")
+	seedValidTable(t, ctx, db, "Spell", "dbd-a", "decoder-1", "materializer-1")
+	sourceKey := metadata.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1"}
+	if changed, err := metadata.UpsertListfileSource(ctx, db, metadata.ListfileSource{
+		Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1", SourceHash: "hash-a", State: metadata.StateValid,
+	}); err != nil || changed {
+		t.Fatalf("seed listfile source changed=%v err=%v, want false nil", changed, err)
+	}
+	if err := metadata.UpsertListfileIndexState(ctx, db, sourceKey, "main", metadata.StateValid, ""); err != nil {
+		t.Fatalf("seed listfile index: %v", err)
+	}
+	if changed, err := metadata.UpsertCASCSource(ctx, db, metadata.CASCSource{
+		Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1",
+		BuildConfig: "build-config-a", CDNConfig: "cdn-config-a", State: metadata.StateValid,
+	}); err != nil || changed {
+		t.Fatalf("seed casc source changed=%v err=%v, want false nil", changed, err)
+	}
+	if err := metadata.UpsertCASCIndexState(ctx, db, sourceKey, "root-encoding-archive", metadata.StateValid, ""); err != nil {
+		t.Fatalf("seed casc index: %v", err)
+	}
 
 	prepareErr := errors.New("fixture prepare failed")
 	workflow := Workflow{
 		DB: db,
 		Discoverer: fixtureDiscoverer{candidate: BuildCandidate{
-			Region: "us", Product: "wow", Locale: "enUS", BuildKey: "new", BuildName: "new build",
+			Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2", BuildName: "new build",
+			ListfileSourceHash: "hash-b",
+			CASCBuildConfig:    "build-config-b",
+			CASCCDNConfig:      "cdn-config-a",
+			Tables: []TableFingerprint{
+				{TableName: "Spell", DB2FileDataID: 123, DBDHash: "dbd-b", DecoderVersion: "decoder-1", MaterializerVersion: "materializer-1"},
+			},
 		}},
 		Preparer: fixturePreparer{err: prepareErr},
 	}
@@ -72,8 +97,11 @@ func TestRefreshCandidateFailurePreservesOldActiveBuild(t *testing.T) {
 	if result.Activated {
 		t.Fatalf("activated = true, want false")
 	}
-	assertActiveBuild(t, ctx, db, "old")
-	assertBuildState(t, db, "new", metadata.StateFailed)
+	assertActiveBuild(t, ctx, db, "build-1")
+	assertTableState(t, db, "Spell", metadata.StateValid)
+	assertListfileIndexState(t, ctx, db, sourceKey, "main", metadata.StateValid)
+	assertCASCIndexState(t, ctx, db, sourceKey, "root-encoding-archive", metadata.StateValid)
+	assertBuildState(t, db, "build-2", metadata.StateFailed)
 }
 
 func TestRefreshListfileSourceHashChangeMarksListfileStale(t *testing.T) {

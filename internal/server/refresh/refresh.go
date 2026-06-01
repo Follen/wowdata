@@ -84,6 +84,12 @@ func (w Workflow) RefreshTarget(ctx context.Context, target Target) (Result, err
 		return result, err
 	}
 
+	if w.Preparer != nil {
+		if err := w.Preparer.PrepareCandidate(ctx, candidate); err != nil {
+			_ = metadata.MarkBuildFailed(ctx, w.DB, buildKey, err.Error())
+			return result, err
+		}
+	}
 	if err := w.upsertSources(ctx, candidate); err != nil {
 		_ = metadata.MarkBuildFailed(ctx, w.DB, buildKey, err.Error())
 		return result, err
@@ -96,12 +102,6 @@ func (w Workflow) RefreshTarget(ctx context.Context, target Target) (Result, err
 	}
 	result.StaleTables = staleTables
 
-	if w.Preparer != nil {
-		if err := w.Preparer.PrepareCandidate(ctx, candidate); err != nil {
-			_ = metadata.MarkBuildFailed(ctx, w.DB, buildKey, err.Error())
-			return result, err
-		}
-	}
 	if err := metadata.MarkBuildReady(ctx, w.DB, buildKey); err != nil {
 		return result, err
 	}
