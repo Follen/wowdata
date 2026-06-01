@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS listfile_index (
+  source_hash TEXT NOT NULL PRIMARY KEY,
+  source_url TEXT NOT NULL,
+  row_count INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

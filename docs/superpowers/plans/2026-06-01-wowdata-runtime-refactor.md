@@ -1476,7 +1476,7 @@ git commit -m "http service add context pool scheduler"
 - Modify: `go.mod`
 - Modify: `go.sum`
 
-- [ ] **Step 1: Add SQLite dependency**
+- [x] **Step 1: Add SQLite dependency**
 
 Run:
 
@@ -1486,7 +1486,7 @@ go get modernc.org/sqlite@v1.34.5
 
 Expected: `go.mod` and `go.sum` include `modernc.org/sqlite`.
 
-- [ ] **Step 2: Write cache path tests**
+- [x] **Step 2: Write cache path tests**
 
 Create `internal/cache/paths_test.go`:
 
@@ -1509,11 +1509,11 @@ func TestRejectTraversalArtifactPath(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Implement cache paths**
+- [x] **Step 3: Implement cache paths**
 
 Create `internal/cache/paths.go` with `DB2ParquetPath`, `RawCASCPath`, `EnsureUnderRoot`, and unexported `filepathSlash`. `EnsureUnderRoot` must use `filepath.Abs`, `filepath.Clean`, and `filepath.Rel`, and must reject `..`, absolute child paths, and empty root.
 
-- [ ] **Step 4: Write SQLite migration tests**
+- [x] **Step 4: Write SQLite migration tests**
 
 Create `internal/cache/metadata/sqlite_test.go`:
 
@@ -1542,7 +1542,7 @@ func TestMigrationsAreIdempotent(t *testing.T) {
 }
 ```
 
-- [ ] **Step 5: Implement SQLite migration runner**
+- [x] **Step 5: Implement SQLite migration runner**
 
 Create `internal/cache/metadata/sqlite.go` with:
 
@@ -1621,7 +1621,7 @@ func migrate(db *sql.DB, dir string) error {
 }
 ```
 
-- [ ] **Step 6: Add migration SQL**
+- [x] **Step 6: Add migration SQL**
 
 Create each migration with concrete tables:
 
@@ -1711,15 +1711,15 @@ CREATE TABLE IF NOT EXISTS cache_audit (
 );
 ```
 
-- [ ] **Step 7: Write materialized stale tests**
+- [x] **Step 7: Write materialized stale tests**
 
 Create `internal/cache/metadata/materialized_test.go` to insert a `MaterializedTable` with matching fingerprints, assert `Valid`, then change `DecoderVersion` and assert `Stale`.
 
-- [ ] **Step 8: Implement materialized table repository**
+- [x] **Step 8: Implement materialized table repository**
 
 Create `internal/cache/metadata/materialized.go` with `MaterializedTable`, `UpsertMaterializedTable`, `GetMaterializedTable`, `MarkMaterializedTableStale`, and `FingerprintMatches`.
 
-- [ ] **Step 9: Run metadata tests**
+- [x] **Step 9: Run metadata tests**
 
 Run:
 
