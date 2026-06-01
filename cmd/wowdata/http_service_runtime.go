@@ -43,20 +43,27 @@ func (r runtimeContextResolver) ResolveContext(ctx context.Context, rc httpservi
 		r.rt = NewRuntime()
 	}
 	resolved := httpservice.NewService(r.cfg, nil).ResolveRequestContext(rc)
-	if _, err := r.rt.initialize(warmupOptions{
+	result, err := r.rt.initialize(warmupOptions{
 		Source:          "remote",
 		Region:          resolved.Region,
 		Product:         resolved.Product,
 		Locale:          resolved.Locale,
 		CacheRoot:       r.cfg.Cache.Root,
 		WarmDBDManifest: true,
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
+	}
+	if status, _ := result["status"].(string); status == "no_build" {
+		return nil, fmt.Errorf("no build found for %s/%s", resolved.Region, resolved.Product)
 	}
 	r.rt.mu.Lock()
 	defer r.rt.mu.Unlock()
 	if r.rt.warmup == nil {
 		return nil, sql.ErrNoRows
+	}
+	if r.rt.warmup.Region != resolved.Region || r.rt.warmup.Product != resolved.Product || r.rt.warmup.Locale != resolved.Locale {
+		return nil, fmt.Errorf("resolved runtime context mismatch: got %s/%s/%s, want %s/%s/%s", r.rt.warmup.Region, r.rt.warmup.Product, r.rt.warmup.Locale, resolved.Region, resolved.Product, resolved.Locale)
 	}
 	return &appruntime.Context{
 		Source:      r.rt.warmup.Source,
