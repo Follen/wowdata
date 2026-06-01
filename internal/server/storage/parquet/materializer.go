@@ -40,9 +40,10 @@ type tempObserver interface {
 }
 
 type Materializer struct {
-	db      *sql.DB
-	decoder TableDecoder
-	writer  RowWriter
+	db               *sql.DB
+	decoder          TableDecoder
+	writer           RowWriter
+	validateExisting func(string, cacheparquet.Metadata) (cacheparquet.Metadata, error)
 }
 
 type Result struct {
@@ -52,13 +53,23 @@ type Result struct {
 }
 
 func NewMaterializer(db *sql.DB, decoder TableDecoder, writer RowWriter) Materializer {
-	if writer == nil {
-		writer = parquetRowWriter{}
-	}
-	return Materializer{db: db, decoder: decoder, writer: writer}
+	return Materializer{db: db, decoder: decoder, writer: writer, validateExisting: cacheparquet.ValidateExisting}
 }
 
 func (m Materializer) Materialize(ctx context.Context, spec TableSpec) (Result, error) {
+	if m.db == nil {
+		return Result{}, errors.New("metadata db is required")
+	}
+	if m.decoder == nil {
+		return Result{}, errors.New("table decoder is required")
+	}
+	if m.writer == nil {
+		return Result{}, errors.New("row writer is required")
+	}
+	if m.validateExisting == nil {
+		m.validateExisting = cacheparquet.ValidateExisting
+	}
+
 	want := parquetMetadata(spec)
 	table := materializedTable(spec, metadata.StatePreparing, 0)
 
@@ -66,7 +77,7 @@ func (m Materializer) Materialize(ctx context.Context, spec TableSpec) (Result, 
 	if existing, err := metadata.LatestValidMaterializedTable(ctx, m.db, metadata.TableLookup{
 		Region: spec.Key.Region, Product: spec.Key.Product, Locale: spec.Key.Locale, TableName: spec.Key.TableName,
 	}); err == nil && existing.Key == spec.Key && existing.ParquetPath == spec.ParquetPath {
-		if _, err := cacheparquet.ValidateExisting(existing.ParquetPath, want); err == nil {
+		if _, err := m.validateExisting(existing.ParquetPath, want); err == nil {
 			return Result{Reused: true, ParquetPath: existing.ParquetPath, RowCount: existing.RowCount}, nil
 		} else {
 			staleReason = fmt.Sprintf("stale parquet metadata: %v", err)
@@ -85,29 +96,28 @@ func (m Materializer) Materialize(ctx context.Context, spec TableSpec) (Result, 
 		}
 	}
 
-	if m.decoder == nil {
-		return Result{}, errors.New("table decoder is required")
-	}
 	decoded, err := m.decoder.DecodeTable(ctx, spec, staleReason)
 	if err != nil {
 		_ = metadata.MarkMaterializedTableState(ctx, m.db, spec.Key, metadata.StateFailed, err.Error())
 		return Result{}, err
-	}
-	if decoded.Release != nil {
-		defer decoded.Release()
 	}
 
 	if err := m.writeAtomically(spec.ParquetPath, want, spec.Schema, decoded.Rows); err != nil {
 		_ = metadata.MarkMaterializedTableState(ctx, m.db, spec.Key, metadata.StateFailed, err.Error())
 		return Result{}, err
 	}
-	if _, err := cacheparquet.ValidateExisting(spec.ParquetPath, want); err != nil {
+	rowCount := len(decoded.Rows)
+	if decoded.Release != nil {
+		decoded.Release()
+		decoded.Rows = nil
+	}
+	if _, err := m.validateExisting(spec.ParquetPath, want); err != nil {
 		_ = metadata.MarkMaterializedTableState(ctx, m.db, spec.Key, metadata.StateFailed, err.Error())
 		return Result{}, err
 	}
 
 	table.State = metadata.StateValid
-	table.RowCount = len(decoded.Rows)
+	table.RowCount = rowCount
 	if err := metadata.UpsertMaterializedTable(ctx, m.db, table); err != nil {
 		return Result{}, err
 	}
@@ -135,7 +145,7 @@ func (m Materializer) writeAtomically(path string, meta cacheparquet.Metadata, s
 	}()
 
 	if observer, ok := m.writer.(tempObserver); ok {
-		observer.ObserveTemp(path)
+		observer.ObserveTemp(tmpPath)
 	}
 	if err := m.writer.WriteRows(tmpPath, meta, schema, rows); err != nil {
 		return err

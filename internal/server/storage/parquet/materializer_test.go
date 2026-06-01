@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -136,6 +137,115 @@ func TestMaterializeReleasesDecodedRowsAfterWrite(t *testing.T) {
 	}
 }
 
+func TestMaterializeNilDependenciesReturnClearErrorsWithoutMetadataMutation(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	spec := testSpec(root)
+
+	cases := []struct {
+		name string
+		run  func(*sql.DB) error
+		want string
+	}{
+		{
+			name: "nil db",
+			run: func(*sql.DB) error {
+				_, err := NewMaterializer(nil, &fakeDecoder{}, &observingWriter{}).Materialize(ctx, spec)
+				return err
+			},
+			want: "metadata db is required",
+		},
+		{
+			name: "nil decoder",
+			run: func(db *sql.DB) error {
+				_, err := NewMaterializer(db, nil, &observingWriter{}).Materialize(ctx, spec)
+				return err
+			},
+			want: "table decoder is required",
+		},
+		{
+			name: "nil writer",
+			run: func(db *sql.DB) error {
+				_, err := NewMaterializer(db, &fakeDecoder{}, nil).Materialize(ctx, spec)
+				return err
+			},
+			want: "row writer is required",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := openMetadataDB(t)
+			err := tc.run(db)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want containing %q", err, tc.want)
+			}
+			assertNoMaterializedRow(t, db, spec.Key)
+		})
+	}
+}
+
+func TestMaterializeWriterAndObserverReceiveTempPath(t *testing.T) {
+	ctx := context.Background()
+	db := openMetadataDB(t)
+	root := t.TempDir()
+	spec := testSpec(root)
+	decoder := &fakeDecoder{rows: []map[string]interface{}{{"ID": int32(1), "Name": "Temp"}}}
+	writer := &observingWriter{write: cacheparquet.WriteRowsFile}
+
+	if _, err := NewMaterializer(db, decoder, writer).Materialize(ctx, spec); err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
+
+	if writer.observedPath == "" {
+		t.Fatal("observer did not receive a path")
+	}
+	if writer.writePath == "" {
+		t.Fatal("writer did not receive a path")
+	}
+	if writer.writePath == spec.ParquetPath {
+		t.Fatalf("writer path = final path %q, want temp path", writer.writePath)
+	}
+	if writer.observedPath != writer.writePath {
+		t.Fatalf("observer path = %q, writer path = %q, want same temp path", writer.observedPath, writer.writePath)
+	}
+}
+
+func TestMaterializeReleasesRowsBeforeFooterValidationAndMetadataUpsert(t *testing.T) {
+	ctx := context.Background()
+	db := openMetadataDB(t)
+	root := t.TempDir()
+	spec := testSpec(root)
+	rows := &rowBuffer{values: []map[string]interface{}{{"ID": int32(1), "Name": "Early"}}}
+	decoder := &fakeDecoder{buffer: rows}
+	writer := &observingWriter{
+		write: cacheparquet.WriteRowsFile,
+	}
+	materializer := NewMaterializer(db, decoder, writer)
+	materializer.validateExisting = func(path string, meta cacheparquet.Metadata) (cacheparquet.Metadata, error) {
+		if path == spec.ParquetPath {
+			if !rows.released {
+				return cacheparquet.Metadata{}, errors.New("rows were not released before footer validation")
+			}
+			if rows.values != nil {
+				return cacheparquet.Metadata{}, fmt.Errorf("row values = %#v, want nil before validation", rows.values)
+			}
+			if got := materializedState(t, db, spec.Key); got != metadata.StatePreparing {
+				return cacheparquet.Metadata{}, fmt.Errorf("state after write before metadata upsert = %q, want preparing", got)
+			}
+		}
+		return cacheparquet.ValidateExisting(path, meta)
+	}
+
+	result, err := materializer.Materialize(ctx, spec)
+	if err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
+	if result.RowCount != 1 {
+		t.Fatalf("row count = %d, want 1 captured before release", result.RowCount)
+	}
+}
+
 type fakeDecoder struct {
 	rows            []map[string]interface{}
 	buffer          *rowBuffer
@@ -173,22 +283,32 @@ func (b *rowBuffer) Release() {
 }
 
 type observingWriter struct {
-	write   func(string, cacheparquet.Metadata, []cacheparquet.Field, []map[string]interface{}) error
-	calls   int
-	sawTemp bool
+	write        func(string, cacheparquet.Metadata, []cacheparquet.Field, []map[string]interface{}) error
+	afterWrite   func() error
+	calls        int
+	sawTemp      bool
+	writePath    string
+	observedPath string
 }
 
 func (w *observingWriter) WriteRows(path string, meta cacheparquet.Metadata, schema []cacheparquet.Field, rows []map[string]interface{}) error {
 	w.calls++
+	w.writePath = path
 	if w.write == nil {
 		return nil
 	}
-	return w.write(path, meta, schema, rows)
+	if err := w.write(path, meta, schema, rows); err != nil {
+		return err
+	}
+	if w.afterWrite != nil {
+		return w.afterWrite()
+	}
+	return nil
 }
 
 func (w *observingWriter) ObserveTemp(path string) {
-	matches, _ := filepath.Glob(filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*"))
-	if len(matches) > 0 {
+	w.observedPath = path
+	if _, err := os.Stat(path); err == nil {
 		w.sawTemp = true
 	}
 }
@@ -249,6 +369,22 @@ WHERE region = ? AND product = ? AND locale = ? AND build_key = ? AND table_name
 		t.Fatalf("query materialized state: %v", err)
 	}
 	return state
+}
+
+func assertNoMaterializedRow(t *testing.T, db *sql.DB, key metadata.TableKey) {
+	t.Helper()
+	var count int
+	err := db.QueryRow(`
+SELECT COUNT(*) FROM server_materialized_tables
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ? AND table_name = ?`,
+		key.Region, key.Product, key.Locale, key.BuildKey, key.TableName,
+	).Scan(&count)
+	if err != nil {
+		t.Fatalf("count materialized rows: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("materialized rows = %d, want 0", count)
+	}
 }
 
 func openMetadataDB(t *testing.T) *sql.DB {

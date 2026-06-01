@@ -1,6 +1,7 @@
 package duckdb
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -145,6 +146,88 @@ func TestQueryBuilderRejectsParquetPathTraversal(t *testing.T) {
 	_, _, err := builder.BuildSchemaSQL(TableRef{TableName: "Spell", ParquetPath: evilPath})
 	if err == nil {
 		t.Fatal("expected path traversal error")
+	}
+}
+
+func TestQueryBuilderRejectsNegativeLimitAndOffset(t *testing.T) {
+	root := t.TempDir()
+	builder := NewQueryBuilder(root)
+	table := tableRef(root, "Spell")
+
+	cases := []struct {
+		name string
+		run  func() error
+	}{
+		{
+			name: "rows negative limit",
+			run: func() error {
+				_, _, err := builder.BuildRowsSQL(table, RowsQuery{Limit: -1})
+				return err
+			},
+		},
+		{
+			name: "rows negative offset",
+			run: func() error {
+				_, _, err := builder.BuildRowsSQL(table, RowsQuery{Offset: -1})
+				return err
+			},
+		},
+		{
+			name: "search negative limit",
+			run: func() error {
+				_, _, err := builder.BuildSearchSQL(table, SearchQuery{SearchColumn: "Name_lang", Pattern: "foo", Limit: -1})
+				return err
+			},
+		},
+		{
+			name: "foreign key negative limit",
+			run: func() error {
+				_, _, err := builder.BuildForeignKeySQL(table, ForeignKeyQuery{Field: "ID", Value: 1, Limit: -1})
+				return err
+			},
+		},
+		{
+			name: "stream negative limit",
+			run: func() error {
+				_, _, err := builder.BuildStreamSQL(table, StreamQuery{Limit: -1})
+				return err
+			},
+		},
+		{
+			name: "stream negative offset",
+			run: func() error {
+				_, _, err := builder.BuildStreamSQL(table, StreamQuery{Offset: -1})
+				return err
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := tc.run(); err == nil {
+				t.Fatal("expected negative limit/offset error")
+			}
+		})
+	}
+}
+
+func TestQueryBuilderRejectsSymlinkEscapeFromTrustedRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "Spell.parquet"), []byte("outside"), 0o644); err != nil {
+		t.Fatalf("write outside parquet: %v", err)
+	}
+	link := filepath.Join(root, "linked")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skipf("symlink creation unavailable on this platform or account: %v", err)
+	}
+
+	_, _, err := NewQueryBuilder(root).BuildSchemaSQL(TableRef{
+		TableName:   "Spell",
+		ParquetPath: filepath.Join(link, "Spell.parquet"),
+	})
+	if err == nil {
+		t.Fatal("expected symlink escape error")
 	}
 }
 
