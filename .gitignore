@@ -4,3 +4,7 @@ dist/
 AGENT.md
 AGENTS.md
 *.log
+cache/
+*.sqlite
+*.duckdb
+*.parquet

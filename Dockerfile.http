@@ -1,0 +1,12 @@
+FROM gcr.io/distroless/base-debian12:nonroot
+
+WORKDIR /srv/wowdata
+
+COPY dist/linux-amd64/wowdata /usr/local/bin/wowdata
+COPY migrations /srv/wowdata/migrations
+COPY config/http-mcp.example.yaml /srv/wowdata/config/http-mcp.example.yaml
+
+EXPOSE 9788
+
+ENTRYPOINT ["/usr/local/bin/wowdata"]
+CMD ["mcp", "http", "--config", "/etc/wowdata/http-mcp.yaml"]
