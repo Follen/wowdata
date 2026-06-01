@@ -36,3 +36,27 @@ func TestLocalRuntimeActiveContextReturnsCopy(t *testing.T) {
 		t.Fatalf("active context was mutated through returned pointer: %#v", active)
 	}
 }
+
+func TestLocalRuntimeActiveContextCopiesTablesReady(t *testing.T) {
+	rt := NewLocalRuntime(LocalRuntimeOptions{CacheRoot: "cache"})
+	ctx := &Context{
+		Product:     "wowt",
+		BuildKey:    "b",
+		TablesReady: map[string]bool{"SpellName": true},
+	}
+
+	rt.SetActiveContext(ctx)
+	ctx.TablesReady["Injected"] = true
+
+	active := rt.ActiveContext()
+	if active.HasTable("Injected") {
+		t.Fatal("active context included table injected through original context map")
+	}
+
+	active.TablesReady["InjectedReturn"] = true
+
+	active = rt.ActiveContext()
+	if active.HasTable("InjectedReturn") {
+		t.Fatal("active context included table injected through returned context map")
+	}
+}

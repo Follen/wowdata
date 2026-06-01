@@ -35,20 +35,25 @@ func (r *LocalRuntime) SetCacheRoot(value string) {
 func (r *LocalRuntime) SetActiveContext(ctx *Context) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if ctx == nil {
-		r.active = nil
-		return
-	}
-	copy := *ctx
-	r.active = &copy
+	r.active = copyContext(ctx)
 }
 
 func (r *LocalRuntime) ActiveContext() *Context {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.active == nil {
+	return copyContext(r.active)
+}
+
+func copyContext(ctx *Context) *Context {
+	if ctx == nil {
 		return nil
 	}
-	copy := *r.active
+	copy := *ctx
+	if ctx.TablesReady != nil {
+		copy.TablesReady = make(map[string]bool, len(ctx.TablesReady))
+		for table, ready := range ctx.TablesReady {
+			copy.TablesReady[table] = ready
+		}
+	}
 	return &copy
 }
