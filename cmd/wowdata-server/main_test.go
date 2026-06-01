@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -55,6 +56,7 @@ func TestServerHTTPCommandInvokesRunnerWithConfig(t *testing.T) {
 		"--config", "/etc/wowdata/http-mcp.yaml",
 		"--host", "0.0.0.0",
 		"--port", "11223",
+		"--artifact-root", "/srv/wowdata/artifacts",
 	})
 
 	if err := cmd.Execute(); err != nil {
@@ -71,6 +73,9 @@ func TestServerHTTPCommandInvokesRunnerWithConfig(t *testing.T) {
 	}
 	if got.Port != 11223 {
 		t.Fatalf("Port = %d", got.Port)
+	}
+	if got.ArtifactRoot != "/srv/wowdata/artifacts" {
+		t.Fatalf("ArtifactRoot = %q", got.ArtifactRoot)
 	}
 }
 
@@ -107,6 +112,32 @@ func TestServerHealthUsesSharedHealthSnapshotProvider(t *testing.T) {
 	}
 	if got.Readiness.RequiredTargetsTotal != 2 || got.Contexts[0].Label != "CN Retail" {
 		t.Fatalf("/health did not return shared snapshot: %#v", got)
+	}
+}
+
+func TestServerFileRouteServesArtifacts(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "exports"), 0755); err != nil {
+		t.Fatalf("create exports dir: %v", err)
+	}
+	want := []byte("server artifact")
+	if err := os.WriteFile(filepath.Join(root, "exports", "data.json"), want, 0644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+	handler := newHTTPHandler(httpOptions{
+		ServiceName:  "wowdata-server",
+		ArtifactRoot: root,
+	}, &testHealthProvider{})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/files/exports/data.json", nil)
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Equal(rec.Body.Bytes(), want) {
+		t.Fatalf("body = %q, want %q", rec.Body.Bytes(), want)
 	}
 }
 

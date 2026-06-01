@@ -11,16 +11,18 @@ import (
 	"wowdata/internal/server/health"
 	"wowdata/internal/server/mcphttp"
 	serverruntime "wowdata/internal/server/runtime"
+	"wowdata/internal/server/storage/artifacts"
 
 	"github.com/spf13/cobra"
 )
 
 type httpOptions struct {
-	ServiceName string
-	ConfigPath  string
-	Host        string
-	Port        int
-	BaseURL     string
+	ServiceName  string
+	ConfigPath   string
+	Host         string
+	Port         int
+	BaseURL      string
+	ArtifactRoot string
 }
 
 type httpRunner func(httpOptions) error
@@ -81,6 +83,7 @@ The MCP endpoint is /mcp. Health is available at /health.`,
 	cmd.Flags().StringVar(&opts.Host, "host", opts.Host, "Host/interface to bind")
 	cmd.Flags().IntVar(&opts.Port, "port", opts.Port, "Port to bind")
 	cmd.Flags().StringVar(&opts.BaseURL, "base-url", "", "Public base URL used in help output")
+	cmd.Flags().StringVar(&opts.ArtifactRoot, "artifact-root", "", "Directory served under /files/")
 	return cmd
 }
 
@@ -115,6 +118,9 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 			"message": "server MCP tools will be wired by the server service task",
 		})
 	})
+	if opts.ArtifactRoot != "" {
+		mux.Handle("/files/", artifacts.FileHandler(opts.ArtifactRoot))
+	}
 	return mux
 }
 
