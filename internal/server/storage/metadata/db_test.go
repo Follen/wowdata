@@ -359,6 +359,49 @@ WHERE region = 'us' AND product = 'wow' AND locale = 'enUS' AND table_name = 'Sp
 	}
 }
 
+func TestOpenWithMigrationsBackfillsLegacyMaterializedRowOrder(t *testing.T) {
+	ctx := context.Background()
+	migrationsDir := filepath.Join(t.TempDir(), "migrations", "server")
+	copyServerMigrations(t, migrationsDir)
+	path := filepath.Join(t.TempDir(), "legacy-metadata.sqlite")
+	seedLegacyMaterializedMetadataDB(t, path)
+	insertLegacyMaterializedRow(t, path, "build-old", "2026-06-02 00:00:01", 1)
+	insertLegacyMaterializedRow(t, path, "build-new", "2026-06-02 00:00:02", 2)
+
+	db, err := OpenWithMigrations(path, migrationsDir)
+	if err != nil {
+		t.Fatalf("open legacy metadata DB with rows: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	latest, err := LatestValidMaterializedTable(ctx, db, TableLookup{
+		Region: "us", Product: "wow", Locale: "enUS", TableName: "Spell",
+	})
+	if err != nil {
+		t.Fatalf("latest valid table after legacy row backfill: %v", err)
+	}
+	if latest.Key.BuildKey != "build-new" {
+		t.Fatalf("latest legacy build key = %q, want build-new", latest.Key.BuildKey)
+	}
+	if latest.RowCount != 2 {
+		t.Fatalf("latest legacy row count = %d, want 2", latest.RowCount)
+	}
+
+	var oldSeq, newSeq, seededSeq int64
+	if err := db.QueryRow(`SELECT updated_seq FROM server_materialized_tables WHERE build_key = 'build-old'`).Scan(&oldSeq); err != nil {
+		t.Fatalf("query old legacy updated_seq: %v", err)
+	}
+	if err := db.QueryRow(`SELECT updated_seq FROM server_materialized_tables WHERE build_key = 'build-new'`).Scan(&newSeq); err != nil {
+		t.Fatalf("query new legacy updated_seq: %v", err)
+	}
+	if err := db.QueryRow(`SELECT value FROM server_metadata_sequences WHERE name = 'server_materialized_tables'`).Scan(&seededSeq); err != nil {
+		t.Fatalf("query materialized sequence seed: %v", err)
+	}
+	if !(oldSeq > 0 && newSeq > oldSeq && seededSeq == newSeq) {
+		t.Fatalf("legacy sequence backfill old/new/seed = %d/%d/%d, want positive increasing and seeded to new", oldSeq, newSeq, seededSeq)
+	}
+}
+
 func TestListfileSourceHashUpdateMarksIndexStale(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)
@@ -552,6 +595,32 @@ ON server_materialized_tables(region, product, locale, table_name, state, update
 		if _, err := db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES (?, CURRENT_TIMESTAMP)`, version); err != nil {
 			t.Fatalf("record legacy migration %s: %v", version, err)
 		}
+	}
+}
+
+func insertLegacyMaterializedRow(t *testing.T, path string, buildKey string, updatedAt string, rowCount int) {
+	t.Helper()
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open legacy metadata DB for row insert: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`
+INSERT INTO server_materialized_tables (
+  region, product, locale, build_key, table_name,
+  db2_file_data_id, dbd_hash, decoder_version, materializer_version,
+  parquet_path, row_count, state, error, updated_at
+) VALUES (
+  'us', 'wow', 'enUS', ?, 'Spell',
+  123, 'dbd-a', 'decoder-1', 'materializer-1',
+  ?, ?, 'valid', '', ?
+)`,
+		buildKey,
+		"cache/db2/spell-"+buildKey+".parquet",
+		rowCount,
+		updatedAt,
+	); err != nil {
+		t.Fatalf("insert legacy materialized row %s: %v", buildKey, err)
 	}
 }
 
