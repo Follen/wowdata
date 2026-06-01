@@ -60,8 +60,8 @@ func TestMigrationsCreateRequiredTables(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&applied); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if applied != 7 {
-		t.Fatalf("applied migrations = %d, want 7", applied)
+	if applied != 8 {
+		t.Fatalf("applied migrations = %d, want 8", applied)
 	}
 
 	db.Close()
@@ -69,8 +69,8 @@ func TestMigrationsCreateRequiredTables(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&applied); err != nil {
 		t.Fatalf("count migrations after reopen: %v", err)
 	}
-	if applied != 7 {
-		t.Fatalf("applied migrations after reopen = %d, want 7", applied)
+	if applied != 8 {
+		t.Fatalf("applied migrations after reopen = %d, want 8", applied)
 	}
 
 	artifact := Artifact{
@@ -298,6 +298,67 @@ WHERE region = 'us' AND product = 'wow' AND locale = 'enUS' AND table_name = 'Sp
 	}
 }
 
+func TestOpenWithMigrationsUpgradesLegacyMaterializedTableSchema(t *testing.T) {
+	ctx := context.Background()
+	migrationsDir := filepath.Join(t.TempDir(), "migrations", "server")
+	copyServerMigrations(t, migrationsDir)
+	path := filepath.Join(t.TempDir(), "legacy-metadata.sqlite")
+	seedLegacyMaterializedMetadataDB(t, path)
+
+	db, err := OpenWithMigrations(path, migrationsDir)
+	if err != nil {
+		t.Fatalf("open legacy metadata DB: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	lookup := TableLookup{Region: "us", Product: "wow", Locale: "enUS", TableName: "Spell"}
+	first := MaterializedTable{
+		Key:                 TableKey{Region: lookup.Region, Product: lookup.Product, Locale: lookup.Locale, BuildKey: "build-2", TableName: lookup.TableName},
+		DB2FileDataID:       123,
+		DBDHash:             "dbd-a",
+		DecoderVersion:      "decoder-1",
+		MaterializerVersion: "materializer-1",
+		ParquetPath:         "cache/db2/spell-build-2.parquet",
+		RowCount:            2,
+		State:               StateValid,
+	}
+	second := first
+	second.Key.BuildKey = "build-10"
+	second.ParquetPath = "cache/db2/spell-build-10.parquet"
+	second.RowCount = 10
+
+	if err := UpsertMaterializedTable(ctx, db, first); err != nil {
+		t.Fatalf("upsert first table after legacy upgrade: %v", err)
+	}
+	if err := UpsertMaterializedTable(ctx, db, second); err != nil {
+		t.Fatalf("upsert second table after legacy upgrade: %v", err)
+	}
+	if _, err := db.Exec(`
+UPDATE server_materialized_tables
+SET updated_at = '2026-06-02 00:00:00'
+WHERE region = 'us' AND product = 'wow' AND locale = 'enUS' AND table_name = 'Spell'`); err != nil {
+		t.Fatalf("force same-second updated_at after legacy upgrade: %v", err)
+	}
+
+	latest, err := LatestValidMaterializedTable(ctx, db, lookup)
+	if err != nil {
+		t.Fatalf("latest valid table after legacy upgrade: %v", err)
+	}
+	if latest.Key.BuildKey != "build-10" {
+		t.Fatalf("latest build key after legacy upgrade = %q, want build-10", latest.Key.BuildKey)
+	}
+
+	var seq int64
+	if err := db.QueryRow(`
+SELECT updated_seq FROM server_materialized_tables
+WHERE region = 'us' AND product = 'wow' AND locale = 'enUS' AND table_name = 'Spell' AND build_key = 'build-10'`).Scan(&seq); err != nil {
+		t.Fatalf("query upgraded updated_seq: %v", err)
+	}
+	if seq <= 0 {
+		t.Fatalf("updated_seq after legacy upgrade = %d, want positive", seq)
+	}
+}
+
 func TestListfileSourceHashUpdateMarksIndexStale(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)
@@ -438,6 +499,58 @@ func copyServerMigrations(t *testing.T, dst string) {
 		}
 		if err := os.WriteFile(filepath.Join(dst, entry.Name()), data, 0644); err != nil {
 			t.Fatalf("write runtime migration %s: %v", entry.Name(), err)
+		}
+	}
+}
+
+func seedLegacyMaterializedMetadataDB(t *testing.T, path string) {
+	t.Helper()
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open legacy metadata DB for seed: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`
+CREATE TABLE schema_migrations (
+  version TEXT PRIMARY KEY,
+  applied_at TEXT NOT NULL
+);
+
+CREATE TABLE server_materialized_tables (
+  region TEXT NOT NULL,
+  product TEXT NOT NULL,
+  locale TEXT NOT NULL,
+  build_key TEXT NOT NULL,
+  table_name TEXT NOT NULL,
+  db2_file_data_id INTEGER NOT NULL,
+  dbd_hash TEXT NOT NULL DEFAULT '',
+  decoder_version TEXT NOT NULL DEFAULT '',
+  materializer_version TEXT NOT NULL DEFAULT '',
+  parquet_path TEXT NOT NULL DEFAULT '',
+  row_count INTEGER NOT NULL DEFAULT 0,
+  state TEXT NOT NULL CHECK(state IN ('valid', 'stale', 'preparing', 'failed')),
+  error TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(region, product, locale, build_key, table_name)
+);
+
+CREATE INDEX server_materialized_tables_lookup
+ON server_materialized_tables(region, product, locale, table_name, state, updated_at);
+`); err != nil {
+		t.Fatalf("create legacy metadata schema: %v", err)
+	}
+	for _, version := range []string{
+		"0001_init.sql",
+		"0002_builds.sql",
+		"0003_materialized_tables.sql",
+		"0004_listfile.sql",
+		"0005_casc_index.sql",
+		"0006_artifacts.sql",
+		"0007_refresh.sql",
+	} {
+		if _, err := db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES (?, CURRENT_TIMESTAMP)`, version); err != nil {
+			t.Fatalf("record legacy migration %s: %v", version, err)
 		}
 	}
 }
