@@ -3,9 +3,9 @@ package http
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
+	"wowdata/internal/cache/duckdb"
 	"wowdata/internal/config"
 )
 
@@ -110,16 +110,23 @@ func TestServiceEnsureTableRejectsMissingMaterializerWithoutCaching(t *testing.T
 	if err == nil {
 		t.Fatal("EnsureTable missing materializer error = nil")
 	}
-	if !strings.Contains(err.Error(), "materializer") {
-		t.Fatalf("EnsureTable error = %q, want materializer context", err.Error())
+	var capabilityErr CapabilityError
+	if !errors.As(err, &capabilityErr) {
+		t.Fatalf("EnsureTable error = %T %[1]v, want CapabilityError", err)
+	}
+	if capabilityErr.Code != "query_engine_unavailable" {
+		t.Fatalf("EnsureTable error code = %q, want query_engine_unavailable", capabilityErr.Code)
 	}
 
 	err = svc.EnsureTable(context.Background(), rc, "SpellName")
 	if err == nil {
 		t.Fatal("EnsureTable second missing materializer error = nil")
 	}
-	if !strings.Contains(err.Error(), "materializer") {
-		t.Fatalf("EnsureTable second error = %q, want materializer context", err.Error())
+	if !errors.As(err, &capabilityErr) {
+		t.Fatalf("EnsureTable second error = %T %[1]v, want CapabilityError", err)
+	}
+	if capabilityErr.Code != "query_engine_unavailable" {
+		t.Fatalf("EnsureTable second error code = %q, want query_engine_unavailable", capabilityErr.Code)
 	}
 }
 
@@ -145,6 +152,30 @@ func TestServiceEnsureTableRetriesAfterMaterializationError(t *testing.T) {
 
 	if calls != 2 {
 		t.Fatalf("materialize calls = %d, want 2", calls)
+	}
+}
+
+func TestServiceEnsureTableMapsQueryEngineUnavailable(t *testing.T) {
+	svc := NewService(config.DefaultHTTPConfig(), nil)
+	var calls int
+	svc.SetMaterializeFuncForTest(func(context.Context, RequestContext, string) error {
+		calls++
+		return duckdb.ErrUnavailable
+	})
+
+	rc := RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"}
+	for i := 0; i < 2; i++ {
+		err := svc.EnsureTable(context.Background(), rc, "SpellName")
+		var capabilityErr CapabilityError
+		if !errors.As(err, &capabilityErr) {
+			t.Fatalf("EnsureTable error = %T %[1]v, want CapabilityError", err)
+		}
+		if capabilityErr.Code != "query_engine_unavailable" {
+			t.Fatalf("EnsureTable error code = %q, want query_engine_unavailable", capabilityErr.Code)
+		}
+	}
+	if calls != 2 {
+		t.Fatalf("materialize calls = %d, want 2 so unavailable failures are not cached", calls)
 	}
 }
 

@@ -6,7 +6,7 @@
 
 **Architecture:** Keep the current CLI and stdio command semantics stable while extracting reusable runtime context and query services underneath them. Build HTTP as a separate service runtime with its own config, context pool, lazy prepare, SQLite metadata, Parquet materialization, DuckDB querying, artifact manager, build watcher, and Docker deployment path.
 
-**Tech Stack:** Go 1.22.2, Cobra, existing CASC/DB2/DBD/listfile readers, Go MCP server, SQLite, Parquet, DuckDB, Docker 20.10.24 on remote `211.154.18.253:11224`, nginx reverse proxy, PowerShell deployment scripts under `.local/wowdata/`.
+**Tech Stack:** Go 1.26.1, Cobra, existing CASC/DB2/DBD/listfile readers, Go MCP server, SQLite, Parquet, DuckDB, Docker 20.10.24 on remote `211.154.18.253:11224`, nginx reverse proxy, PowerShell deployment scripts under `.local/wowdata/`.
 
 ---
 
@@ -2095,7 +2095,7 @@ git commit -m "mcp split stdio and http tools"
 - Modify: `go.mod`
 - Modify: `go.sum`
 
-- [ ] **Step 1: Add dependencies**
+- [x] **Step 1: Add dependencies**
 
 Run:
 
@@ -2106,7 +2106,7 @@ go get github.com/marcboeker/go-duckdb/v2@v2.3.3
 
 Expected: dependencies are recorded in `go.mod` and `go.sum`.
 
-- [ ] **Step 2: Write Parquet metadata tests**
+- [x] **Step 2: Write Parquet metadata tests**
 
 Create `internal/cache/parquet/store_test.go`:
 
@@ -2125,11 +2125,11 @@ func TestMetadataFingerprintMismatchIsInvalid(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Implement Parquet metadata API**
+- [x] **Step 3: Implement Parquet metadata API**
 
 Create `internal/cache/parquet/store.go` with `Metadata`, `Matches`, `PathFor`, and `ValidateExisting`. `ValidateExisting` must return `ErrStale` on fingerprint mismatch.
 
-- [ ] **Step 4: Write DuckDB parameter test**
+- [x] **Step 4: Write DuckDB parameter test**
 
 Create `internal/cache/duckdb/engine_test.go`:
 
@@ -2148,7 +2148,7 @@ func TestBuildQueryRejectsIdentifierInjection(t *testing.T) {
 }
 ```
 
-- [ ] **Step 5: Implement DuckDB engine**
+- [x] **Step 5: Implement DuckDB engine**
 
 Create `internal/cache/duckdb/engine.go` and `query.go` with:
 
@@ -2159,11 +2159,11 @@ func SelectByID(table string, field string, id uint32) (string, []interface{}, e
 
 `SelectByID` must return SQL with a `?` parameter marker and args slice containing `id`.
 
-- [ ] **Step 6: Integrate materializer**
+- [x] **Step 6: Integrate materializer**
 
 Modify `internal/service/http/materializer.go` so successful DB2 decode writes Parquet metadata, validates the written file, and records SQLite `materialized_tables`. If Parquet or DuckDB is unavailable, return `query_engine_unavailable` for paths that require DuckDB.
 
-- [ ] **Step 7: Run cache tests**
+- [x] **Step 7: Run cache tests**
 
 Run:
 
@@ -2173,13 +2173,13 @@ go test ./internal/cache/... ./internal/service/http -count=1
 
 Expected: all packages pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Run:
 
 ```powershell
-git add go.mod go.sum internal/cache/parquet internal/cache/duckdb internal/service/http/materializer.go
-git commit -m "cache add parquet duckdb materialization"
+git add go.mod go.sum internal/cache/parquet internal/cache/duckdb internal/service/http docs/superpowers/plans/2026-06-01-wowdata-runtime-refactor.md
+git commit -m "cache implement parquet duckdb engine"
 ```
 
 ## Task 13: Build Watcher, Atomic Switch, and Prune

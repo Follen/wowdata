@@ -2,10 +2,12 @@ package http
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 
+	"wowdata/internal/cache/duckdb"
 	"wowdata/internal/config"
 )
 
@@ -126,6 +128,9 @@ func (s *Service) EnsureTable(ctx context.Context, rc RequestContext, table stri
 		s.mu.Unlock()
 
 		if err := s.materialize(ctx, rc, table); err != nil {
+			if errors.Is(err, duckdb.ErrUnavailable) {
+				return nil, NewCapabilityError("query_engine_unavailable", "query engine")
+			}
 			return nil, err
 		}
 
@@ -153,7 +158,7 @@ func (s *Service) materialize(ctx context.Context, rc RequestContext, table stri
 	if s.materializer != nil {
 		return s.materializer.EnsureTable(ctx, rc, table)
 	}
-	return fmt.Errorf("materializer unavailable")
+	return NewCapabilityError("query_engine_unavailable", "query engine")
 }
 
 func tableKey(rc RequestContext, table string) string {
