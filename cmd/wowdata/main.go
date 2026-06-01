@@ -39,6 +39,9 @@ type Runtime struct {
 	Decor              *wowdata.DecorService
 	Diag               *diagnostics.DiagnosticsService
 	warmup             *warmupState
+	contextCacheMax    int
+	contexts           map[string]*runtimeContext
+	contextLRU         []string
 }
 
 func NewRuntime() *Runtime {
@@ -224,6 +227,16 @@ type warmupState struct {
 	Ready       bool
 }
 
+type runtimeContext struct {
+	CASC   *casc.CASCRemote
+	Local  *casc.CASCLocal
+	LF     *listfile.Listfile
+	DB2    *appruntime.MemoryDB2Store
+	Keys   *tact.KeyRing
+	Diag   *diagnostics.DiagnosticsService
+	Warmup *warmupState
+}
+
 func (s *warmupState) satisfies(opts warmupOptions) bool {
 	if s == nil || !s.Ready {
 		return false
@@ -255,6 +268,116 @@ func (s *warmupState) satisfies(opts warmupOptions) bool {
 		}
 	}
 	return true
+}
+
+func (s *warmupState) key() string {
+	if s == nil {
+		return ""
+	}
+	identity := s.Region
+	if s.Source == "local" {
+		identity = cleanPath(s.Path)
+	}
+	return strings.Join([]string{
+		s.Source,
+		identity,
+		s.Product,
+		s.Locale,
+		cleanPath(s.CacheRoot),
+	}, "\x00")
+}
+
+func (rt *Runtime) enableContextCache(maxContexts int) {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	if maxContexts < 1 {
+		maxContexts = 1
+	}
+	rt.contextCacheMax = maxContexts
+	if rt.contexts == nil {
+		rt.contexts = map[string]*runtimeContext{}
+	}
+}
+
+func (rt *Runtime) contextCacheEnabled() bool {
+	return rt.contextCacheMax > 0
+}
+
+func (rt *Runtime) restoreContextFor(opts warmupOptions) bool {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	if rt.contextCacheMax <= 0 {
+		return false
+	}
+	for key, ctx := range rt.contexts {
+		if ctx.Warmup != nil && ctx.Warmup.satisfies(opts) {
+			rt.CASC = ctx.CASC
+			rt.Local = ctx.Local
+			rt.LF = ctx.LF
+			rt.DB2 = ctx.DB2
+			rt.Keys = ctx.Keys
+			rt.Diag = ctx.Diag
+			rt.warmup = ctx.Warmup
+			rt.touchContextLocked(key)
+			return true
+		}
+	}
+	return false
+}
+
+func (rt *Runtime) saveActiveContext() {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	if rt.contextCacheMax <= 0 || rt.warmup == nil || !rt.warmup.Ready {
+		return
+	}
+	key := rt.warmup.key()
+	if key == "" {
+		return
+	}
+	if rt.contexts == nil {
+		rt.contexts = map[string]*runtimeContext{}
+	}
+	rt.contexts[key] = &runtimeContext{
+		CASC:   rt.CASC,
+		Local:  rt.Local,
+		LF:     rt.LF,
+		DB2:    rt.DB2,
+		Keys:   rt.Keys,
+		Diag:   rt.Diag,
+		Warmup: rt.warmup,
+	}
+	rt.touchContextLocked(key)
+	for len(rt.contextLRU) > rt.contextCacheMax {
+		evict := rt.contextLRU[0]
+		rt.contextLRU = rt.contextLRU[1:]
+		delete(rt.contexts, evict)
+	}
+}
+
+func (rt *Runtime) touchContextLocked(key string) {
+	for i, existing := range rt.contextLRU {
+		if existing == key {
+			rt.contextLRU = append(rt.contextLRU[:i], rt.contextLRU[i+1:]...)
+			break
+		}
+	}
+	rt.contextLRU = append(rt.contextLRU, key)
+}
+
+func (rt *Runtime) prepareFreshContextStore() {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	if rt.contextCacheMax <= 0 {
+		return
+	}
+	rt.LF = listfile.New()
+	rt.DB2 = appruntime.NewMemoryDB2Store()
+	rt.Keys = nil
+	rt.Diag = diagnostics.NewDiagnosticsService()
+	rt.CASC = nil
+	rt.Local = nil
+	rt.warmup = nil
 }
 
 func warmupOptionsFromCommand(cmd *cobra.Command) warmupOptions {
@@ -339,6 +462,20 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 		return result, nil
 	}
 	rt.mu.Unlock()
+	if rt.restoreContextFor(opts) {
+		rt.mu.Lock()
+		state := rt.warmup
+		rt.mu.Unlock()
+		result["status"] = "ok"
+		result["cached"] = true
+		result["contextCached"] = true
+		result["buildName"] = state.BuildName
+		result["buildKey"] = state.BuildKey
+		addWarmupSuccessFields(result, state.BuildIndex, state.BuildName)
+		result["message"] = "warmup context restored"
+		return result, nil
+	}
+	rt.prepareFreshContextStore()
 
 	switch opts.Source {
 	case "remote":
@@ -491,6 +628,7 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 		rt.markWarmupTables(opts.Tables)
 	}
 	rt.markWarmupReady()
+	rt.saveActiveContext()
 	return result, nil
 }
 

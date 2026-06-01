@@ -37,9 +37,49 @@ func TestMCPHTTPHelpIncludesClientConfigGuidance(t *testing.T) {
 		t.Fatalf("mcp http --help: %v stderr=%s", err, stderr.String())
 	}
 	help := stdout.String()
-	for _, want := range []string{"--host", "--port", "--base-url", "codex mcp add", "cc-switch", "Claude Code"} {
+	for _, want := range []string{"--host", "--port", "--base-url", "--max-contexts", "codex mcp add", "cc-switch", "Claude Code"} {
 		if !strings.Contains(help, want) {
 			t.Fatalf("mcp http help missing %q:\n%s", want, help)
+		}
+	}
+}
+
+func TestMCPHTTPMaxContextsFlagEnablesRuntimeContextCache(t *testing.T) {
+	rt := NewRuntime()
+	cmd := newRootCommandForRuntime(rt)
+	cmd.SetArgs([]string{"mcp", "http", "--max-contexts", "3", "--help"})
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("mcp http --help: %v stderr=%s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "--max-contexts") {
+		t.Fatalf("http help missing max contexts flag:\n%s", stdout.String())
+	}
+}
+
+func TestMCPToolInheritsRuntimePersistentFlags(t *testing.T) {
+	rt := NewRuntime()
+	rt.CacheRoot = "runtime-cache"
+	rt.Source = "remote"
+	rt.Region = "cn"
+	rt.Product = "wow"
+	rt.Locale = "zhCN"
+
+	tool := cliTool(rt, "wow_probe", "Probe", []string{"warmup"}, warmupArgs, artifactConfig{})
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatalf("wow_probe tool: %v", err)
+	}
+	data, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"source":"remote"`, `"region":"cn"`, `"product":"wow"`, `"locale":"zhCN"`, `"cache":"runtime-cache"`} {
+		if !strings.Contains(string(data), want) {
+			t.Fatalf("MCP tool did not inherit runtime persistent flag %s: %s", want, data)
 		}
 	}
 }

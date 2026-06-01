@@ -97,7 +97,7 @@ wowdata --mcp
 作为远端 MCP Streamable HTTP server 运行：
 
 ```powershell
-wowdata mcp http --host 127.0.0.1 --port 9788 --base-url https://mcp.example.com:9443
+wowdata mcp http --host 127.0.0.1 --port 9788 --base-url https://mcp.example.com:9443 --max-contexts 3
 ```
 
 HTTP endpoint:
@@ -108,6 +108,8 @@ HTTP endpoint:
 - `GET /help`：面向用户和 agent 的配置指南
 
 `--base-url` 只用于生成运行时返回的公开 endpoint。生产环境可以在 nginx/CDN 层用静态 `/help` 覆盖 Go 的内置帮助页，把实际域名、NAT 端口和客户端配置留在部署层维护。
+
+`--max-contexts` 只对远端 HTTP MCP 生效，用来控制最多有多少个已 warmup 的 build context 常驻内存。比如 `--max-contexts 3` 可以同时保留 Retail、Classic 和 Titan；超过上限时会按 LRU 淘汰最久未使用的 context。stdio 和普通 CLI 仍使用单上下文模型。
 
 如果远端 MCP 需要让用户下载导出的图标、贴图或原始文件，可以把一个服务器目录交给 nginx/CDN 暴露，并把这两个值传给 Go：
 
@@ -275,7 +277,7 @@ wowdata --mcp
 Run as an MCP Streamable HTTP server:
 
 ```bash
-wowdata mcp http --host 127.0.0.1 --port 9788 --base-url https://mcp.example.com:9443
+wowdata mcp http --host 127.0.0.1 --port 9788 --base-url https://mcp.example.com:9443 --max-contexts 3
 ```
 
 HTTP endpoints:
@@ -286,6 +288,8 @@ HTTP endpoints:
 - `GET /help`: setup guide for users and agents
 
 `--base-url` is only used to generate the public endpoint returned at runtime. Production deployments can serve a static `/help` page from nginx/CDN instead of the built-in Go help page, keeping the real domain, NAT port, and client setup in the deployment layer.
+
+`--max-contexts` only affects remote HTTP MCP. It controls how many warmed build contexts stay resident in memory. For example, `--max-contexts 3` can keep Retail, Classic, and Titan warm at the same time; extra contexts are evicted by LRU. stdio and normal CLI keep the single-context model.
 
 For remote MCP deployments that need downloadable exported icons, textures, or raw files, expose a server directory through nginx/CDN and pass both values to Go:
 

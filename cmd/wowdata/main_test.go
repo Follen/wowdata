@@ -226,6 +226,60 @@ func TestWarmupStateDoesNotSatisfyUntilReady(t *testing.T) {
 	}
 }
 
+func TestRuntimeContextCacheEvictsLeastRecentlyUsedContext(t *testing.T) {
+	rt := NewRuntime()
+	rt.enableContextCache(2)
+
+	rt.warmup = &warmupState{Source: "remote", Region: "cn", Product: "wow", Locale: "zhCN", CacheRoot: "cache", BuildKey: "retail", Ready: true}
+	rt.saveActiveContext()
+	rt.warmup = &warmupState{Source: "remote", Region: "cn", Product: "wow_classic", Locale: "zhCN", CacheRoot: "cache", BuildKey: "classic", Ready: true}
+	rt.saveActiveContext()
+	if !rt.restoreContextFor(warmupOptions{Source: "remote", Region: "cn", Product: "wow", Locale: "zhCN", CacheRoot: "cache"}) {
+		t.Fatal("expected retail context to restore")
+	}
+	rt.warmup = &warmupState{Source: "remote", Region: "cn", Product: "wow_classic_titan", Locale: "zhCN", CacheRoot: "cache", BuildKey: "titan", Ready: true}
+	rt.saveActiveContext()
+
+	if rt.restoreContextFor(warmupOptions{Source: "remote", Region: "cn", Product: "wow_classic", Locale: "zhCN", CacheRoot: "cache"}) {
+		t.Fatal("classic context should have been evicted as least recently used")
+	}
+	if !rt.restoreContextFor(warmupOptions{Source: "remote", Region: "cn", Product: "wow", Locale: "zhCN", CacheRoot: "cache"}) {
+		t.Fatal("retail context should remain after recent use")
+	}
+	if !rt.restoreContextFor(warmupOptions{Source: "remote", Region: "cn", Product: "wow_classic_titan", Locale: "zhCN", CacheRoot: "cache"}) {
+		t.Fatal("titan context should remain")
+	}
+}
+
+func TestRuntimeContextCacheRestoresIndependentStores(t *testing.T) {
+	rt := NewRuntime()
+	rt.enableContextCache(2)
+	retailDB2 := rt.DB2
+	rt.warmup = &warmupState{Source: "remote", Region: "cn", Product: "wow", Locale: "zhCN", CacheRoot: "cache", BuildKey: "retail", Ready: true}
+	rt.saveActiveContext()
+
+	rt.prepareFreshContextStore()
+	classicDB2 := rt.DB2
+	if classicDB2 == retailDB2 {
+		t.Fatal("fresh context should allocate an independent DB2 store")
+	}
+	rt.warmup = &warmupState{Source: "remote", Region: "cn", Product: "wow_classic", Locale: "zhCN", CacheRoot: "cache", BuildKey: "classic", Ready: true}
+	rt.saveActiveContext()
+
+	if !rt.restoreContextFor(warmupOptions{Source: "remote", Region: "cn", Product: "wow", Locale: "zhCN", CacheRoot: "cache"}) {
+		t.Fatal("expected retail context to restore")
+	}
+	if rt.DB2 != retailDB2 {
+		t.Fatal("retail DB2 store should be restored from memory")
+	}
+	if !rt.restoreContextFor(warmupOptions{Source: "remote", Region: "cn", Product: "wow_classic", Locale: "zhCN", CacheRoot: "cache"}) {
+		t.Fatal("expected classic context to restore")
+	}
+	if rt.DB2 != classicDB2 {
+		t.Fatal("classic DB2 store should be restored from memory")
+	}
+}
+
 func TestRuntimeHTTPWarmupGateRejectsConcurrentWarmup(t *testing.T) {
 	rt := NewRuntime()
 

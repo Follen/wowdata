@@ -64,6 +64,7 @@ Legacy compatibility:
 	var httpHost, httpBaseURL string
 	var httpArtifactRoot, httpArtifactBaseURL string
 	var httpPort int
+	var httpMaxContexts int
 	httpCmd := &cobra.Command{
 		Use:   "http",
 		Short: "Serve MCP tools over Streamable HTTP.",
@@ -92,6 +93,7 @@ Compatibility notes:
   JSON-RPC notifications such as notifications/initialized return HTTP 202 with no JSON-RPC error.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rt.enableHTTPWarmupGate()
+			rt.enableContextCache(httpMaxContexts)
 			server := newMCPServerForRuntimeWithArtifacts(rt, artifactConfig{
 				root:    httpArtifactRoot,
 				baseURL: httpArtifactBaseURL,
@@ -113,6 +115,7 @@ Compatibility notes:
 	httpCmd.Flags().StringVar(&httpBaseURL, "base-url", "", "Public base URL used in help output, such as https://mcp.example.com:9443")
 	httpCmd.Flags().StringVar(&httpArtifactRoot, "artifact-root", "", "Local directory exposed by the reverse proxy for exported artifacts")
 	httpCmd.Flags().StringVar(&httpArtifactBaseURL, "artifact-base-url", "", "Public base URL for exported artifacts, such as https://mcp.example.com:9443/files")
+	httpCmd.Flags().IntVar(&httpMaxContexts, "max-contexts", 1, "Maximum warmed build contexts to keep in memory for HTTP MCP")
 
 	mcpCmd.AddCommand(stdioCmd, httpCmd)
 	root.AddCommand(mcpCmd)

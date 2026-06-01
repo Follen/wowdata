@@ -8,5 +8,6 @@
 - Improved item model selection for race, gender, neutral variants, and paired shoulder model resources.
 - Kept listfile warmup unfiltered so generated asset lookups remain available after initialization.
 - Added same-configuration warmup reuse so repeated explicit `wow_warmup` calls avoid resetting hot in-memory state when the requested build and warmed resources are already covered.
+- Added HTTP MCP `--max-contexts` to keep multiple warmed build contexts resident in memory with LRU eviction.
 - Added regression coverage for local CASC reads, DB2 schema arrays, item slot names, and item model selection.
 - Verified Retail, PTR, Beta, Classic, Classic Era, and Classic Titan DB2 coverage across CN, US, EU, KR, and TW remote products.
