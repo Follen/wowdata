@@ -1300,9 +1300,10 @@ Create `.local/wowdata/test-http-node-parity.ps1`. It must:
 - call MCP `wow_status`
 - derive all ready configured targets from server status
 - require the 23 configured targets to be ready unless the command is explicitly run with a diagnostic `-AllowNotReady` flag
-- call the legacy Node implementation for each target
+- call the legacy Node implementation for each target and discover that target's full Node-readable DB2 table list from Node output
 - call the new Go HTTP MCP implementation for each target
-- use the legacy Node implementation as the oracle table list for each target
+- use the legacy Node implementation as the oracle table list for each target; the script must not ask Go for the table list, read Go materialized cache files, or use a static checked-in table list
+- fail if any target produces zero Node-readable tables
 - fail if the Go HTTP result is missing any Node-readable table
 - report and fail on Go-only extra tables until a later spec revision explicitly accepts them
 - compare every Node-readable table
@@ -1310,6 +1311,7 @@ Create `.local/wowdata/test-http-node-parity.ps1`. It must:
 - compare every row and every field value through a deterministic canonical representation
 - stream canonical hashes so the script does not need to hold a full large table in memory
 - print one line per target/table with row count, field count, Node schema hash, Go schema hash, Node data hash, Go data hash, and pass/fail
+- print one target summary line containing target label, Node-readable table count, compared table count, missing table count, extra table count, and failed table count
 - print `REMOTE_NODE_PARITY_PASS=x/y`
 - exit 1 unless `x == y`
 
@@ -1322,6 +1324,8 @@ first_mismatch_kind=<schema|row_count|field_value|missing_table|extra_table>
 ```
 
 and at least 20 concrete row/field diffs when 20 are available. A hash-only mismatch report is incomplete and must fail review.
+
+The denominator `y` must be computed at runtime as the sum of every Node-readable DB2 table across the 23 ready targets. The script must not contain `93`, `92`, or any other historical fixed denominator except inside comments explaining that those values are obsolete.
 
 - [ ] **Step 2: Write update-flow script**
 
@@ -1412,6 +1416,8 @@ x equals y
 ```
 
 The script must fail if fewer than the 23 configured ready targets are compared, unless it is explicitly running in diagnostic `-AllowNotReady` mode. It must fail if any Node-readable table is missing, any Go-only table appears, any schema field differs, any field order differs, any row count differs, or any canonical full-data hash differs from the legacy Node oracle.
+
+The denominator in `REMOTE_NODE_PARITY_PASS=x/y` must be the runtime full-table denominator discovered from the legacy Node implementation across all 23 targets. A result shaped like the old smoke test, such as `REMOTE_NODE_PARITY_PASS=93/93`, is not acceptable unless the Node oracle genuinely discovered exactly 93 total DB2 tables across all 23 targets and the log shows each target/table discovery line proving that number.
 
 - [ ] **Step 3: Run remote update-flow test**
 

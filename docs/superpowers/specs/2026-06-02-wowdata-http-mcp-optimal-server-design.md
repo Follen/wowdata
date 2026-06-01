@@ -490,18 +490,18 @@ Against the remote HTTP endpoint, run a generated parity test against the legacy
 Required coverage:
 
 - all 23 configured build targets when the server marks them ready
-- every DB2 table that the legacy Node implementation can read for each target build
+- every DB2 table that the legacy Node implementation can read for each target build; this is the full table set discovered from the Node oracle, not the old sampled smoke set
 - every row in every compared table
 - every field in every compared row
 - schema equality: table list, field names, field order, field cardinality, and field value normalization
 - row equality: row count and deterministic row identity/order
 - value equality: canonical JSON value for every scalar, array, localized string, null, and numeric field
 
-The legacy Node implementation is the oracle for this acceptance test. A Go HTTP result is a failure if it is missing any Node-readable table, missing any Node-emitted field, has a different field order, has a different row count, or has a different canonical value. Go-only extra tables must be reported as extras and fail the parity test until deliberately reviewed in a later spec revision.
+The legacy Node implementation is the oracle for this acceptance test. The table list must be discovered by running the old Node implementation for the same region/product/locale/build target, not by asking the new Go code, not by reading the Go materialized cache, and not by reusing a static checked-in list. A Go HTTP result is a failure if it is missing any Node-readable table, missing any Node-emitted field, has a different field order, has a different row count, or has a different canonical value. Go-only extra tables must be reported as extras and fail the parity test until deliberately reviewed in a later spec revision.
 
-The test must not hard-code `93/93`, `92/92`, or any other stale denominator. It must compute the total from the 23 prepared targets and the full table list discovered from the legacy Node implementation for each target.
+The test must not hard-code `93/93`, `92/92`, or any other stale denominator. It must compute the total from the 23 prepared targets and the full table list discovered from the legacy Node implementation for each target. The only acceptable final denominator is the runtime sum of all Node-readable DB2 tables across the 23 targets. If a target has zero Node-readable tables, that target must fail with a diagnostic explaining why the Node oracle produced no table list.
 
-The comparison may use streaming canonical hashes to avoid loading all rows into memory, but the hash input must include every field of every row. For each target/table it must report:
+The comparison may use streaming canonical hashes to avoid loading all rows into memory, but the hash input must include every field of every row. Hashing is only a fast equality proof; on mismatch, the harness must perform or retain enough row-level comparison state to print concrete diffs. For each target/table it must report:
 
 - target label, region, product, locale, and build
 - table name
