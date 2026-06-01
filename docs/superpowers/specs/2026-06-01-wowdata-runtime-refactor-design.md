@@ -428,12 +428,23 @@ contexts:
     - region: cn
       product: wow
       locale: zhCN
+      label: CN Retail
+    - region: cn
+      product: wowt
+      locale: zhCN
+      label: CN PTR
     - region: cn
       product: wow_classic
       locale: zhCN
+      label: CN Classic
     - region: cn
       product: wow_classic_titan
       locale: zhCN
+      label: CN Titan
+
+# 默认常驻 context 固定为 CN Retail、CN PTR、CN Classic、CN Titan。
+# CN Classic Era 不默认常驻；它和其他 region/product/build 通过 lazy prepare、
+# Parquet materialization 和 DuckDB 查询按需服务。
 
 cache:
   root: /opt/wowdata/cache
