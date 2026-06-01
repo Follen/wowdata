@@ -19,7 +19,13 @@ FROM ${RUNTIME_IMAGE}
 
 WORKDIR /srv/wowdata
 
-RUN apt-get update && \
+RUN rm -f /etc/apt/sources.list.d/debian.sources && \
+    printf '%s\n' \
+      'deb http://mirrors.aliyun.com/debian bookworm main contrib non-free non-free-firmware' \
+      'deb http://mirrors.aliyun.com/debian bookworm-updates main contrib non-free non-free-firmware' \
+      'deb http://mirrors.aliyun.com/debian-security bookworm-security main contrib non-free non-free-firmware' \
+      > /etc/apt/sources.list && \
+    apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
