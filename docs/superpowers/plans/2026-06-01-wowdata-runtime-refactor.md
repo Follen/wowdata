@@ -271,7 +271,7 @@ git commit -m "test lock cli and stdio compatibility"
 - Create: `internal/runtime/context.go`
 - Create: `internal/runtime/context_test.go`
 
-- [ ] **Step 1: Write context key tests**
+- [x] **Step 1: Write context key tests**
 
 Create `internal/runtime/context_key_test.go`:
 
@@ -303,7 +303,7 @@ func TestLocalContextKeyIncludesCleanPathAndBuild(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Implement context key types**
+- [x] **Step 2: Implement context key types**
 
 Create `internal/runtime/context_key.go`:
 
@@ -346,7 +346,7 @@ func cleanKeyPath(value string) string {
 }
 ```
 
-- [ ] **Step 3: Write context state tests**
+- [x] **Step 3: Write context state tests**
 
 Create `internal/runtime/context_test.go`:
 
@@ -376,7 +376,7 @@ func TestContextIdentityReadyState(t *testing.T) {
 }
 ```
 
-- [ ] **Step 4: Implement context state**
+- [x] **Step 4: Implement context state**
 
 Create `internal/runtime/context.go`:
 
@@ -408,7 +408,7 @@ func (c *Context) HasTable(table string) bool {
 }
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run:
 
