@@ -24,6 +24,7 @@ import (
 type Runtime struct {
 	mu                 sync.Mutex
 	localRuntime       *appruntime.LocalRuntime
+	httpRuntimeMu      sync.Mutex
 	httpWarmupMu       sync.Mutex
 	httpWarmupGate     bool
 	httpWarmupInFlight bool

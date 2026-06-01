@@ -16,6 +16,7 @@ import (
 	mcpadapter "wowdata/internal/adapter/mcp"
 	"wowdata/internal/artifact"
 	"wowdata/internal/config"
+	"wowdata/internal/listfile"
 	"wowdata/internal/mcpserver"
 	appruntime "wowdata/internal/runtime"
 	httpservice "wowdata/internal/service/http"
@@ -207,31 +208,32 @@ type httpRuntimeAssets struct {
 }
 
 func (a httpRuntimeAssets) FileStore(ctx context.Context, rc httpservice.RequestContext, needListfile bool) (appruntime.FileStore, error) {
-	if err := a.prepare(ctx, rc, needListfile); err != nil {
+	lf, reader, err := a.prepare(ctx, rc, needListfile)
+	if err != nil {
 		return nil, err
 	}
-	a.rt.mu.Lock()
-	lf := a.rt.LF
-	a.rt.mu.Unlock()
-	return appruntime.NewCASCFileStore(lf, nil, a.rt), nil
+	return appruntime.NewCASCFileStore(lf, nil, reader), nil
 }
 
 func (a httpRuntimeAssets) IconStore(ctx context.Context, rc httpservice.RequestContext) (appruntime.IconStore, error) {
-	if err := a.prepare(ctx, rc, false); err != nil {
+	_, reader, err := a.prepare(ctx, rc, false)
+	if err != nil {
 		return nil, err
 	}
-	return appruntime.NewCASCFileStore(nil, nil, a.rt), nil
+	return appruntime.NewCASCFileStore(nil, nil, reader), nil
 }
 
-func (a httpRuntimeAssets) prepare(ctx context.Context, rc httpservice.RequestContext, needListfile bool) error {
+func (a httpRuntimeAssets) prepare(ctx context.Context, rc httpservice.RequestContext, needListfile bool) (*listfile.Listfile, appruntime.FileDataReader, error) {
 	if a.rt == nil {
-		return fmt.Errorf("runtime is required")
+		return nil, nil, fmt.Errorf("runtime is required")
 	}
 	if a.svc != nil {
 		rc = a.svc.ResolveRequestContext(rc)
 	} else {
 		rc = httpservice.NewService(config.DefaultHTTPConfig(), nil).ResolveRequestContext(rc)
 	}
+	a.rt.httpRuntimeMu.Lock()
+	defer a.rt.httpRuntimeMu.Unlock()
 	_, err := a.rt.initialize(warmupOptions{
 		Source:          "remote",
 		Region:          rc.Region,
@@ -241,7 +243,18 @@ func (a httpRuntimeAssets) prepare(ctx context.Context, rc httpservice.RequestCo
 		WarmDBDManifest: false,
 		WarmListfile:    needListfile,
 	})
-	return err
+	if err != nil {
+		return nil, nil, err
+	}
+	a.rt.mu.Lock()
+	defer a.rt.mu.Unlock()
+	var reader appruntime.FileDataReader
+	if a.rt.CASC != nil {
+		reader = a.rt.CASC
+	} else if a.rt.Local != nil {
+		reader = a.rt.Local
+	}
+	return a.rt.LF, reader, nil
 }
 
 func newMCPArtifactReserver(cfg artifactConfig) *mcpArtifactReserver {

@@ -17,15 +17,20 @@ import (
 )
 
 func NewHTTPServiceRuntime(cfg config.HTTPConfig, rt *Runtime) (*httpservice.Service, func(), error) {
+	if rt == nil {
+		rt = NewRuntime()
+	}
+	rt.CacheRoot = cfg.Cache.Root
 	db, err := metadata.Open(cfg.Cache.MetadataDB, sqliteMigrationsDir())
 	if err != nil {
 		return nil, nil, err
 	}
+	runtimeState := &httpRuntimeState{rt: rt, cfg: cfg}
 	materializer := &httpservice.DB2Materializer{
 		CacheRoot:           cfg.Cache.Root,
 		MetadataDB:          db,
-		Resolver:            runtimeContextResolver{rt: rt, cfg: cfg},
-		Loader:              runtimeTableLoader{rt: rt},
+		Resolver:            runtimeState,
+		Loader:              runtimeState,
 		MaterializerVersion: "http-materializer-v1",
 	}
 	svc := httpservice.NewService(cfg, materializer)
@@ -33,15 +38,21 @@ func NewHTTPServiceRuntime(cfg config.HTTPConfig, rt *Runtime) (*httpservice.Ser
 	return svc, func() { _ = db.Close() }, nil
 }
 
-type runtimeContextResolver struct {
+type httpRuntimeState struct {
 	rt  *Runtime
 	cfg config.HTTPConfig
 }
 
-func (r runtimeContextResolver) ResolveContext(ctx context.Context, rc httpservice.RequestContext) (*appruntime.Context, error) {
+func (r *httpRuntimeState) ResolveContext(ctx context.Context, rc httpservice.RequestContext) (*appruntime.Context, error) {
 	if r.rt == nil {
 		r.rt = NewRuntime()
 	}
+	r.rt.httpRuntimeMu.Lock()
+	defer r.rt.httpRuntimeMu.Unlock()
+	return r.resolveContextLocked(ctx, rc)
+}
+
+func (r *httpRuntimeState) resolveContextLocked(ctx context.Context, rc httpservice.RequestContext) (*appruntime.Context, error) {
 	resolved := httpservice.NewService(r.cfg, nil).ResolveRequestContext(rc)
 	result, err := r.rt.initialize(warmupOptions{
 		Source:          "remote",
@@ -81,22 +92,29 @@ func (r runtimeContextResolver) ResolveContext(ctx context.Context, rc httpservi
 	}, nil
 }
 
-type runtimeTableLoader struct {
-	rt *Runtime
-}
-
-func (l runtimeTableLoader) LoadDB2Table(ctx context.Context, runtimeCtx *appruntime.Context, table string) (httpservice.LoadedDB2Table, error) {
-	if l.rt == nil {
-		l.rt = NewRuntime()
+func (r *httpRuntimeState) LoadDB2Table(ctx context.Context, runtimeCtx *appruntime.Context, table string) (httpservice.LoadedDB2Table, error) {
+	if r.rt == nil {
+		r.rt = NewRuntime()
 	}
-	if err := l.rt.warmDB2Tables(runtimeCtx.Product, []string{table}); err != nil {
+	r.rt.httpRuntimeMu.Lock()
+	defer r.rt.httpRuntimeMu.Unlock()
+	if runtimeCtx != nil {
+		if _, err := r.resolveContextLocked(ctx, httpservice.RequestContext{
+			Region:  runtimeCtx.Region,
+			Product: runtimeCtx.Product,
+			Locale:  runtimeCtx.Locale,
+		}); err != nil {
+			return httpservice.LoadedDB2Table{}, err
+		}
+	}
+	if err := r.rt.warmDB2Tables(runtimeCtx.Product, []string{table}); err != nil {
 		return httpservice.LoadedDB2Table{}, err
 	}
-	l.rt.markWarmupTables([]string{table})
-	l.rt.mu.Lock()
-	store := l.rt.DB2
-	l.rt.mu.Unlock()
-	manifest, err := l.rt.loadDBDManifest()
+	r.rt.markWarmupTables([]string{table})
+	r.rt.mu.Lock()
+	store := r.rt.DB2
+	r.rt.mu.Unlock()
+	manifest, err := r.rt.loadDBDManifest()
 	if err != nil {
 		return httpservice.LoadedDB2Table{}, err
 	}
@@ -112,7 +130,7 @@ func (l runtimeTableLoader) LoadDB2Table(ctx context.Context, runtimeCtx *apprun
 	if err != nil {
 		return httpservice.LoadedDB2Table{}, err
 	}
-	dbdSource := appruntime.NewHTTPDBDSource(l.rt.dbdCacheDir(), []string{
+	dbdSource := appruntime.NewHTTPDBDSource(r.rt.dbdCacheDir(), []string{
 		"https://raw.githubusercontent.com/wowdev/WoWDBDefs/refs/heads/master/definitions/%s.dbd",
 		"https://www.kruithne.net/wow.export/data/dbd/?def=%s",
 	})
