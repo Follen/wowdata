@@ -56,6 +56,9 @@ func (m *Manager) Reserve(category, filename, mimeType string) (string, Link, er
 	if err != nil {
 		return "", Link{}, err
 	}
+	if err := m.ensureExistingParentsInsideRoot(filepath.Dir(artifactPath)); err != nil {
+		return "", Link{}, err
+	}
 	if err := ensureArtifactDir(artifactPath); err != nil {
 		return "", Link{}, err
 	}

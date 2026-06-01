@@ -74,6 +74,45 @@ func ensureArtifactDir(path string) error {
 	return nil
 }
 
+func (m *Manager) ensureExistingParentsInsideRoot(parent string) error {
+	realRoot, err := filepath.EvalSymlinks(m.root)
+	if err != nil {
+		return fmt.Errorf("resolve artifact root symlinks: %w", err)
+	}
+	rel, err := filepath.Rel(m.root, filepath.Clean(parent))
+	if err != nil {
+		return fmt.Errorf("resolve artifact parent relative path: %w", err)
+	}
+	if rel == "." {
+		return nil
+	}
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	current := m.root
+	for _, part := range parts {
+		if part == "" || part == "." {
+			continue
+		}
+		current = filepath.Join(current, filepath.FromSlash(part))
+		info, err := os.Lstat(current)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return fmt.Errorf("inspect artifact parent: %w", err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 || info.IsDir() {
+			realCurrent, err := filepath.EvalSymlinks(current)
+			if err != nil {
+				return fmt.Errorf("resolve artifact parent symlinks: %w", err)
+			}
+			if err := ensureInside(filepath.Clean(realRoot), filepath.Clean(realCurrent), current); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (m *Manager) ensureRealPathInsideRoot(path string) error {
 	root, err := filepath.EvalSymlinks(m.root)
 	if err != nil {

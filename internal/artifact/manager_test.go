@@ -153,6 +153,26 @@ func TestReserveRejectsSymlinkTraversal(t *testing.T) {
 	}
 }
 
+func TestReserveRejectsNestedSymlinkTraversalWithoutCreatingOutsideDirectory(t *testing.T) {
+	root := t.TempDir()
+	other := t.TempDir()
+	linkDir := filepath.Join(root, "link")
+	if err := os.Symlink(other, linkDir); err != nil {
+		if runtime.GOOS == "windows" || errors.Is(err, os.ErrPermission) {
+			t.Skipf("symlink not available: %v", err)
+		}
+		t.Fatalf("create symlink: %v", err)
+	}
+
+	m := NewManager(Config{Root: root, BaseURL: "https://mcp.example.test/files"})
+	if _, _, err := m.Reserve("link/nested", "outside.txt", "text/plain"); err == nil {
+		t.Fatal("expected nested reserve through symlink to be rejected")
+	}
+	if _, err := os.Stat(filepath.Join(other, "nested")); !os.IsNotExist(err) {
+		t.Fatalf("outside nested directory should not be created, stat err=%v", err)
+	}
+}
+
 func TestCleanupExpiredDeletesExpiredFiles(t *testing.T) {
 	root := t.TempDir()
 	m := NewManager(Config{Root: root, BaseURL: "https://mcp.example.test/files", RetentionHours: 0})
