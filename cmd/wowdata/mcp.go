@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	htmltemplate "html/template"
 	"net/http"
 	"path"
 	"path/filepath"
@@ -105,6 +106,9 @@ func writeHelpHTML(w http.ResponseWriter, code int, text string) {
 
 func mcpHelpHTML(baseURL string) string {
 	endpoint := publicURL(baseURL, "/mcp")
+	escapedEndpoint := htmltemplate.HTMLEscapeString(endpoint)
+	jsonEndpoint, _ := json.Marshal(endpoint)
+	escapedJSONEndpoint := htmltemplate.HTMLEscapeString(string(jsonEndpoint))
 	return fmt.Sprintf(`<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>wowdata MCP Help</title>
@@ -114,14 +118,14 @@ func mcpHelpHTML(baseURL string) string {
 <h2>Claude Code HTTP config</h2><pre>claude mcp add --transport http wowdata %s</pre>
 <h2>cc-switch HTTP config</h2><pre>{
   "type": "http",
-  "url": "%s"
+  "url": %s
 }</pre>
 <h2>Local stdio fallback</h2><pre>claude mcp add --transport stdio wowdata -- wowdata mcp stdio
 wowdata mcp stdio</pre>
 <h2>HTTP supported tools</h2><p>wow_builds, wow_status, wow_db2, wow_item, wow_spell, wow_file, wow_icon, wow_creature, wow_encounter, wow_decor, wow_video.</p>
 <h2>Admin tools when enabled</h2><p>Admin tools are hidden by default and appear only when <code>tools.expose_admin_tools</code> is enabled: wow_refresh_builds, wow_prepare, wow_prune_cache.</p>
 <h2>Artifact download behavior</h2><p>Tools that create files return public artifact URLs when the server has an artifact root and base URL configured; local file URIs are preserved as <code>fileURI</code> when rewritten.</p>
-</body></html>`, endpoint, endpoint, endpoint, endpoint)
+</body></html>`, escapedEndpoint, escapedEndpoint, escapedEndpoint, escapedJSONEndpoint)
 }
 
 func mcpToolsForRuntime(rt *Runtime) []mcpTool {

@@ -149,6 +149,37 @@ func TestMCPWebHelpOmitsServerStartupCommand(t *testing.T) {
 	}
 }
 
+func TestMCPWebHelpEscapesConfiguredBaseURL(t *testing.T) {
+	help := mcpHelpHTML(`https://mcp.example.com/"\&<script>alert(1)</script>`)
+
+	for _, unsafe := range []string{
+		`<script>`,
+		`</script>`,
+		`https://mcp.example.com/"\&<script>alert(1)</script>/mcp`,
+		`"url": "https://mcp.example.com/"\&<script>alert(1)</script>/mcp"`,
+	} {
+		if strings.Contains(help, unsafe) {
+			t.Fatalf("web help contains unescaped configured URL %q:\n%s", unsafe, help)
+		}
+	}
+
+	wantText := `https://mcp.example.com/&#34;\&amp;&lt;script&gt;alert(1)&lt;/script&gt;/mcp`
+	for _, want := range []string{
+		`Endpoint: <code>` + wantText + `</code>`,
+		`codex mcp add wowdata --url ` + wantText,
+		`claude mcp add --transport http wowdata ` + wantText,
+	} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("web help missing HTML-escaped URL %q:\n%s", want, help)
+		}
+	}
+
+	wantJSONURL := `&#34;https://mcp.example.com/\&#34;\\\u0026\u003cscript\u003ealert(1)\u003c/script\u003e/mcp&#34;`
+	if !strings.Contains(help, `"url": `+wantJSONURL) {
+		t.Fatalf("web help missing JSON-escaped and HTML-escaped cc-switch URL %q:\n%s", wantJSONURL, help)
+	}
+}
+
 func TestRootHelpIncludesMCPAlias(t *testing.T) {
 	cmd := newRootCommandForRuntime(NewRuntime())
 	cmd.SetArgs([]string{"--help"})
