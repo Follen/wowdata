@@ -38,6 +38,7 @@ type Runtime struct {
 	Creat              *wowdata.CreatureService
 	Decor              *wowdata.DecorService
 	Diag               *diagnostics.DiagnosticsService
+	warmup             *warmupState
 }
 
 func NewRuntime() *Runtime {
@@ -207,6 +208,55 @@ func (e warmupStepError) Error() string {
 	return e.Err.Error()
 }
 
+type warmupState struct {
+	Source      string
+	Path        string
+	Region      string
+	Product     string
+	Locale      string
+	CacheRoot   string
+	BuildName   string
+	BuildKey    string
+	BuildIndex  int
+	Listfile    bool
+	DBDManifest bool
+	Tables      map[string]bool
+	Ready       bool
+}
+
+func (s *warmupState) satisfies(opts warmupOptions) bool {
+	if s == nil || !s.Ready {
+		return false
+	}
+	if s.Source != opts.Source || s.Product != opts.Product || s.Locale != opts.Locale || cleanPath(s.CacheRoot) != cleanPath(opts.CacheRoot) {
+		return false
+	}
+	switch opts.Source {
+	case "remote":
+		if s.Region != opts.Region {
+			return false
+		}
+	case "local":
+		if cleanPath(s.Path) != cleanPath(opts.Path) {
+			return false
+		}
+	default:
+		return false
+	}
+	if opts.WarmListfile && !s.Listfile {
+		return false
+	}
+	if opts.WarmDBDManifest && !s.DBDManifest {
+		return false
+	}
+	for _, table := range opts.Tables {
+		if !s.Tables[normalizeWarmupTableName(table)] {
+			return false
+		}
+	}
+	return true
+}
+
 func warmupOptionsFromCommand(cmd *cobra.Command) warmupOptions {
 	source, _ := commandStringFlag(cmd, "source")
 	path, _ := commandStringFlag(cmd, "path")
@@ -276,6 +326,19 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 			"tables":         opts.Tables,
 		},
 	}
+	rt.mu.Lock()
+	if rt.warmup.satisfies(opts) {
+		state := rt.warmup
+		rt.mu.Unlock()
+		result["status"] = "ok"
+		result["cached"] = true
+		result["buildName"] = state.BuildName
+		result["buildKey"] = state.BuildKey
+		addWarmupSuccessFields(result, state.BuildIndex, state.BuildName)
+		result["message"] = "warmup already satisfied"
+		return result, nil
+	}
+	rt.mu.Unlock()
 
 	switch opts.Source {
 	case "remote":
@@ -318,6 +381,17 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 			Source:   opts.Source,
 			Products: convertProducts(remote.GetProductList()),
 		})
+		rt.warmup = &warmupState{
+			Source:     opts.Source,
+			Region:     opts.Region,
+			Product:    opts.Product,
+			Locale:     remote.Locale.Name(),
+			CacheRoot:  opts.CacheRoot,
+			BuildName:  remote.GetBuildName(),
+			BuildKey:   remote.GetBuildKey(),
+			BuildIndex: buildIdx,
+			Tables:     map[string]bool{},
+		}
 		rt.mu.Unlock()
 
 		result["status"] = "ok"
@@ -369,6 +443,18 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 			Source:   opts.Source,
 			Products: convertProducts(local.GetProductList()),
 		})
+		rt.warmup = &warmupState{
+			Source:     opts.Source,
+			Path:       opts.Path,
+			Region:     opts.Region,
+			Product:    opts.Product,
+			Locale:     local.Locale.Name(),
+			CacheRoot:  opts.CacheRoot,
+			BuildName:  local.GetBuildName(),
+			BuildKey:   local.GetBuildKey(),
+			BuildIndex: buildIdx,
+			Tables:     map[string]bool{},
+		}
 		rt.mu.Unlock()
 
 		result["status"] = "ok"
@@ -387,6 +473,7 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 		if err := rt.warmListfile(opts.ListfileFormat); err != nil {
 			return result, warmupStepError{Code: "listfile_failed", Err: err}
 		}
+		rt.markWarmupListfile()
 	}
 	if err := rt.warmTACTKeys(); err != nil {
 		return result, warmupStepError{Code: "tact_keys_failed", Err: err}
@@ -395,13 +482,54 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 		if err := rt.warmDBDManifest(); err != nil {
 			return result, warmupStepError{Code: "dbd_manifest_failed", Err: err}
 		}
+		rt.markWarmupDBDManifest()
 	}
 	if len(opts.Tables) > 0 {
 		if err := rt.warmDB2Tables(opts.Product, opts.Tables); err != nil {
 			return result, warmupStepError{Code: "db2_warm_failed", Err: err}
 		}
+		rt.markWarmupTables(opts.Tables)
 	}
+	rt.markWarmupReady()
 	return result, nil
+}
+
+func (rt *Runtime) markWarmupListfile() {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	if rt.warmup != nil {
+		rt.warmup.Listfile = true
+	}
+}
+
+func (rt *Runtime) markWarmupDBDManifest() {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	if rt.warmup != nil {
+		rt.warmup.DBDManifest = true
+	}
+}
+
+func (rt *Runtime) markWarmupTables(tables []string) {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	if rt.warmup == nil {
+		return
+	}
+	if rt.warmup.Tables == nil {
+		rt.warmup.Tables = map[string]bool{}
+	}
+	for _, table := range tables {
+		rt.warmup.Tables[normalizeWarmupTableName(table)] = true
+	}
+}
+
+func (rt *Runtime) markWarmupReady() {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	if rt.warmup != nil {
+		rt.warmup.Ready = true
+	}
 }
 
 func addWarmupSuccessFields(result map[string]interface{}, buildIndex int, buildName string) {
@@ -459,6 +587,17 @@ func normalizeWarmupTables(tables interface{}) interface{} {
 	default:
 		return v
 	}
+}
+
+func normalizeWarmupTableName(table string) string {
+	return strings.ToLower(strings.TrimSpace(table))
+}
+
+func cleanPath(path string) string {
+	if strings.TrimSpace(path) == "" {
+		return ""
+	}
+	return filepath.Clean(path)
 }
 
 func (rt *Runtime) warmTACTKeys() error {

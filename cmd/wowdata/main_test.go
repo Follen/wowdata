@@ -153,6 +153,79 @@ func TestWarmupResultNormalizesNilTablesToEmptySlice(t *testing.T) {
 	}
 }
 
+func TestRuntimeInitializeReturnsCachedWhenWarmupAlreadySatisfied(t *testing.T) {
+	rt := NewRuntime()
+	rt.warmup = &warmupState{
+		Source:      "remote",
+		Region:      "cn",
+		Product:     "wow",
+		Locale:      "zhCN",
+		CacheRoot:   "cache-a",
+		BuildName:   "12.0.5.67823",
+		BuildKey:    "build-key",
+		BuildIndex:  0,
+		Listfile:    true,
+		DBDManifest: true,
+		Tables:      map[string]bool{"spellname": true, "item": true},
+		Ready:       true,
+	}
+
+	result, err := rt.initialize(warmupOptions{
+		Source:          "remote",
+		Region:          "cn",
+		Product:         "wow",
+		Locale:          "zhCN",
+		CacheRoot:       "cache-a",
+		WarmListfile:    true,
+		WarmDBDManifest: true,
+		Tables:          []string{"Item", "SpellName"},
+	})
+
+	if err != nil {
+		t.Fatalf("initialize cached warmup: %v", err)
+	}
+	if result["cached"] != true || result["success"] != true || result["status"] != "ok" {
+		t.Fatalf("cached warmup result missing stable fields: %#v", result)
+	}
+	if result["buildName"] != "12.0.5.67823" || result["buildKey"] != "build-key" {
+		t.Fatalf("cached warmup lost build fields: %#v", result)
+	}
+}
+
+func TestWarmupStateRequiresRequestedTablesToBeCovered(t *testing.T) {
+	state := &warmupState{
+		Source:    "remote",
+		Region:    "cn",
+		Product:   "wow",
+		Locale:    "zhCN",
+		CacheRoot: "cache-a",
+		Tables:    map[string]bool{"spellname": true},
+		Ready:     true,
+	}
+
+	if state.satisfies(warmupOptions{Source: "remote", Region: "cn", Product: "wow", Locale: "zhCN", CacheRoot: "cache-a", Tables: []string{"SpellName", "Item"}}) {
+		t.Fatal("warmup state should not satisfy tables that were not warmed")
+	}
+	if !state.satisfies(warmupOptions{Source: "remote", Region: "cn", Product: "wow", Locale: "zhCN", CacheRoot: "cache-a", Tables: []string{"SpellName"}}) {
+		t.Fatal("warmup state should satisfy already warmed table")
+	}
+}
+
+func TestWarmupStateDoesNotSatisfyUntilReady(t *testing.T) {
+	state := &warmupState{
+		Source:    "remote",
+		Region:    "cn",
+		Product:   "wow",
+		Locale:    "zhCN",
+		CacheRoot: "cache-a",
+		Tables:    map[string]bool{},
+	}
+
+	if state.satisfies(warmupOptions{Source: "remote", Region: "cn", Product: "wow", Locale: "zhCN", CacheRoot: "cache-a"}) {
+		t.Fatal("incomplete warmup state should not satisfy a later warmup")
+	}
+}
+
 func TestRuntimeHTTPWarmupGateRejectsConcurrentWarmup(t *testing.T) {
 	rt := NewRuntime()
 
