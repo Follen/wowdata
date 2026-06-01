@@ -1,4 +1,4 @@
-FROM gcr.io/distroless/cc-debian12:nonroot
+FROM debian:12-slim
 
 WORKDIR /srv/wowdata
 
