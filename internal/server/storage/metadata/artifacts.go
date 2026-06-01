@@ -83,7 +83,18 @@ INSERT INTO server_listfile_sources (
 		return false, err
 	}
 	if oldHash == source.SourceHash {
-		return false, nil
+		_, err := db.ExecContext(ctx, `
+UPDATE server_listfile_sources
+SET state = ?, error = ?, updated_at = CURRENT_TIMESTAMP
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+			state,
+			source.Error,
+			source.Region,
+			source.Product,
+			source.Locale,
+			source.BuildKey,
+		)
+		return false, err
 	}
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -206,7 +217,18 @@ INSERT INTO server_casc_sources (
 		return false, err
 	}
 	if oldBuildConfig == source.BuildConfig && oldCDNConfig == source.CDNConfig {
-		return false, nil
+		_, err := db.ExecContext(ctx, `
+UPDATE server_casc_sources
+SET state = ?, error = ?, updated_at = CURRENT_TIMESTAMP
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+			state,
+			source.Error,
+			source.Region,
+			source.Product,
+			source.Locale,
+			source.BuildKey,
+		)
+		return false, err
 	}
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {

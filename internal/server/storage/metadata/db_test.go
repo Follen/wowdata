@@ -4,9 +4,30 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 )
+
+func TestOpenWithMigrationsUsesExplicitRuntimePath(t *testing.T) {
+	migrationsDir := filepath.Join(t.TempDir(), "migrations", "server")
+	copyServerMigrations(t, migrationsDir)
+
+	db, err := OpenWithMigrations(filepath.Join(t.TempDir(), "metadata.sqlite"), migrationsDir)
+	if err != nil {
+		t.Fatalf("open with explicit runtime migrations: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	var name string
+	err = db.QueryRow(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'server_builds'`).Scan(&name)
+	if err != nil {
+		t.Fatalf("server_builds missing after explicit migrations open: %v", err)
+	}
+	if name != "server_builds" {
+		t.Fatalf("table name = %q, want server_builds", name)
+	}
+}
 
 func TestMigrationsCreateRequiredTables(t *testing.T) {
 	path := dbPath(t)
@@ -232,6 +253,51 @@ WHERE region = 'us' AND product = 'wow' AND locale = 'enUS' AND build_key = 'bui
 	}
 }
 
+func TestLatestValidMaterializedTableUsesUpsertSequenceWithinSameSecond(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t)
+	lookup := TableLookup{Region: "us", Product: "wow", Locale: "enUS", TableName: "Spell"}
+
+	first := MaterializedTable{
+		Key:                 TableKey{Region: lookup.Region, Product: lookup.Product, Locale: lookup.Locale, BuildKey: "build-2", TableName: lookup.TableName},
+		DB2FileDataID:       123,
+		DBDHash:             "dbd-a",
+		DecoderVersion:      "decoder-1",
+		MaterializerVersion: "materializer-1",
+		ParquetPath:         "cache/db2/spell-build-2.parquet",
+		RowCount:            2,
+		State:               StateValid,
+	}
+	second := first
+	second.Key.BuildKey = "build-10"
+	second.ParquetPath = "cache/db2/spell-build-10.parquet"
+	second.RowCount = 10
+
+	if err := UpsertMaterializedTable(ctx, db, first); err != nil {
+		t.Fatalf("upsert first table: %v", err)
+	}
+	if err := UpsertMaterializedTable(ctx, db, second); err != nil {
+		t.Fatalf("upsert second table: %v", err)
+	}
+	if _, err := db.Exec(`
+UPDATE server_materialized_tables
+SET updated_at = '2026-06-02 00:00:00'
+WHERE region = 'us' AND product = 'wow' AND locale = 'enUS' AND table_name = 'Spell'`); err != nil {
+		t.Fatalf("force same-second updated_at: %v", err)
+	}
+
+	latest, err := LatestValidMaterializedTable(ctx, db, lookup)
+	if err != nil {
+		t.Fatalf("latest valid materialized table: %v", err)
+	}
+	if latest.Key.BuildKey != "build-10" {
+		t.Fatalf("latest build key = %q, want build-10", latest.Key.BuildKey)
+	}
+	if latest.RowCount != 10 {
+		t.Fatalf("latest row count = %d, want 10", latest.RowCount)
+	}
+}
+
 func TestListfileSourceHashUpdateMarksIndexStale(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)
@@ -254,6 +320,9 @@ func TestListfileSourceHashUpdateMarksIndexStale(t *testing.T) {
 	if err := UpsertListfileIndexState(ctx, db, source.Key(), "main", StateValid, ""); err != nil {
 		t.Fatalf("upsert listfile index state: %v", err)
 	}
+	if err := MarkListfileSourceState(ctx, db, source.Key(), StateFailed, "old failure"); err != nil {
+		t.Fatalf("mark listfile failed before unchanged upsert: %v", err)
+	}
 	changed, err = UpsertListfileSource(ctx, db, source)
 	if err != nil {
 		t.Fatalf("upsert unchanged listfile source: %v", err)
@@ -262,6 +331,7 @@ func TestListfileSourceHashUpdateMarksIndexStale(t *testing.T) {
 		t.Fatalf("unchanged listfile source changed = true, want false")
 	}
 	assertListfileState(t, db, source.Key(), StateValid)
+	assertListfileSourceError(t, db, source.Key(), "")
 	assertListfileIndexState(t, ctx, db, source.Key(), "main", StateValid)
 
 	source.SourceHash = "hash-b"
@@ -300,6 +370,9 @@ func TestCASCIndexVersionUpdateMarksIndexStale(t *testing.T) {
 	if err := UpsertCASCIndexState(ctx, db, source.Key(), "root-encoding-archive", StateValid, ""); err != nil {
 		t.Fatalf("upsert casc index state: %v", err)
 	}
+	if err := MarkCASCSourceState(ctx, db, source.Key(), StateFailed, "old failure"); err != nil {
+		t.Fatalf("mark casc failed before unchanged upsert: %v", err)
+	}
 	changed, err = UpsertCASCSource(ctx, db, source)
 	if err != nil {
 		t.Fatalf("upsert unchanged casc source: %v", err)
@@ -308,6 +381,7 @@ func TestCASCIndexVersionUpdateMarksIndexStale(t *testing.T) {
 		t.Fatalf("unchanged casc source changed = true, want false")
 	}
 	assertCASCState(t, db, source.Key(), StateValid)
+	assertCASCSourceError(t, db, source.Key(), "")
 	assertCASCIndexState(t, ctx, db, source.Key(), "root-encoding-archive", StateValid)
 
 	source.CDNConfig = "cdn-config-b"
@@ -344,6 +418,30 @@ func dbPath(t *testing.T) string {
 	return filepath.Join(t.TempDir(), "metadata.sqlite")
 }
 
+func copyServerMigrations(t *testing.T, dst string) {
+	t.Helper()
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		t.Fatalf("create runtime migrations dir: %v", err)
+	}
+	src := filepath.Join("..", "..", "..", "..", "migrations", "server")
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		t.Fatalf("read source migrations: %v", err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(src, entry.Name()))
+		if err != nil {
+			t.Fatalf("read migration %s: %v", entry.Name(), err)
+		}
+		if err := os.WriteFile(filepath.Join(dst, entry.Name()), data, 0644); err != nil {
+			t.Fatalf("write runtime migration %s: %v", entry.Name(), err)
+		}
+	}
+}
+
 func assertListfileState(t *testing.T, db *sql.DB, key SourceKey, want string) {
 	t.Helper()
 	var state string
@@ -373,6 +471,22 @@ WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 	}
 	if hash != want {
 		t.Fatalf("listfile source hash = %q, want %q", hash, want)
+	}
+}
+
+func assertListfileSourceError(t *testing.T, db *sql.DB, key SourceKey, want string) {
+	t.Helper()
+	var message string
+	err := db.QueryRow(`
+SELECT error FROM server_listfile_sources
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		key.Region, key.Product, key.Locale, key.BuildKey,
+	).Scan(&message)
+	if err != nil {
+		t.Fatalf("query listfile source error: %v", err)
+	}
+	if message != want {
+		t.Fatalf("listfile source error = %q, want %q", message, want)
 	}
 }
 
@@ -416,6 +530,22 @@ WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 	}
 	if buildConfig != wantBuildConfig || cdnConfig != wantCDNConfig {
 		t.Fatalf("casc configs = %q/%q, want %q/%q", buildConfig, cdnConfig, wantBuildConfig, wantCDNConfig)
+	}
+}
+
+func assertCASCSourceError(t *testing.T, db *sql.DB, key SourceKey, want string) {
+	t.Helper()
+	var message string
+	err := db.QueryRow(`
+SELECT error FROM server_casc_sources
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		key.Region, key.Product, key.Locale, key.BuildKey,
+	).Scan(&message)
+	if err != nil {
+		t.Fatalf("query casc source error: %v", err)
+	}
+	if message != want {
+		t.Fatalf("casc source error = %q, want %q", message, want)
 	}
 }
 

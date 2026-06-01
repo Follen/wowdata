@@ -22,6 +22,14 @@ const (
 var ErrBuildNotReady = errors.New("build is not ready")
 
 func Open(path string) (*sql.DB, error) {
+	dir, err := migrationsDir()
+	if err != nil {
+		return nil, err
+	}
+	return OpenWithMigrations(path, dir)
+}
+
+func OpenWithMigrations(path string, migrationsDir string) (*sql.DB, error) {
 	if path != ":memory:" {
 		dir := filepath.Dir(path)
 		if dir != "." {
@@ -39,22 +47,18 @@ func Open(path string) (*sql.DB, error) {
 		_ = db.Close()
 		return nil, err
 	}
-	if err := migrate(db); err != nil {
+	if err := migrate(db, migrationsDir); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
 	return db, nil
 }
 
-func migrate(db *sql.DB) error {
+func migrate(db *sql.DB, dir string) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)`); err != nil {
 		return err
 	}
 
-	dir, err := migrationsDir()
-	if err != nil {
-		return err
-	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -101,18 +105,31 @@ func migrate(db *sql.DB) error {
 }
 
 func migrationsDir() (string, error) {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		return "", errors.New("resolve metadata source path")
+	var roots []string
+	if cwd, err := os.Getwd(); err == nil {
+		roots = append(roots, cwd)
 	}
-	for dir := filepath.Dir(file); ; dir = filepath.Dir(dir) {
-		candidate := filepath.Join(dir, "migrations", "server")
-		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-			return candidate, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
+	if executable, err := os.Executable(); err == nil {
+		roots = append(roots, filepath.Dir(executable))
+	}
+	if _, file, _, ok := runtime.Caller(0); ok {
+		roots = append(roots, filepath.Dir(file))
+	}
+
+	seen := map[string]bool{}
+	for _, root := range roots {
+		for dir := root; ; dir = filepath.Dir(dir) {
+			if !seen[dir] {
+				seen[dir] = true
+				candidate := filepath.Join(dir, "migrations", "server")
+				if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+					return candidate, nil
+				}
+			}
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				break
+			}
 		}
 	}
 	return "", errors.New("migrations/server directory not found")
