@@ -483,23 +483,37 @@ The local test suite must include both local CLI/stdio compatibility tests and s
 
 Build the server image on the remote Docker host. The image must contain `wowdata-server`, server migrations, default server config, and no Python gateway.
 
-### Remote HTTP Matrix Test
+### Remote Node-Parity Full Data Test
 
-Against the remote HTTP endpoint, run a generated matrix test that computes expected targets and tables from server config/status instead of hard-coding a stale number.
+Against the remote HTTP endpoint, run a generated parity test against the legacy Node implementation for every configured ready target. This replaces the historical fixed-denominator matrix check.
 
-Minimum required coverage:
+Required coverage:
 
-- all ready required targets
-- all required default DB2 tables per target
-- `wow_query schema`
-- `wow_query rows`
-- `wow_query search`
-- `wow_query foreign-key`
-- `wow_query stream`
-- `wow_status`
-- `wow_builds`
+- all 23 configured build targets when the server marks them ready
+- every DB2 table that the legacy Node implementation can read for each target build
+- every row in every compared table
+- every field in every compared row
+- schema equality: table list, field names, field order, field cardinality, and field value normalization
+- row equality: row count and deterministic row identity/order
+- value equality: canonical JSON value for every scalar, array, localized string, null, and numeric field
 
-The historical 4-context test was 92 table-row calls plus status/build checks. The final test must report the actual computed denominator, for example `93/93` or larger, and must fail if any expected call is skipped.
+The legacy Node implementation is the oracle for this acceptance test. A Go HTTP result is a failure if it is missing any Node-readable table, missing any Node-emitted field, has a different field order, has a different row count, or has a different canonical value. Go-only extra tables must be reported as extras and fail the parity test until deliberately reviewed in a later spec revision.
+
+The test must not hard-code `93/93`, `92/92`, or any other stale denominator. It must compute the total from the 23 prepared targets and the full table list discovered from the legacy Node implementation for each target.
+
+The comparison may use streaming canonical hashes to avoid loading all rows into memory, but the hash input must include every field of every row. For each target/table it must report:
+
+- target label, region, product, locale, and build
+- table name
+- compared row count
+- compared field count
+- legacy Node schema hash
+- new Go HTTP schema hash
+- legacy Node full-data hash
+- new Go HTTP full-data hash
+- pass/fail
+
+On mismatch, the test must emit the first mismatched table and at least the first 20 concrete row/field diffs. A hash mismatch without concrete diagnostic diffs is not an acceptable failure report.
 
 ### Remote Business Tool Test
 
@@ -585,7 +599,7 @@ The rewrite is complete only when all of these are true:
 - Server unit tests pass.
 - Remote Docker deployment succeeds.
 - `/health` and `wow_status` report the same health state.
-- The remote computed MCP matrix test reports full pass, with a denominator equal to the expected generated coverage count.
+- The remote Node-parity full data test reports full pass across the prepared 23-build matrix, every comparable table, every row, and every field.
 - Remote artifact URLs are downloadable.
 - Remote restart proves valid DB2/Listfile/CASC data is reused.
 - Remote update-flow tests prove successful candidate activation and failed candidate rollback.

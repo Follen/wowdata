@@ -160,7 +160,7 @@ Create or modify these files during the plan.
 ### Dependency Guard and Remote Verification
 
 - Create: `internal/architecture/dependency_test.go`
-- Create: `.local/wowdata/test-http-matrix.ps1` but do not commit it.
+- Create: `.local/wowdata/test-http-node-parity.ps1` but do not commit it.
 - Create: `.local/wowdata/test-http-update-flow.ps1` but do not commit it.
 - Modify: `.gitignore` if needed to keep `.local/` ignored.
 - Modify: `Dockerfile.http`
@@ -1287,26 +1287,41 @@ Expected: commit succeeds.
 
 **Files:**
 
-- Create: `.local/wowdata/test-http-matrix.ps1` untracked
+- Create: `.local/wowdata/test-http-node-parity.ps1` untracked
 - Create: `.local/wowdata/test-http-update-flow.ps1` untracked
 - Modify: `.gitignore` only if `.local/` is not already ignored
 - Create: `docs/deployment.md` updates
 
-- [ ] **Step 1: Write matrix script**
+- [ ] **Step 1: Write Node parity full-data script**
 
-Create `.local/wowdata/test-http-matrix.ps1`. It must:
+Create `.local/wowdata/test-http-node-parity.ps1`. It must:
 
 - call `/health`
 - call MCP `wow_status`
-- derive ready required targets
-- derive required default DB2 tables
-- call `wow_query schema/rows/search/foreign-key/stream`
-- call `wow_builds`
-- call business tools
-- call artifact tools
-- download every returned `downloadUrl`
-- print `REMOTE_MATRIX_PASS=x/y`
+- derive all ready configured targets from server status
+- require the 23 configured targets to be ready unless the command is explicitly run with a diagnostic `-AllowNotReady` flag
+- call the legacy Node implementation for each target
+- call the new Go HTTP MCP implementation for each target
+- use the legacy Node implementation as the oracle table list for each target
+- fail if the Go HTTP result is missing any Node-readable table
+- report and fail on Go-only extra tables until a later spec revision explicitly accepts them
+- compare every Node-readable table
+- compare every field in the schema
+- compare every row and every field value through a deterministic canonical representation
+- stream canonical hashes so the script does not need to hold a full large table in memory
+- print one line per target/table with row count, field count, Node schema hash, Go schema hash, Node data hash, Go data hash, and pass/fail
+- print `REMOTE_NODE_PARITY_PASS=x/y`
 - exit 1 unless `x == y`
+
+On any mismatch, the script must also print:
+
+```text
+first_mismatch_target=<label>
+first_mismatch_table=<table>
+first_mismatch_kind=<schema|row_count|field_value|missing_table|extra_table>
+```
+
+and at least 20 concrete row/field diffs when 20 are available. A hash-only mismatch report is incomplete and must fail review.
 
 - [ ] **Step 2: Write update-flow script**
 
@@ -1381,22 +1396,22 @@ Remote deploy complete.
 /health returns ok process liveness JSON.
 ```
 
-- [ ] **Step 2: Run remote matrix test**
+- [ ] **Step 2: Run remote Node parity full-data test**
 
 Run:
 
 ```powershell
-.\.local\wowdata\test-http-matrix.ps1 -BaseUrl 'http://211.154.18.253:11223'
+.\.local\wowdata\test-http-node-parity.ps1 -BaseUrl 'http://211.154.18.253:11223'
 ```
 
 Expected:
 
 ```text
-REMOTE_MATRIX_PASS=x/y
+REMOTE_NODE_PARITY_PASS=x/y
 x equals y
 ```
 
-The script must fail if the denominator is lower than the expected generated coverage count.
+The script must fail if fewer than the 23 configured ready targets are compared, unless it is explicitly running in diagnostic `-AllowNotReady` mode. It must fail if any Node-readable table is missing, any Go-only table appears, any schema field differs, any field order differs, any row count differs, or any canonical full-data hash differs from the legacy Node oracle.
 
 - [ ] **Step 3: Run remote update-flow test**
 
@@ -1419,7 +1434,7 @@ Run:
 
 ```powershell
 ssh -i .local\wowdata\config\cert\Follen.pem -p 10042 -o StrictHostKeyChecking=no root@211.154.18.253 'docker restart wowdata-mcp >/dev/null && sleep 15 && curl -fsS http://127.0.0.1:9443/health'
-.\.local\wowdata\test-http-matrix.ps1 -BaseUrl 'http://211.154.18.253:11223' -ReuseOnly
+.\.local\wowdata\test-http-node-parity.ps1 -BaseUrl 'http://211.154.18.253:11223' -ReuseOnly
 ```
 
 Expected:
@@ -1467,6 +1482,6 @@ Expected: commit succeeds.
 - [x] Parquet/DuckDB query path is covered by Task 6.
 - [x] User requests not triggering prepare is covered by Task 10 and Task 11.
 - [x] Bounded business assemblers are covered by Task 12.
-- [x] Remote matrix, artifact download, restart reuse, and update-flow tests are covered by Tasks 13 and 14.
+- [x] Remote Node-parity full-data comparison, artifact download, restart reuse, and update-flow tests are covered by Tasks 13 and 14.
 - [x] Checkbox discipline is defined in "Progress Discipline".
 - [x] No source implementation is part of this plan-writing task.
