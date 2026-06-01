@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -13,7 +14,7 @@ import (
 func (m *Manager) linkForRel(artifactPath, rel, mimeType string) Link {
 	downloadURL := ""
 	if m.baseURL != "" {
-		downloadURL = m.baseURL + "/" + path.Join(strings.Split(filepath.ToSlash(rel), "/")...)
+		downloadURL = m.baseURL + "/" + escapedPath(rel)
 	}
 	return Link{
 		Path:        artifactPath,
@@ -22,6 +23,18 @@ func (m *Manager) linkForRel(artifactPath, rel, mimeType string) Link {
 		MimeType:    mimeType,
 		Name:        path.Base(filepath.ToSlash(rel)),
 	}
+}
+
+func escapedPath(rel string) string {
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	escaped := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		escaped = append(escaped, url.PathEscape(part))
+	}
+	return path.Join(escaped...)
 }
 
 func fillFileMetadata(link *Link) error {

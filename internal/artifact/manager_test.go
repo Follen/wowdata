@@ -2,9 +2,11 @@ package artifact
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -36,6 +38,24 @@ func TestReserveCreatesLinkInsideRoot(t *testing.T) {
 	}
 	if link.Name != "134400.png" {
 		t.Fatalf("name = %q", link.Name)
+	}
+}
+
+func TestReserveEscapesDownloadURLPathSegments(t *testing.T) {
+	root := t.TempDir()
+	m := NewManager(Config{Root: root, BaseURL: "https://mcp.example.test/files/", RetentionHours: 24})
+
+	_, link, err := m.Reserve("icons", "foo #bar?.png", "image/png")
+	if err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+
+	want := "https://mcp.example.test/files/icons/foo%20%23bar%3F.png"
+	if link.DownloadURL != want {
+		t.Fatalf("download URL = %q, want %q", link.DownloadURL, want)
+	}
+	if link.URI != want {
+		t.Fatalf("URI = %q, want %q", link.URI, want)
 	}
 }
 
@@ -92,6 +112,44 @@ func TestLinkForPathMapsOnlyRootFiles(t *testing.T) {
 	}
 	if _, err := m.LinkForPath(outside, "image/png"); err == nil {
 		t.Fatal("expected root outside path to be rejected")
+	}
+}
+
+func TestLinkForPathRejectsSymlinkTraversal(t *testing.T) {
+	root := t.TempDir()
+	other := t.TempDir()
+	linkDir := filepath.Join(root, "link")
+	if err := os.Symlink(other, linkDir); err != nil {
+		if runtime.GOOS == "windows" || errors.Is(err, os.ErrPermission) {
+			t.Skipf("symlink not available: %v", err)
+		}
+		t.Fatalf("create symlink: %v", err)
+	}
+	outside := filepath.Join(other, "outside.txt")
+	if err := os.WriteFile(outside, []byte("secret"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	m := NewManager(Config{Root: root, BaseURL: "https://mcp.example.test/files"})
+	if _, err := m.LinkForPath(filepath.Join(linkDir, "outside.txt"), "text/plain"); err == nil {
+		t.Fatal("expected symlink traversal to be rejected")
+	}
+}
+
+func TestReserveRejectsSymlinkTraversal(t *testing.T) {
+	root := t.TempDir()
+	other := t.TempDir()
+	linkDir := filepath.Join(root, "link")
+	if err := os.Symlink(other, linkDir); err != nil {
+		if runtime.GOOS == "windows" || errors.Is(err, os.ErrPermission) {
+			t.Skipf("symlink not available: %v", err)
+		}
+		t.Fatalf("create symlink: %v", err)
+	}
+
+	m := NewManager(Config{Root: root, BaseURL: "https://mcp.example.test/files"})
+	if _, _, err := m.Reserve("link", "outside.txt", "text/plain"); err == nil {
+		t.Fatal("expected reserve through symlink to be rejected")
 	}
 }
 
