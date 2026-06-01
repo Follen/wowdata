@@ -892,7 +892,7 @@ git commit -m "query add service boundary"
 - Modify: `cmd/wowdata/mcp.go`
 - Modify: `cmd/wowdata/mcp_compatibility_test.go`
 
-- [ ] **Step 1: Write command path tests**
+- [x] **Step 1: Write command path tests**
 
 Add to `cmd/wowdata/mcp_compatibility_test.go`:
 
@@ -912,7 +912,7 @@ func TestMCPCommandHasStdioAndHTTPSubcommands(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Move CLI assembly into `cli.go`**
+- [x] **Step 2: Move CLI assembly into `cli.go`**
 
 Create `cmd/wowdata/cli.go` with:
 
@@ -972,7 +972,7 @@ func syncRuntimeFromPersistentFlags(cmd *cobra.Command, rt *Runtime) {
 }
 ```
 
-- [ ] **Step 3: Move stdio startup into `mcp_stdio.go`**
+- [x] **Step 3: Move stdio startup into `mcp_stdio.go`**
 
 Create `cmd/wowdata/mcp_stdio.go`:
 
@@ -1016,7 +1016,7 @@ Legacy compatibility:
 }
 ```
 
-- [ ] **Step 4: Reduce `main.go` root construction**
+- [x] **Step 4: Reduce `main.go` root construction**
 
 Modify `newRootCommandForRuntime` in `cmd/wowdata/main.go`:
 
@@ -1031,7 +1031,7 @@ func newRootCommandForRuntime(rt *Runtime) *cobra.Command {
 
 Remove imports from `main.go` that are no longer used after moving service construction.
 
-- [ ] **Step 5: Run split tests**
+- [x] **Step 5: Run split tests**
 
 Run:
 
@@ -1041,7 +1041,7 @@ go test ./cmd/wowdata ./internal/app -count=1
 
 Expected: both packages pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 

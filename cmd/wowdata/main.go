@@ -74,35 +74,9 @@ func main() {
 }
 
 func newRootCommandForRuntime(rt *Runtime) *cobra.Command {
-	fileStore := appruntime.NewCASCFileStore(rt.LF, nil, rt)
-
-	svc := &app.Service{
-		Warmup:    warmupHandler(rt),
-		Casc:      cascHandler(rt),
-		DB2:       app.NewDB2HandlerWithStore(rt.DB2),
-		Spell:     app.NewSpellHandler(wowdata.NewSpellServiceWithDB2(rt.DB2)),
-		Encounter: app.NewEncounterHandler(wowdata.NewEncounterServiceWithDB2(rt.DB2)),
-		File:      app.NewFileHandlerWithStore(fileStore),
-		Icon:      app.NewIconHandlerWithStore(fileStore),
-		Item:      app.NewItemHandler(wowdata.NewItemServiceWithDB2(rt.DB2)),
-		Creature:  app.NewCreatureHandler(wowdata.NewCreatureServiceWithDB2(rt.DB2)),
-		Decor:     app.NewDecorHandler(wowdata.NewDecorServiceWithDB2(rt.DB2)),
-		Video:     app.NewVideoHandler(),
-		Golden:    app.NewGoldenHandler(),
-	}
-
-	cmd := app.NewRootCommandWithService(svc)
+	cmd := app.NewRootCommandWithService(newCLIServiceForRuntime(rt))
 	registerMCPCommand(cmd, rt)
-	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		syncRuntimeFromPersistentFlags(cmd, rt)
-		autoWarmup, _ := commandBoolFlag(cmd, "auto-warmup")
-		if !autoWarmup || cmd.CommandPath() == "wowdata warmup" || strings.HasPrefix(cmd.CommandPath(), "wowdata mcp") {
-			return nil
-		}
-		opts := warmupOptionsFromCommand(cmd)
-		_, err := rt.initialize(opts)
-		return err
-	}
+	attachCLIPersistentPreRun(cmd, rt)
 	return cmd
 }
 

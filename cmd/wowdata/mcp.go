@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -33,33 +32,6 @@ Transports:
 Examples:
   wowdata mcp stdio
   wowdata mcp http --host 127.0.0.1 --port 9788 --base-url http://127.0.0.1:9788`,
-	}
-	stdioCmd := &cobra.Command{
-		Use:   "stdio",
-		Short: "Serve MCP tools over stdio.",
-		Long: `Serve MCP tools over stdio.
-
-Use this for local clients that launch wowdata as a subprocess.
-
-Codex CLI:
-  codex mcp add wowdata -- wowdata mcp stdio
-
-Claude Code:
-  claude mcp add wowdata -- wowdata mcp stdio
-
-cc-switch custom MCP:
-  {
-    "type": "stdio",
-    "command": "wowdata",
-    "args": ["mcp", "stdio"]
-  }
-
-Legacy compatibility:
-  wowdata --mcp is treated as wowdata mcp stdio.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			server := newMCPServerForRuntime(rt)
-			return server.Serve(cmd.Context(), os.Stdin, os.Stdout)
-		},
 	}
 	var httpHost, httpBaseURL string
 	var httpArtifactRoot, httpArtifactBaseURL string
@@ -118,7 +90,7 @@ Compatibility notes:
 	httpCmd.Flags().StringVar(&httpArtifactBaseURL, "artifact-base-url", "", "Public base URL for exported artifacts, such as https://mcp.example.com:9443/files")
 	httpCmd.Flags().IntVar(&httpMaxContexts, "max-contexts", 1, "Maximum warmed build contexts to keep in memory for HTTP MCP")
 
-	mcpCmd.AddCommand(stdioCmd, httpCmd)
+	mcpCmd.AddCommand(newMCPStdioCommand(rt), httpCmd)
 	root.AddCommand(mcpCmd)
 }
 
@@ -349,13 +321,6 @@ func executeCLIJSON(ctx context.Context, rt *Runtime, args []string) (interface{
 		return nil, fmt.Errorf("decode CLI JSON for %v: %w; stdout=%s", args, err, stdout.String())
 	}
 	return decoded, nil
-}
-
-func syncRuntimeFromPersistentFlags(cmd *cobra.Command, rt *Runtime) {
-	cacheRoot, _ := commandStringFlag(cmd, "cache")
-	if cacheRoot != "" {
-		rt.CacheRoot = resolveCacheRoot(cacheRoot, os.Executable)
-	}
 }
 
 func applyRuntimePersistentFlags(cmd *cobra.Command, rt *Runtime) {

@@ -31,3 +31,17 @@ func TestStdioMCPToolNamesStayStable(t *testing.T) {
 		}
 	}
 }
+
+func TestMCPCommandHasStdioAndHTTPSubcommands(t *testing.T) {
+	rt := NewRuntime()
+	root := newRootCommandForRuntime(rt)
+	mcp, _, err := root.Find([]string{"mcp"})
+	if err != nil {
+		t.Fatalf("find mcp: %v", err)
+	}
+	for _, name := range []string{"stdio", "http"} {
+		if child, _, err := mcp.Find([]string{name}); err != nil || child.Name() != name {
+			t.Fatalf("mcp subcommand %q missing: child=%v err=%v", name, child, err)
+		}
+	}
+}
