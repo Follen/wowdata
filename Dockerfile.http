@@ -1,8 +1,25 @@
-FROM debian:12-slim
+ARG BUILDER_IMAGE=golang:1.26.1-bookworm
+ARG RUNTIME_IMAGE=debian:12-slim
+
+FROM ${BUILDER_IMAGE} AS builder
+
+WORKDIR /src
+
+ENV GOPROXY=https://goproxy.cn,https://mirrors.aliyun.com/goproxy,direct
+ENV GOSUMDB=sum.golang.google.cn
+
+COPY . .
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    mkdir -p /out && \
+    CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
+    go build -tags wowdata_duckdb -trimpath -ldflags="-s -w" -o /out/wowdata ./cmd/wowdata
+
+FROM ${RUNTIME_IMAGE}
 
 WORKDIR /srv/wowdata
 
-COPY dist/linux-amd64/wowdata /usr/local/bin/wowdata
+COPY --from=builder /out/wowdata /usr/local/bin/wowdata
 COPY migrations /srv/wowdata/migrations
 COPY config/http-mcp.example.yaml /srv/wowdata/config/http-mcp.example.yaml
 

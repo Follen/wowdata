@@ -6,9 +6,9 @@ outside the repository.
 
 ## Build Linux Binary
 
-Build the Linux binary on a Linux Docker host or another Linux build
-environment with a working CGO compiler. A Windows UCRT GCC toolchain can run
-the local tests, but it is not a Linux CGO cross compiler.
+Manual binary builds are optional. Use them only when you need to inspect the
+compiled executable outside Docker. A Windows UCRT GCC toolchain can run the
+local tests, but it is not a Linux CGO cross compiler.
 
 ```bash
 mkdir -p dist/linux-amd64
@@ -21,12 +21,17 @@ instead of rows.
 
 ## Build Image
 
-Run the image build in the same Linux-capable environment after the binary is
-created.
+`Dockerfile.http` is a multi-stage Dockerfile. It builds the Linux binary in a
+Go builder image with CGO enabled and then copies the result into a slim Debian
+runtime image. A prebuilt `dist/linux-amd64/wowdata` file is not required.
+Run the image build on a Docker host that can build Linux amd64 images.
 
 ```bash
 docker build -f Dockerfile.http -t wowdata:http-refactor .
 ```
+
+The private deployment driver under `.local/wowdata/` builds on the remote
+Docker CE host and does not require a local Docker installation.
 
 ## Container Config
 
