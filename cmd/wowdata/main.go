@@ -23,6 +23,7 @@ import (
 // Runtime holds the live state that handlers share.
 type Runtime struct {
 	mu                 sync.Mutex
+	localRuntime       *appruntime.LocalRuntime
 	httpWarmupMu       sync.Mutex
 	httpWarmupGate     bool
 	httpWarmupInFlight bool
@@ -45,16 +46,18 @@ type Runtime struct {
 }
 
 func NewRuntime() *Runtime {
+	cacheRoot := resolveCacheRoot("", os.Executable)
 	return &Runtime{
-		CacheRoot: resolveCacheRoot("", os.Executable),
-		LF:        listfile.New(),
-		DB2:       appruntime.NewMemoryDB2Store(),
-		Spell:     wowdata.NewSpellService(),
-		Enc:       wowdata.NewEncounterService(),
-		Item:      wowdata.NewItemService(),
-		Creat:     wowdata.NewCreatureService(),
-		Decor:     wowdata.NewDecorService(),
-		Diag:      diagnostics.NewDiagnosticsService(),
+		CacheRoot:    cacheRoot,
+		localRuntime: appruntime.NewLocalRuntime(appruntime.LocalRuntimeOptions{CacheRoot: cacheRoot}),
+		LF:           listfile.New(),
+		DB2:          appruntime.NewMemoryDB2Store(),
+		Spell:        wowdata.NewSpellService(),
+		Enc:          wowdata.NewEncounterService(),
+		Item:         wowdata.NewItemService(),
+		Creat:        wowdata.NewCreatureService(),
+		Decor:        wowdata.NewDecorService(),
+		Diag:         diagnostics.NewDiagnosticsService(),
 	}
 }
 

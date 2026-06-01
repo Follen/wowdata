@@ -435,7 +435,7 @@ git commit -m "runtime add context identity"
 - Create: `internal/runtime/local_runtime_test.go`
 - Modify: `cmd/wowdata/main.go`
 
-- [ ] **Step 1: Write local runtime tests**
+- [x] **Step 1: Write local runtime tests**
 
 Create `internal/runtime/local_runtime_test.go`:
 
@@ -465,7 +465,7 @@ func TestLocalRuntimeSingleActiveContext(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Implement local runtime wrapper**
+- [x] **Step 2: Implement local runtime wrapper**
 
 Create `internal/runtime/local_runtime.go`:
 
@@ -521,7 +521,7 @@ func (r *LocalRuntime) ActiveContext() *Context {
 }
 ```
 
-- [ ] **Step 3: Add adapter field without changing behavior**
+- [x] **Step 3: Add adapter field without changing behavior**
 
 Modify `cmd/wowdata/main.go` `Runtime`:
 
@@ -569,7 +569,7 @@ return &Runtime{
 }
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run:
 
@@ -579,7 +579,7 @@ go test ./internal/runtime ./cmd/wowdata -count=1
 
 Expected: both packages pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
