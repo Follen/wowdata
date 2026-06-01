@@ -1,0 +1,206 @@
+package metadata
+
+import (
+	"context"
+	"database/sql"
+)
+
+type SourceKey struct {
+	Region   string
+	Product  string
+	Locale   string
+	BuildKey string
+}
+
+type ListfileSource struct {
+	Region     string
+	Product    string
+	Locale     string
+	BuildKey   string
+	SourceHash string
+	State      string
+	Error      string
+}
+
+func (s ListfileSource) Key() SourceKey {
+	return SourceKey{Region: s.Region, Product: s.Product, Locale: s.Locale, BuildKey: s.BuildKey}
+}
+
+type CASCSource struct {
+	Region      string
+	Product     string
+	Locale      string
+	BuildKey    string
+	BuildConfig string
+	CDNConfig   string
+	State       string
+	Error       string
+}
+
+func (s CASCSource) Key() SourceKey {
+	return SourceKey{Region: s.Region, Product: s.Product, Locale: s.Locale, BuildKey: s.BuildKey}
+}
+
+type Artifact struct {
+	Region      string
+	Product     string
+	Locale      string
+	BuildKey    string
+	Path        string
+	DownloadURL string
+	MIMEType    string
+	Size        int64
+	SHA256      string
+}
+
+func UpsertListfileSource(ctx context.Context, db *sql.DB, source ListfileSource) (bool, error) {
+	state := source.State
+	if state == "" {
+		state = StatePreparing
+	}
+	var oldHash string
+	err := db.QueryRowContext(ctx, `
+SELECT source_hash FROM server_listfile_sources
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		source.Region, source.Product, source.Locale, source.BuildKey,
+	).Scan(&oldHash)
+	if err == sql.ErrNoRows {
+		_, err := db.ExecContext(ctx, `
+INSERT INTO server_listfile_sources (
+  region, product, locale, build_key, source_hash, state, error, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+			source.Region,
+			source.Product,
+			source.Locale,
+			source.BuildKey,
+			source.SourceHash,
+			state,
+			source.Error,
+		)
+		return false, err
+	}
+	if err != nil {
+		return false, err
+	}
+	if oldHash == source.SourceHash {
+		return false, nil
+	}
+	_, err = db.ExecContext(ctx, `
+UPDATE server_listfile_sources
+SET source_hash = ?, state = ?, error = '', updated_at = CURRENT_TIMESTAMP
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		source.SourceHash,
+		StateStale,
+		source.Region,
+		source.Product,
+		source.Locale,
+		source.BuildKey,
+	)
+	return true, err
+}
+
+func MarkListfileSourceState(ctx context.Context, db *sql.DB, key SourceKey, state string, message string) error {
+	_, err := db.ExecContext(ctx, `
+UPDATE server_listfile_sources
+SET state = ?, error = ?, updated_at = CURRENT_TIMESTAMP
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		state,
+		message,
+		key.Region,
+		key.Product,
+		key.Locale,
+		key.BuildKey,
+	)
+	return err
+}
+
+func UpsertCASCSource(ctx context.Context, db *sql.DB, source CASCSource) (bool, error) {
+	state := source.State
+	if state == "" {
+		state = StatePreparing
+	}
+	var oldBuildConfig, oldCDNConfig string
+	err := db.QueryRowContext(ctx, `
+SELECT build_config, cdn_config FROM server_casc_sources
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		source.Region, source.Product, source.Locale, source.BuildKey,
+	).Scan(&oldBuildConfig, &oldCDNConfig)
+	if err == sql.ErrNoRows {
+		_, err := db.ExecContext(ctx, `
+INSERT INTO server_casc_sources (
+  region, product, locale, build_key, build_config, cdn_config, state, error, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+			source.Region,
+			source.Product,
+			source.Locale,
+			source.BuildKey,
+			source.BuildConfig,
+			source.CDNConfig,
+			state,
+			source.Error,
+		)
+		return false, err
+	}
+	if err != nil {
+		return false, err
+	}
+	if oldBuildConfig == source.BuildConfig && oldCDNConfig == source.CDNConfig {
+		return false, nil
+	}
+	_, err = db.ExecContext(ctx, `
+UPDATE server_casc_sources
+SET build_config = ?, cdn_config = ?, state = ?, error = '', updated_at = CURRENT_TIMESTAMP
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		source.BuildConfig,
+		source.CDNConfig,
+		StateStale,
+		source.Region,
+		source.Product,
+		source.Locale,
+		source.BuildKey,
+	)
+	return true, err
+}
+
+func MarkCASCSourceState(ctx context.Context, db *sql.DB, key SourceKey, state string, message string) error {
+	_, err := db.ExecContext(ctx, `
+UPDATE server_casc_sources
+SET state = ?, error = ?, updated_at = CURRENT_TIMESTAMP
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		state,
+		message,
+		key.Region,
+		key.Product,
+		key.Locale,
+		key.BuildKey,
+	)
+	return err
+}
+
+func UpsertArtifact(ctx context.Context, db *sql.DB, artifact Artifact) error {
+	_, err := db.ExecContext(ctx, `
+INSERT INTO server_artifacts (
+  region, product, locale, build_key, artifact_path, download_url,
+  mime_type, size_bytes, sha256, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+ON CONFLICT(artifact_path) DO UPDATE SET
+  region = excluded.region,
+  product = excluded.product,
+  locale = excluded.locale,
+  build_key = excluded.build_key,
+  download_url = excluded.download_url,
+  mime_type = excluded.mime_type,
+  size_bytes = excluded.size_bytes,
+  sha256 = excluded.sha256`,
+		artifact.Region,
+		artifact.Product,
+		artifact.Locale,
+		artifact.BuildKey,
+		artifact.Path,
+		artifact.DownloadURL,
+		artifact.MIMEType,
+		artifact.Size,
+		artifact.SHA256,
+	)
+	return err
+}
