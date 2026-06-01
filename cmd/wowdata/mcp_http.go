@@ -66,7 +66,7 @@ Compatibility notes:
 			})
 			addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 			mux := http.NewServeMux()
-			registerMCPHTTPHandlers(mux, server, cfg.Server.BaseURL, rt)
+			registerMCPHTTPHandlers(mux, server, cfg.Server.BaseURL, cfg.Cache.Root)
 			httpServer := &http.Server{
 				Addr:              addr,
 				Handler:           mux,

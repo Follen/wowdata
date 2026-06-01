@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -58,6 +61,30 @@ func TestHTTPHelpListsCodexClaudeAndCCSwitch(t *testing.T) {
 		if !strings.Contains(help, want) {
 			t.Fatalf("mcp help missing %q:\n%s", want, help)
 		}
+	}
+}
+
+func TestHTTPHealthReportsConfiguredCacheRoot(t *testing.T) {
+	rt := NewRuntime()
+	rt.CacheRoot = filepath.Join(t.TempDir(), "runtime-cache")
+	cacheRoot := filepath.Join(t.TempDir(), "http-cache")
+	mux := http.NewServeMux()
+	registerMCPHTTPHandlers(mux, newMCPServerForRuntime(rt), "https://mcp.lychee-addon.online:9443", cacheRoot)
+
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	var payload map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode health: %v; body=%s", err, rec.Body.String())
+	}
+	got, _ := payload["cacheRoot"].(string)
+	if got != filepath.ToSlash(cacheRoot) {
+		t.Fatalf("cacheRoot = %q, want %q; payload=%#v", got, filepath.ToSlash(cacheRoot), payload)
 	}
 }
 

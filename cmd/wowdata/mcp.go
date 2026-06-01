@@ -56,7 +56,7 @@ func newMCPHTTPServerForService(svc *httpservice.Service, artifacts artifactConf
 	}))
 }
 
-func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseURL string, rt *Runtime) {
+func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseURL, cacheRoot string) {
 	mux.Handle("/mcp", server)
 	mux.Handle("/mcp/", server)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +65,7 @@ func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseU
 			"service":   "wowdata-mcp",
 			"endpoint":  publicURL(baseURL, "/mcp"),
 			"transport": "streamable_http",
-			"cacheRoot": filepath.ToSlash(rt.CacheRoot),
+			"cacheRoot": filepath.ToSlash(cacheRoot),
 		})
 	})
 	mux.HandleFunc("/help", func(w http.ResponseWriter, r *http.Request) {
