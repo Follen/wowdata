@@ -1990,7 +1990,7 @@ git commit -m "http add service runtime"
 - Modify: `cmd/wowdata/mcp_http.go`
 - Modify: `cmd/wowdata/mcp_stdio.go`
 
-- [ ] **Step 1: Write stdio tool list test**
+- [x] **Step 1: Write stdio tool list test**
 
 Create `internal/adapter/mcp/stdio_tools_test.go`:
 
@@ -2010,7 +2010,7 @@ func TestStdioToolsIncludeWarmup(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Write HTTP tool list test**
+- [x] **Step 2: Write HTTP tool list test**
 
 Create `internal/adapter/mcp/http_tools_test.go`:
 
@@ -2041,15 +2041,15 @@ func TestHTTPAdminToolsAreGated(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Implement adapter tool lists**
+- [x] **Step 3: Implement adapter tool lists**
 
 Create `internal/adapter/mcp/stdio_tools.go` and `http_tools.go` with exported `StdioToolNames`, `HTTPToolNames`, and tool builders that return `mcpserver.Tool`.
 
-- [ ] **Step 4: Move existing CLI-backed tool mapping to stdio only**
+- [x] **Step 4: Move existing CLI-backed tool mapping to stdio only**
 
 Modify `cmd/wowdata/mcp.go` so `executeCLIJSON` remains used only by stdio tool handlers. HTTP tool handlers must call `internal/service/http.Service`.
 
-- [ ] **Step 5: Add HTTP tool handler tests**
+- [x] **Step 5: Add HTTP tool handler tests**
 
 Add tests proving:
 
@@ -2062,7 +2062,7 @@ wow_icon maps exported path to downloadUrl
 
 Use fake service implementations in tests; do not hit Blizzard CDN.
 
-- [ ] **Step 6: Run adapter tests**
+- [x] **Step 6: Run adapter tests**
 
 Run:
 
@@ -2072,7 +2072,7 @@ go test ./internal/adapter/mcp ./cmd/wowdata -count=1
 
 Expected: packages pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 

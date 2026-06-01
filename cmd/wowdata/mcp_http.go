@@ -56,9 +56,8 @@ Compatibility notes:
 			rt.enableHTTPWarmupGate()
 			rt.enableContextCache(cfg.Contexts.MaxContexts)
 			svc := httpservice.NewService(cfg, nil)
-			_ = svc
 
-			server := newMCPServerForRuntimeWithArtifacts(rt, artifactConfig{
+			server := newMCPHTTPServerForService(svc, artifactConfig{
 				root:    cfg.Artifacts.Root,
 				baseURL: cfg.Artifacts.BaseURL,
 			})

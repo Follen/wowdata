@@ -11,8 +11,10 @@ import (
 	"strconv"
 	"strings"
 
+	mcpadapter "wowdata/internal/adapter/mcp"
 	"wowdata/internal/artifact"
 	"wowdata/internal/mcpserver"
+	httpservice "wowdata/internal/service/http"
 
 	"github.com/spf13/cobra"
 )
@@ -44,6 +46,13 @@ func newMCPServerForRuntime(rt *Runtime) *mcpserver.Server {
 
 func newMCPServerForRuntimeWithArtifacts(rt *Runtime, artifacts artifactConfig) *mcpserver.Server {
 	return mcpserver.NewServer("wowdata", mcpToolsForRuntimeWithArtifacts(rt, artifacts))
+}
+
+func newMCPHTTPServerForService(svc *httpservice.Service, artifacts artifactConfig) *mcpserver.Server {
+	return mcpserver.NewServer("wowdata", mcpadapter.HTTPTools(svc, mcpadapter.HTTPToolOptions{
+		ExposeAdmin: svc.ToolPolicy().ExposeAdminTools,
+		Artifacts:   newMCPArtifactReserver(artifacts),
+	}))
 }
 
 func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseURL string, rt *Runtime) {
@@ -109,7 +118,7 @@ func mcpHelpHTML(baseURL string) string {
 <h2>Claude Code</h2><pre>claude mcp add --transport http wowdata %s</pre>
 <h2>Claude Code stdio fallback</h2><pre>claude mcp add --transport stdio wowdata -- wowdata mcp stdio</pre>
 <h2>Local stdio</h2><pre>wowdata mcp stdio</pre>
-<p>Supported tools: wow_warmup, wow_casc, wow_db2, wow_file, wow_icon, wow_spell, wow_encounter, wow_item, wow_creature, wow_decor, wow_video.</p>
+<p>Supported HTTP tools: wow_builds, wow_status, wow_db2, wow_file, wow_icon, wow_spell, wow_encounter, wow_item, wow_creature, wow_decor, wow_video.</p>
 </body></html>`, endpoint, endpoint, endpoint, endpoint)
 }
 
@@ -140,6 +149,33 @@ func mcpToolsForRuntimeWithArtifacts(rt *Runtime, artifacts artifactConfig) []mc
 type artifactConfig struct {
 	root    string
 	baseURL string
+}
+
+type mcpArtifactReserver struct {
+	manager *artifact.Manager
+}
+
+func newMCPArtifactReserver(cfg artifactConfig) *mcpArtifactReserver {
+	if cfg.root == "" {
+		return nil
+	}
+	return &mcpArtifactReserver{manager: artifact.NewManager(artifact.Config{Root: cfg.root, BaseURL: cfg.baseURL})}
+}
+
+func (r *mcpArtifactReserver) ReserveArtifact(category, filename, mimeType string) (string, mcpadapter.ArtifactLink, error) {
+	path, link, err := r.manager.Reserve(category, filename, mimeType)
+	if err != nil {
+		return "", mcpadapter.ArtifactLink{}, err
+	}
+	return path, mcpadapter.ArtifactLink{
+		Path:        link.Path,
+		URI:         link.URI,
+		DownloadURL: link.DownloadURL,
+		MimeType:    link.MimeType,
+		Name:        link.Name,
+		Size:        link.Size,
+		SHA256:      link.SHA256,
+	}, nil
 }
 
 func cliTool(rt *Runtime, name, description string, base []string, mapper func(map[string]interface{}) ([]string, error), artifacts artifactConfig) mcpTool {
