@@ -418,7 +418,7 @@ go test ./internal/runtime -count=1
 
 Expected: package passes.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
