@@ -2374,7 +2374,7 @@ git commit -m "docs update http mcp help"
 - Create: `.local/wowdata/deploy-http-docker.ps1`
 - Modify: `.gitignore`
 
-- [ ] **Step 1: Add ignore rules**
+- [x] **Step 1: Add ignore rules**
 
 Modify `.gitignore`:
 
@@ -2387,7 +2387,7 @@ cache/
 *.parquet
 ```
 
-- [ ] **Step 2: Create Dockerfile**
+- [x] **Step 2: Create Dockerfile**
 
 Create `Dockerfile.http`:
 
@@ -2402,7 +2402,7 @@ ENTRYPOINT ["/usr/local/bin/wowdata"]
 CMD ["mcp", "http", "--config", "/etc/wowdata/http-mcp.yaml"]
 ```
 
-- [ ] **Step 3: Create private deploy script**
+- [x] **Step 3: Create private deploy script**
 
 Create `.local/wowdata/deploy-http-docker.ps1` with these actions:
 
@@ -2421,7 +2421,7 @@ ssh -p $DEPLOY_PORT -i $DEPLOY_KEY "$DEPLOY_USER@$DEPLOY_HOST" "docker rm -f wow
 
 Keep this script untracked because it reads private deployment variables.
 
-- [ ] **Step 4: Write deployment docs**
+- [x] **Step 4: Write deployment docs**
 
 Create `docs/deployment.md` with public commands only:
 
@@ -2432,7 +2432,7 @@ docker build -f Dockerfile.http -t wowdata:http-refactor .
 
 Document the container run shape from the spec and nginx proxy `211.154.18.253:11224 -> 127.0.0.1:9788`.
 
-- [ ] **Step 5: Build image locally**
+- [x] **Step 5: Build image locally**
 
 Run:
 
@@ -2443,7 +2443,7 @@ docker build -f Dockerfile.http -t wowdata:http-refactor .
 
 Expected: image build exits 0.
 
-- [ ] **Step 6: Commit tracked files**
+- [x] **Step 6: Commit tracked files**
 
 Run:
 
