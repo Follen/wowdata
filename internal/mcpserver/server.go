@@ -38,6 +38,15 @@ func NewServer(name string, tools []Tool) *Server {
 	return &Server{name: name, tools: byName}
 }
 
+func (s *Server) ToolNamesForTest() []string {
+	names := make([]string, 0, len(s.tools))
+	for name := range s.tools {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 	reader := bufio.NewReader(in)
 	for {
