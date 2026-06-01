@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -45,10 +46,10 @@ func TestStdioMCPToolNamesStayStable(t *testing.T) {
 }
 
 func TestHTTPHelpListsCodexClaudeAndCCSwitch(t *testing.T) {
-	help := mcpHelpHTML("https://mcp.lychee-addon.online:9443")
+	help := mcpHelpHTML("http://211.154.18.253:11223")
 	for _, want := range []string{
-		"codex mcp add wowdata --url https://mcp.lychee-addon.online:9443/mcp",
-		"claude mcp add --transport http wowdata https://mcp.lychee-addon.online:9443/mcp",
+		"codex mcp add wowdata --url http://211.154.18.253:11223/mcp",
+		"claude mcp add --transport http wowdata http://211.154.18.253:11223/mcp",
 		"cc-switch",
 		"wow_builds",
 		"wow_status",
@@ -69,7 +70,7 @@ func TestHTTPHealthReportsConfiguredCacheRoot(t *testing.T) {
 	rt.CacheRoot = filepath.Join(t.TempDir(), "runtime-cache")
 	cacheRoot := filepath.Join(t.TempDir(), "http-cache")
 	mux := http.NewServeMux()
-	registerMCPHTTPHandlers(mux, newMCPServerForRuntime(rt), "https://mcp.lychee-addon.online:9443", cacheRoot)
+	registerMCPHTTPHandlers(mux, newMCPServerForRuntime(rt), "https://mcp.lychee-addon.online:9443", cacheRoot, "")
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
@@ -85,6 +86,50 @@ func TestHTTPHealthReportsConfiguredCacheRoot(t *testing.T) {
 	got, _ := payload["cacheRoot"].(string)
 	if got != filepath.ToSlash(cacheRoot) {
 		t.Fatalf("cacheRoot = %q, want %q; payload=%#v", got, filepath.ToSlash(cacheRoot), payload)
+	}
+}
+
+func TestHTTPFilesServesConfiguredArtifactRoot(t *testing.T) {
+	root := t.TempDir()
+	artifactPath := filepath.Join(root, "icons", "134400.png")
+	if err := os.MkdirAll(filepath.Dir(artifactPath), 0755); err != nil {
+		t.Fatalf("mkdir artifact dir: %v", err)
+	}
+	if err := os.WriteFile(artifactPath, []byte("icon bytes"), 0644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	registerMCPHTTPHandlers(mux, newMCPServerForRuntime(NewRuntime()), "http://211.154.18.253:11223", t.TempDir(), root)
+
+	req := httptest.NewRequest(http.MethodGet, "/files/icons/134400.png", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if rec.Body.String() != "icon bytes" {
+		t.Fatalf("body = %q", rec.Body.String())
+	}
+}
+
+func TestHTTPFilesRejectsArtifactTraversal(t *testing.T) {
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "outside.txt")
+	if err := os.WriteFile(outside, []byte("private-content"), 0644); err != nil {
+		t.Fatalf("write outside file: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	registerMCPHTTPHandlers(mux, newMCPServerForRuntime(NewRuntime()), "http://211.154.18.253:11223", t.TempDir(), root)
+
+	req := httptest.NewRequest(http.MethodGet, "/files/../"+filepath.Base(outside), nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code == http.StatusOK || strings.Contains(rec.Body.String(), "private-content") {
+		t.Fatalf("traversal should not be served: status=%d body=%q", rec.Code, rec.Body.String())
 	}
 }
 

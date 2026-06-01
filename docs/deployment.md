@@ -57,51 +57,24 @@ artifacts:
 docker run -d \
   --name wowdata-mcp \
   --restart unless-stopped \
-  -p 127.0.0.1:9788:9788 \
+  -p 0.0.0.0:9443:9788 \
   -v /opt/wowdata/config/http-mcp.yaml:/etc/wowdata/http-mcp.yaml:ro \
   -v /opt/wowdata/cache:/var/lib/wowdata/cache \
   -v /opt/wowdata/output:/var/lib/wowdata/artifacts \
   wowdata:http-refactor
 ```
 
-## Nginx Proxy
+## Public HTTP Endpoint
 
-Public traffic should be proxied from `211.154.18.253:11224` to the local
-container listener at `127.0.0.1:9788`.
+The production deployment uses plain HTTP through the provider port mapping:
 
-```nginx
-server {
-    listen 11224;
-    server_name 211.154.18.253;
-
-    client_max_body_size 25m;
-    proxy_read_timeout 300s;
-    proxy_send_timeout 300s;
-
-    location = /mcp {
-        proxy_pass http://127.0.0.1:9788;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location ^~ /mcp/ {
-        proxy_pass http://127.0.0.1:9788;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location = /health {
-        proxy_pass http://127.0.0.1:9788;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
+```text
+public 211.154.18.253:11223 -> host 9443 -> Docker 0.0.0.0:9443 -> container 9788
 ```
+
+Use these public URLs:
+
+- `http://211.154.18.253:11223/mcp`
+- `http://211.154.18.253:11223/help`
+- `http://211.154.18.253:11223/health`
+- `http://211.154.18.253:11223/files/...`

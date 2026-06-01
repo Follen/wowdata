@@ -7,6 +7,7 @@ import (
 	"fmt"
 	htmltemplate "html/template"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -56,9 +57,12 @@ func newMCPHTTPServerForService(svc *httpservice.Service, artifacts artifactConf
 	}))
 }
 
-func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseURL, cacheRoot string) {
+func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseURL, cacheRoot, artifactRoot string) {
 	mux.Handle("/mcp", server)
 	mux.Handle("/mcp/", server)
+	if artifactRoot != "" {
+		mux.HandleFunc("/files/", artifactFileHandler(artifactRoot))
+	}
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeHelpJSON(w, http.StatusOK, map[string]interface{}{
 			"ok":        true,
@@ -78,6 +82,53 @@ func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseU
 		}
 		writeHelpJSON(w, http.StatusNotFound, map[string]interface{}{"error": "not found", "help": "/help", "endpoint": "/mcp"})
 	})
+}
+
+func artifactFileHandler(root string) http.HandlerFunc {
+	root = filepath.Clean(root)
+	return func(w http.ResponseWriter, r *http.Request) {
+		rel := strings.TrimPrefix(r.URL.Path, "/files/")
+		if rel == "" {
+			http.NotFound(w, r)
+			return
+		}
+		clean := filepath.Clean(filepath.FromSlash(rel))
+		if filepath.IsAbs(clean) || clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+			http.NotFound(w, r)
+			return
+		}
+		filePath := filepath.Join(root, clean)
+		if !pathInsideRoot(root, filePath) {
+			http.NotFound(w, r)
+			return
+		}
+		if realPath, err := filepath.EvalSymlinks(filePath); err == nil && !pathInsideRoot(root, realPath) {
+			http.NotFound(w, r)
+			return
+		}
+		info, err := os.Stat(filePath)
+		if err != nil || info.IsDir() {
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeFile(w, r, filePath)
+	}
+}
+
+func pathInsideRoot(root, filePath string) bool {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return false
+	}
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(filepath.Clean(absRoot), filepath.Clean(absPath))
+	if err != nil {
+		return false
+	}
+	return rel != "." && rel != ".." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func publicURL(baseURL, path string) string {

@@ -1,7 +1,7 @@
 server:
   host: 127.0.0.1
   port: 9788
-  base_url: http://211.154.18.253:11224
+  base_url: http://211.154.18.253:11223
 
 defaults:
   region: cn
@@ -40,7 +40,7 @@ cache:
 
 artifacts:
   root: /opt/wowdata/output
-  base_url: http://211.154.18.253:11224/files
+  base_url: http://211.154.18.253:11223/files
   retention_hours: 24
 
 prepare:
