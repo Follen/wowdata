@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -153,6 +154,112 @@ func TestMCPHTTPWarmupGateReturnsBusyEnvelope(t *testing.T) {
 	}
 }
 
+func TestMCPArtifactConfigAddsDownloadURLForExportResults(t *testing.T) {
+	root := t.TempDir()
+	artifactPath := filepath.Join(root, "icons", "134400.png")
+	result := map[string]interface{}{
+		"ok":      true,
+		"command": "icon export",
+		"data": map[string]interface{}{
+			"path":     artifactPath,
+			"uri":      "file://" + filepath.ToSlash(artifactPath),
+			"mimeType": "image/png",
+			"size":     42,
+		},
+	}
+
+	augmented := addArtifactDownloadLinks(result, artifactConfig{
+		root:    root,
+		baseURL: "https://mcp.example.com/files",
+	}).(map[string]interface{})
+	data := augmented["data"].(map[string]interface{})
+
+	if data["downloadUrl"] != "https://mcp.example.com/files/icons/134400.png" {
+		t.Fatalf("downloadUrl = %#v", data["downloadUrl"])
+	}
+	if data["uri"] != "https://mcp.example.com/files/icons/134400.png" {
+		t.Fatalf("uri should prefer public artifact URL, got %#v", data["uri"])
+	}
+	if data["fileURI"] == "" {
+		t.Fatalf("fileURI should preserve original local file URI: %#v", data)
+	}
+}
+
+func TestMCPArtifactConfigIgnoresPathsOutsideRoot(t *testing.T) {
+	root := t.TempDir()
+	other := t.TempDir()
+	result := map[string]interface{}{
+		"ok": true,
+		"data": map[string]interface{}{
+			"path": filepath.Join(other, "secret.png"),
+			"uri":  "file://" + filepath.ToSlash(filepath.Join(other, "secret.png")),
+		},
+	}
+
+	augmented := addArtifactDownloadLinks(result, artifactConfig{
+		root:    root,
+		baseURL: "https://mcp.example.com/files",
+	}).(map[string]interface{})
+	data := augmented["data"].(map[string]interface{})
+
+	if _, ok := data["downloadUrl"]; ok {
+		t.Fatalf("downloadUrl should not be added for paths outside artifact root: %#v", data)
+	}
+}
+
+func TestMCPArtifactConfigDefaultsIconOutput(t *testing.T) {
+	root := t.TempDir()
+	args := map[string]interface{}{
+		"fileDataID": float64(134400),
+	}
+
+	out, err := iconArgsWithArtifacts(args, artifactConfig{root: root})
+	if err != nil {
+		t.Fatalf("iconArgsWithArtifacts: %v", err)
+	}
+
+	want := filepath.Join(root, "icons", "134400.png")
+	if !stringSliceContainsSequence(out, "--output", want) {
+		t.Fatalf("expected default output %q in %#v", want, out)
+	}
+}
+
+func TestMCPArtifactConfigDefaultsFileExportOutput(t *testing.T) {
+	root := t.TempDir()
+	args := map[string]interface{}{
+		"mode":       "export",
+		"fileDataID": float64(456),
+	}
+
+	out, err := fileArgsWithArtifacts(args, artifactConfig{root: root})
+	if err != nil {
+		t.Fatalf("fileArgsWithArtifacts: %v", err)
+	}
+
+	want := filepath.Join(root, "files", "456.bin")
+	if !stringSliceContainsSequence(out, "--output", want) {
+		t.Fatalf("expected default output %q in %#v", want, out)
+	}
+}
+
+func TestMCPArtifactConfigDefaultsFileExportOutputFromFilename(t *testing.T) {
+	root := t.TempDir()
+	args := map[string]interface{}{
+		"mode":     "export",
+		"filename": "interface/icons/inv_misc_questionmark.blp",
+	}
+
+	out, err := fileArgsWithArtifacts(args, artifactConfig{root: root})
+	if err != nil {
+		t.Fatalf("fileArgsWithArtifacts: %v", err)
+	}
+
+	want := filepath.Join(root, "files", "inv_misc_questionmark.blp")
+	if !stringSliceContainsSequence(out, "--output", want) {
+		t.Fatalf("expected default output %q in %#v", want, out)
+	}
+}
+
 func TestAllBusinessMCPToolsAreCallable(t *testing.T) {
 	tests := map[string]string{
 		"wow_warmup":    `{}`,
@@ -184,6 +291,15 @@ func TestAllBusinessMCPToolsAreCallable(t *testing.T) {
 			}
 		})
 	}
+}
+
+func stringSliceContainsSequence(values []string, first, second string) bool {
+	for i := 0; i < len(values)-1; i++ {
+		if values[i] == first && values[i+1] == second {
+			return true
+		}
+	}
+	return false
 }
 
 func TestMCPServerListsAndCallsCLIBackedTools(t *testing.T) {

@@ -195,6 +195,32 @@ func TestServerCallToolReturnsStructuredContentAndResourceLinks(t *testing.T) {
 	}
 }
 
+func TestServerCallToolReturnsHTTPResourceLinks(t *testing.T) {
+	server := NewServer("wowdata-test", []Tool{{
+		Name:        "wow_export",
+		Description: "Export",
+		InputSchema: map[string]interface{}{"type": "object"},
+		Handler: func(ctx context.Context, args json.RawMessage) (interface{}, error) {
+			return map[string]interface{}{
+				"ok": true,
+				"data": map[string]interface{}{
+					"uri":      "https://mcp.example.com/files/icons/134400.png",
+					"name":     "134400.png",
+					"mimeType": "image/png",
+					"size":     42,
+				},
+			}, nil
+		},
+	}})
+	stdout := runMCPServer(t, server,
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_export","arguments":{}}}`,
+	)
+
+	if !strings.Contains(stdout, `"type":"resource_link"`) || !strings.Contains(stdout, `"uri":"https://mcp.example.com/files/icons/134400.png"`) {
+		t.Fatalf("tool result should include resource_link for HTTP artifact:\n%s", stdout)
+	}
+}
+
 func runMCPServer(t *testing.T, server *Server, messages ...string) string {
 	t.Helper()
 	var stdin bytes.Buffer

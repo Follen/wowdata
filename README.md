@@ -109,6 +109,14 @@ HTTP endpoint:
 
 `--base-url` 只用于生成运行时返回的公开 endpoint。生产环境可以在 nginx/CDN 层用静态 `/help` 覆盖 Go 的内置帮助页，把实际域名、NAT 端口和客户端配置留在部署层维护。
 
+如果远端 MCP 需要让用户下载导出的图标、贴图或原始文件，可以把一个服务器目录交给 nginx/CDN 暴露，并把这两个值传给 Go：
+
+```powershell
+wowdata mcp http --host 127.0.0.1 --port 9788 --base-url https://mcp.example.com:9443 --artifact-root /opt/wowdata/output --artifact-base-url https://mcp.example.com:9443/files
+```
+
+`--artifact-root` 是本机写入目录，`--artifact-base-url` 是用户可访问的公开 URL 前缀。MCP 层只做路径到 URL 的映射；静态文件服务、缓存、鉴权和域名端口仍由 nginx/CDN 管。
+
 Codex:
 
 ```powershell
@@ -136,7 +144,7 @@ Claude Code 本地 stdio：
 claude mcp add --transport stdio wowdata -- wowdata mcp stdio
 ```
 
-导出类工具会返回 `path`、`uri`、`mimeType`、`size` 和 `sha256`。在 MCP 调用里，结果同时包含 `structuredContent` 和 `resource_link`，客户端或 agent 可以直接通过 `file://` URI 定位本机导出的图标、贴图和其他素材。
+导出类工具会返回 `path`、`uri`、`mimeType`、`size` 和 `sha256`。在 MCP 调用里，结果同时包含 `structuredContent` 和 `resource_link`。本地 stdio 默认返回 `file://` URI；远端 HTTP 配置了 artifact 参数后会额外返回 `downloadUrl`，并让 `resource_link.uri` 指向公开 HTTP/HTTPS 下载地址。
 
 暴露的 MCP 工具：
 
@@ -279,6 +287,14 @@ HTTP endpoints:
 
 `--base-url` is only used to generate the public endpoint returned at runtime. Production deployments can serve a static `/help` page from nginx/CDN instead of the built-in Go help page, keeping the real domain, NAT port, and client setup in the deployment layer.
 
+For remote MCP deployments that need downloadable exported icons, textures, or raw files, expose a server directory through nginx/CDN and pass both values to Go:
+
+```bash
+wowdata mcp http --host 127.0.0.1 --port 9788 --base-url https://mcp.example.com:9443 --artifact-root /opt/wowdata/output --artifact-base-url https://mcp.example.com:9443/files
+```
+
+`--artifact-root` is the local write directory, and `--artifact-base-url` is the public URL prefix. The MCP layer only maps paths to URLs; static serving, cache policy, auth, domains, and ports stay in nginx/CDN.
+
 Codex:
 
 ```bash
@@ -306,7 +322,7 @@ Claude Code local stdio:
 claude mcp add --transport stdio wowdata -- wowdata mcp stdio
 ```
 
-Export tools return `path`, `uri`, `mimeType`, `size`, and `sha256`. MCP tool calls also include `structuredContent` and `resource_link`, so clients and agents can locate exported icons, textures, and other artifacts through the `file://` URI.
+Export tools return `path`, `uri`, `mimeType`, `size`, and `sha256`. MCP tool calls also include `structuredContent` and `resource_link`. Local stdio returns `file://` URIs by default; remote HTTP deployments configured with artifact options also return `downloadUrl` and point `resource_link.uri` at the public HTTP/HTTPS download URL.
 
 Exposed MCP tools:
 

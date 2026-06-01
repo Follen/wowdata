@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -60,6 +62,7 @@ Legacy compatibility:
 		},
 	}
 	var httpHost, httpBaseURL string
+	var httpArtifactRoot, httpArtifactBaseURL string
 	var httpPort int
 	httpCmd := &cobra.Command{
 		Use:   "http",
@@ -89,7 +92,10 @@ Compatibility notes:
   JSON-RPC notifications such as notifications/initialized return HTTP 202 with no JSON-RPC error.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rt.enableHTTPWarmupGate()
-			server := newMCPServerForRuntime(rt)
+			server := newMCPServerForRuntimeWithArtifacts(rt, artifactConfig{
+				root:    httpArtifactRoot,
+				baseURL: httpArtifactBaseURL,
+			})
 			addr := fmt.Sprintf("%s:%d", httpHost, httpPort)
 			mux := http.NewServeMux()
 			registerMCPHTTPHandlers(mux, server, httpBaseURL)
@@ -105,13 +111,19 @@ Compatibility notes:
 	httpCmd.Flags().StringVar(&httpHost, "host", "127.0.0.1", "Host/interface to bind")
 	httpCmd.Flags().IntVar(&httpPort, "port", 9788, "Port to bind")
 	httpCmd.Flags().StringVar(&httpBaseURL, "base-url", "", "Public base URL used in help output, such as https://mcp.example.com:9443")
+	httpCmd.Flags().StringVar(&httpArtifactRoot, "artifact-root", "", "Local directory exposed by the reverse proxy for exported artifacts")
+	httpCmd.Flags().StringVar(&httpArtifactBaseURL, "artifact-base-url", "", "Public base URL for exported artifacts, such as https://mcp.example.com:9443/files")
 
 	mcpCmd.AddCommand(stdioCmd, httpCmd)
 	root.AddCommand(mcpCmd)
 }
 
 func newMCPServerForRuntime(rt *Runtime) *mcpserver.Server {
-	return mcpserver.NewServer("wowdata", mcpToolsForRuntime(rt))
+	return newMCPServerForRuntimeWithArtifacts(rt, artifactConfig{})
+}
+
+func newMCPServerForRuntimeWithArtifacts(rt *Runtime, artifacts artifactConfig) *mcpserver.Server {
+	return mcpserver.NewServer("wowdata", mcpToolsForRuntimeWithArtifacts(rt, artifacts))
 }
 
 func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseURL string) {
@@ -181,22 +193,35 @@ func mcpHelpHTML(baseURL string) string {
 }
 
 func mcpToolsForRuntime(rt *Runtime) []mcpTool {
+	return mcpToolsForRuntimeWithArtifacts(rt, artifactConfig{})
+}
+
+func mcpToolsForRuntimeWithArtifacts(rt *Runtime, artifacts artifactConfig) []mcpTool {
 	return []mcpTool{
-		cliTool(rt, "wow_warmup", "Initialize local or remote WoW data context.", []string{"warmup"}, warmupArgs),
-		cliTool(rt, "wow_casc", "Inspect CASC source state.", []string{"casc"}, cascArgs),
-		cliTool(rt, "wow_db2", "Query DB2 tables.", []string{"db2"}, db2Args),
-		cliTool(rt, "wow_file", "Query and export CASC files.", []string{"file"}, fileArgs),
-		cliTool(rt, "wow_icon", "Export BLP icons.", []string{"icon", "export"}, iconArgs),
-		cliTool(rt, "wow_spell", "Inspect spell relationships.", []string{"spell"}, spellArgs),
-		cliTool(rt, "wow_encounter", "Query JournalEncounter data.", []string{"encounter", "get"}, encounterArgs),
-		cliTool(rt, "wow_item", "Query item metadata and assets.", []string{"item"}, itemArgs),
-		cliTool(rt, "wow_creature", "Query creature displays and models.", []string{"creature"}, creatureArgs),
-		cliTool(rt, "wow_decor", "Query decor data.", []string{"decor"}, decorArgs),
-		cliTool(rt, "wow_video", "Process video container data.", []string{"video", "demux"}, videoArgs),
+		cliTool(rt, "wow_warmup", "Initialize local or remote WoW data context.", []string{"warmup"}, warmupArgs, artifacts),
+		cliTool(rt, "wow_casc", "Inspect CASC source state.", []string{"casc"}, cascArgs, artifacts),
+		cliTool(rt, "wow_db2", "Query DB2 tables.", []string{"db2"}, db2Args, artifacts),
+		cliTool(rt, "wow_file", "Query and export CASC files.", []string{"file"}, func(args map[string]interface{}) ([]string, error) {
+			return fileArgsWithArtifacts(args, artifacts)
+		}, artifacts),
+		cliTool(rt, "wow_icon", "Export BLP icons.", []string{"icon", "export"}, func(args map[string]interface{}) ([]string, error) {
+			return iconArgsWithArtifacts(args, artifacts)
+		}, artifacts),
+		cliTool(rt, "wow_spell", "Inspect spell relationships.", []string{"spell"}, spellArgs, artifacts),
+		cliTool(rt, "wow_encounter", "Query JournalEncounter data.", []string{"encounter", "get"}, encounterArgs, artifacts),
+		cliTool(rt, "wow_item", "Query item metadata and assets.", []string{"item"}, itemArgs, artifacts),
+		cliTool(rt, "wow_creature", "Query creature displays and models.", []string{"creature"}, creatureArgs, artifacts),
+		cliTool(rt, "wow_decor", "Query decor data.", []string{"decor"}, decorArgs, artifacts),
+		cliTool(rt, "wow_video", "Process video container data.", []string{"video", "demux"}, videoArgs, artifacts),
 	}
 }
 
-func cliTool(rt *Runtime, name, description string, base []string, mapper func(map[string]interface{}) ([]string, error)) mcpTool {
+type artifactConfig struct {
+	root    string
+	baseURL string
+}
+
+func cliTool(rt *Runtime, name, description string, base []string, mapper func(map[string]interface{}) ([]string, error), artifacts artifactConfig) mcpTool {
 	return mcpTool{
 		Name:        name,
 		Description: description,
@@ -231,9 +256,73 @@ func cliTool(rt *Runtime, name, description string, base []string, mapper func(m
 				}
 				defer release()
 			}
-			return executeCLIJSON(ctx, rt, append(append([]string{}, base...), extra...))
+			result, err := executeCLIJSON(ctx, rt, append(append([]string{}, base...), extra...))
+			if err != nil {
+				return nil, err
+			}
+			return addArtifactDownloadLinks(result, artifacts), nil
 		},
 	}
+}
+
+func addArtifactDownloadLinks(result interface{}, artifacts artifactConfig) interface{} {
+	if artifacts.root == "" || artifacts.baseURL == "" {
+		return result
+	}
+	root, err := filepath.Abs(artifacts.root)
+	if err != nil {
+		return result
+	}
+	root = filepath.Clean(root)
+	addDownloadLinks(result, root, strings.TrimRight(artifacts.baseURL, "/"))
+	return result
+}
+
+func addDownloadLinks(value interface{}, root, baseURL string) {
+	switch v := value.(type) {
+	case map[string]interface{}:
+		addDownloadLinkToMap(v, root, baseURL)
+		for _, child := range v {
+			addDownloadLinks(child, root, baseURL)
+		}
+	case []interface{}:
+		for _, child := range v {
+			addDownloadLinks(child, root, baseURL)
+		}
+	case []map[string]interface{}:
+		for _, child := range v {
+			addDownloadLinks(child, root, baseURL)
+		}
+	}
+}
+
+func addDownloadLinkToMap(v map[string]interface{}, root, baseURL string) {
+	rawPath, ok := mcpStringValue(v["path"])
+	if !ok || rawPath == "" {
+		return
+	}
+	absPath, err := filepath.Abs(rawPath)
+	if err != nil {
+		return
+	}
+	rel, err := filepath.Rel(root, absPath)
+	if err != nil || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." || filepath.IsAbs(rel) {
+		return
+	}
+	publicURL := baseURL + "/" + path.Join(strings.Split(filepath.ToSlash(rel), "/")...)
+	if uri, ok := mcpStringValue(v["uri"]); ok && strings.HasPrefix(uri, "file://") {
+		v["fileURI"] = uri
+	}
+	v["downloadUrl"] = publicURL
+	v["uri"] = publicURL
+	if _, ok := v["name"]; !ok {
+		v["name"] = path.Base(publicURL)
+	}
+}
+
+func mcpStringValue(value interface{}) (string, bool) {
+	s, ok := value.(string)
+	return s, ok
 }
 
 func executeCLIJSON(ctx context.Context, rt *Runtime, args []string) (interface{}, error) {
@@ -301,7 +390,20 @@ func db2Args(args map[string]interface{}) ([]string, error) {
 }
 
 func fileArgs(args map[string]interface{}) ([]string, error) {
+	return fileArgsWithArtifacts(args, artifactConfig{})
+}
+
+func fileArgsWithArtifacts(args map[string]interface{}, artifacts artifactConfig) ([]string, error) {
 	mode := stringArg(args, "mode", "lookup")
+	if artifacts.root != "" && stringArg(args, "output", "") == "" && (mode == "get" || mode == "export") {
+		if id, ok := args["fileDataID"]; ok {
+			args = cloneArgs(args)
+			args["output"] = filepath.Join(artifacts.root, "files", scalarString(id)+".bin")
+		} else if filename := stringArg(args, "filename", ""); filename != "" {
+			args = cloneArgs(args)
+			args["output"] = filepath.Join(artifacts.root, "files", path.Base(filepath.ToSlash(filename)))
+		}
+	}
 	out := []string{mode}
 	addNumberFlag(&out, args, "fileDataID", "--file-data-id")
 	addStringFlag(&out, args, "filename", "--filename")
@@ -313,6 +415,17 @@ func fileArgs(args map[string]interface{}) ([]string, error) {
 }
 
 func iconArgs(args map[string]interface{}) ([]string, error) {
+	return iconArgsWithArtifacts(args, artifactConfig{})
+}
+
+func iconArgsWithArtifacts(args map[string]interface{}, artifacts artifactConfig) ([]string, error) {
+	if artifacts.root != "" && stringArg(args, "output", "") == "" {
+		if id, ok := args["fileDataID"]; ok {
+			args = cloneArgs(args)
+			format := stringArg(args, "format", "png")
+			args["output"] = filepath.Join(artifacts.root, "icons", scalarString(id)+"."+format)
+		}
+	}
 	out := []string{}
 	addNumberFlag(&out, args, "fileDataID", "--file-data-id")
 	addStringFlag(&out, args, "format", "--format")
@@ -320,6 +433,14 @@ func iconArgs(args map[string]interface{}) ([]string, error) {
 	addNumberFlag(&out, args, "mask", "--mask")
 	addStringFlag(&out, args, "output", "--output")
 	return out, nil
+}
+
+func cloneArgs(args map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(args)+1)
+	for key, value := range args {
+		out[key] = value
+	}
+	return out
 }
 
 func spellArgs(args map[string]interface{}) ([]string, error) {

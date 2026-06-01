@@ -262,7 +262,7 @@ func collectResourceLinks(value interface{}, links *[]map[string]interface{}) {
 
 func resourceLinkFromMap(v map[string]interface{}) (map[string]interface{}, bool) {
 	uri, ok := stringValue(v["uri"])
-	if !ok || !strings.HasPrefix(uri, "file://") {
+	if !ok || !isResourceURI(uri) {
 		return nil, false
 	}
 	name, _ := stringValue(v["name"])
@@ -281,6 +281,12 @@ func resourceLinkFromMap(v map[string]interface{}) (map[string]interface{}, bool
 		link["size"] = size
 	}
 	return link, true
+}
+
+func isResourceURI(uri string) bool {
+	return strings.HasPrefix(uri, "file://") ||
+		strings.HasPrefix(uri, "http://") ||
+		strings.HasPrefix(uri, "https://")
 }
 
 func stringValue(value interface{}) (string, bool) {
