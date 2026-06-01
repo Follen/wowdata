@@ -6,41 +6,45 @@ outside the repository.
 
 ## Build Linux Binary
 
-```powershell
-$GO = "C:\Users\follen\go\pkg\mod\golang.org\toolchain@v0.0.1-go1.26.1.windows-amd64\bin\go.exe"
-$oldPath = $env:PATH
-$oldGoos = $env:GOOS
-$oldGoarch = $env:GOARCH
-$oldCgo = $env:CGO_ENABLED
-$oldCc = $env:CC
-$oldCxx = $env:CXX
+Build the Linux binary on a Linux Docker host or another Linux build
+environment with a working CGO compiler. A Windows UCRT GCC toolchain can run
+the local tests, but it is not a Linux CGO cross compiler.
 
-try {
-    $env:PATH = "C:\msys64\ucrt64\bin;$oldPath"
-    $env:GOOS = "linux"
-    $env:GOARCH = "amd64"
-    $env:CGO_ENABLED = "1"
-    $env:CC = "gcc"
-    $env:CXX = "g++"
-
-    New-Item -ItemType Directory -Force -Path dist/linux-amd64 | Out-Null
-    & $GO build -trimpath -ldflags="-s -w" -o dist/linux-amd64/wowdata ./cmd/wowdata
-    if ($LASTEXITCODE -ne 0) { throw "go build failed with exit code $LASTEXITCODE" }
-}
-finally {
-    $env:PATH = $oldPath
-    if ($null -eq $oldGoos) { Remove-Item Env:GOOS -ErrorAction SilentlyContinue } else { $env:GOOS = $oldGoos }
-    if ($null -eq $oldGoarch) { Remove-Item Env:GOARCH -ErrorAction SilentlyContinue } else { $env:GOARCH = $oldGoarch }
-    if ($null -eq $oldCgo) { Remove-Item Env:CGO_ENABLED -ErrorAction SilentlyContinue } else { $env:CGO_ENABLED = $oldCgo }
-    if ($null -eq $oldCc) { Remove-Item Env:CC -ErrorAction SilentlyContinue } else { $env:CC = $oldCc }
-    if ($null -eq $oldCxx) { Remove-Item Env:CXX -ErrorAction SilentlyContinue } else { $env:CXX = $oldCxx }
-}
+```bash
+mkdir -p dist/linux-amd64
+CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o dist/linux-amd64/wowdata ./cmd/wowdata
 ```
 
 ## Build Image
 
-```powershell
+Run the image build in the same Linux-capable environment after the binary is
+created.
+
+```bash
 docker build -f Dockerfile.http -t wowdata:http-refactor .
+```
+
+## Container Config
+
+The container command reads `/etc/wowdata/http-mcp.yaml`, so production should
+mount a host-specific config file at that path. Inside Docker, bind the service
+to `0.0.0.0` so the published host port can reach it. Keep cache and artifact
+paths under the mounted container volumes.
+
+```yaml
+server:
+  host: 0.0.0.0
+  port: 9788
+
+cache:
+  root: /var/lib/wowdata/cache
+  metadata_db: /var/lib/wowdata/cache/metadata.sqlite
+  raw_dir: /var/lib/wowdata/cache/raw
+  db2_dir: /var/lib/wowdata/cache/db2
+  duckdb_path: /var/lib/wowdata/cache/duckdb/wowdata.duckdb
+
+artifacts:
+  root: /var/lib/wowdata/artifacts
 ```
 
 ## Run Container
