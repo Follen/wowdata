@@ -19,6 +19,10 @@ FROM ${RUNTIME_IMAGE}
 
 WORKDIR /srv/wowdata
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /out/wowdata /usr/local/bin/wowdata
 COPY migrations /srv/wowdata/migrations
 COPY config/http-mcp.example.yaml /srv/wowdata/config/http-mcp.example.yaml
