@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -84,7 +85,12 @@ func TestPrunerPlanRecordsAuditThroughMetadataStore(t *testing.T) {
 	oldPath := cache.RawCASCPath(cacheRoot, "cn", "wow", "old")
 
 	pruner := Pruner{
-		Store: MetadataPruneStore{DB: db, CacheRoot: cacheRoot},
+		Store: MetadataPruneStore{
+			DB:        db,
+			CacheRoot: cacheRoot,
+			Pinned:    map[string]struct{}{},
+			InFlight:  map[string]struct{}{},
+		},
 		Actor: "metadata-pruner",
 	}
 	plan, err := pruner.Plan(context.Background())
@@ -101,6 +107,108 @@ func TestPrunerPlanRecordsAuditThroughMetadataStore(t *testing.T) {
 	}
 	if actor != "metadata-pruner" || path != oldPath || reason != "prune_plan" {
 		t.Fatalf("audit row = actor %q path %q reason %q, want metadata-pruner %q prune_plan", actor, path, reason, oldPath)
+	}
+}
+
+func TestMetadataPrunerPlanRequiresExplicitProtectionState(t *testing.T) {
+	db, err := metadata.Open(filepath.Join(t.TempDir(), "metadata.sqlite"), "../../../migrations/sqlite")
+	if err != nil {
+		t.Fatalf("open metadata db: %v", err)
+	}
+	defer db.Close()
+
+	if err := metadata.UpsertBuild(db, metadata.Build{Region: "cn", Product: "wow", BuildKey: "old", BuildName: "12.0.0.0"}); err != nil {
+		t.Fatalf("upsert old build: %v", err)
+	}
+
+	pruner := Pruner{
+		Store: MetadataPruneStore{DB: db, CacheRoot: t.TempDir()},
+		Actor: "metadata-pruner",
+	}
+	plan, err := pruner.Plan(context.Background())
+	if !errors.Is(err, ErrPruneProtectionStateRequired) {
+		t.Fatalf("Plan error = %v, want ErrPruneProtectionStateRequired", err)
+	}
+	if len(plan.Delete) != 0 {
+		t.Fatalf("plan delete = %#v, want empty plan", plan.Delete)
+	}
+
+	var auditCount int
+	if err := db.QueryRow(`SELECT COUNT(1) FROM cache_audit`).Scan(&auditCount); err != nil {
+		t.Fatalf("query cache audit: %v", err)
+	}
+	if auditCount != 0 {
+		t.Fatalf("audit count = %d, want 0", auditCount)
+	}
+}
+
+func TestMetadataPrunerPlanSkipsPinnedAndInFlightBuilds(t *testing.T) {
+	db, err := metadata.Open(filepath.Join(t.TempDir(), "metadata.sqlite"), "../../../migrations/sqlite")
+	if err != nil {
+		t.Fatalf("open metadata db: %v", err)
+	}
+	defer db.Close()
+
+	cacheRoot := t.TempDir()
+	for _, buildKey := range []string{"old", "pinned", "in-flight"} {
+		if err := metadata.UpsertBuild(db, metadata.Build{Region: "cn", Product: "wow", BuildKey: buildKey, BuildName: "12.0.0.0"}); err != nil {
+			t.Fatalf("upsert %s build: %v", buildKey, err)
+		}
+	}
+
+	pruner := Pruner{
+		Store: MetadataPruneStore{
+			DB:        db,
+			CacheRoot: cacheRoot,
+			Pinned:    map[string]struct{}{"cn/wow/pinned": {}},
+			InFlight:  map[string]struct{}{"cn/wow/in-flight": {}},
+		},
+		Actor: "metadata-pruner",
+	}
+	plan, err := pruner.Plan(context.Background())
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	if len(plan.Delete) != 1 || plan.Delete[0].BuildKey != "old" {
+		t.Fatalf("plan delete = %#v, want old only", plan.Delete)
+	}
+}
+
+func TestMetadataPruneCandidatesRejectsPathTraversalMetadata(t *testing.T) {
+	db, err := metadata.Open(filepath.Join(t.TempDir(), "metadata.sqlite"), "../../../migrations/sqlite")
+	if err != nil {
+		t.Fatalf("open metadata db: %v", err)
+	}
+	defer db.Close()
+
+	if err := metadata.UpsertBuild(db, metadata.Build{Region: "cn", Product: "..", BuildKey: "evil", BuildName: "12.0.0.0"}); err != nil {
+		t.Fatalf("upsert traversal build: %v", err)
+	}
+
+	store := MetadataPruneStore{
+		DB:        db,
+		CacheRoot: t.TempDir(),
+		Pinned:    map[string]struct{}{},
+		InFlight:  map[string]struct{}{},
+	}
+	if _, err := store.PruneCandidates(context.Background()); !errors.Is(err, cache.ErrPathOutsideRoot) {
+		t.Fatalf("PruneCandidates error = %v, want ErrPathOutsideRoot", err)
+	}
+
+	plan, err := (Pruner{Store: store, Actor: "metadata-pruner"}).Plan(context.Background())
+	if !errors.Is(err, cache.ErrPathOutsideRoot) {
+		t.Fatalf("Plan error = %v, want ErrPathOutsideRoot", err)
+	}
+	if len(plan.Delete) != 0 {
+		t.Fatalf("plan delete = %#v, want empty plan", plan.Delete)
+	}
+
+	var auditCount int
+	if err := db.QueryRow(`SELECT COUNT(1) FROM cache_audit`).Scan(&auditCount); err != nil {
+		t.Fatalf("query cache audit: %v", err)
+	}
+	if auditCount != 0 {
+		t.Fatalf("audit count = %d, want 0", auditCount)
 	}
 }
 

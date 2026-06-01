@@ -3,12 +3,17 @@ package http
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"wowdata/internal/cache"
 	"wowdata/internal/cache/metadata"
 )
+
+var ErrPruneProtectionStateRequired = errors.New("prune protection state is required")
 
 type PruneBuild struct {
 	Region   string
@@ -49,6 +54,8 @@ type Pruner struct {
 type MetadataPruneStore struct {
 	DB        *sql.DB
 	CacheRoot string
+	Pinned    map[string]struct{}
+	InFlight  map[string]struct{}
 }
 
 func (s PruneState) CanDelete(build PruneBuild) bool {
@@ -122,7 +129,11 @@ ORDER BY discovered_at ASC, build_key ASC`)
 		if err := rows.Scan(&build.Region, &build.Product, &build.BuildKey); err != nil {
 			return nil, err
 		}
-		build.Path = cache.RawCASCPath(s.CacheRoot, build.Region, build.Product, build.BuildKey)
+		path, err := rawCASCPrunePath(s.CacheRoot, build.Region, build.Product, build.BuildKey)
+		if err != nil {
+			return nil, err
+		}
+		build.Path = path
 		if info, err := os.Stat(build.Path); err == nil {
 			build.Bytes = info.Size()
 		}
@@ -135,6 +146,9 @@ func (s MetadataPruneStore) PruneState(ctx context.Context) (PruneState, error) 
 	if s.DB == nil {
 		return PruneState{}, fmt.Errorf("metadata db is required")
 	}
+	if s.Pinned == nil || s.InFlight == nil {
+		return PruneState{}, ErrPruneProtectionStateRequired
+	}
 	rows, err := s.DB.QueryContext(ctx, `
 SELECT region, product, build_key
 FROM builds
@@ -146,8 +160,8 @@ WHERE active = 1`)
 
 	state := PruneState{
 		Active:   make(map[string]struct{}),
-		Pinned:   make(map[string]struct{}),
-		InFlight: make(map[string]struct{}),
+		Pinned:   copyPruneBuildSet(s.Pinned),
+		InFlight: copyPruneBuildSet(s.InFlight),
 	}
 	for rows.Next() {
 		var region, product, buildKey string
@@ -173,4 +187,31 @@ func (s MetadataPruneStore) RecordPruneAudit(_ context.Context, audit PruneAudit
 
 func pruneBuildKey(region, product, buildKey string) string {
 	return region + "/" + product + "/" + buildKey
+}
+
+func copyPruneBuildSet(src map[string]struct{}) map[string]struct{} {
+	dst := make(map[string]struct{}, len(src))
+	for key := range src {
+		dst[key] = struct{}{}
+	}
+	return dst
+}
+
+func rawCASCPrunePath(root, region, product, buildKey string) (string, error) {
+	for _, part := range []string{region, product, buildKey} {
+		if unsafePrunePathPart(part) {
+			return "", cache.ErrPathOutsideRoot
+		}
+	}
+	return cache.EnsureUnderRoot(root, filepath.Join("raw", "casc", region, product, buildKey))
+}
+
+func unsafePrunePathPart(part string) bool {
+	if strings.TrimSpace(part) == "" {
+		return true
+	}
+	if filepath.IsAbs(part) || part == "." || part == ".." {
+		return true
+	}
+	return strings.ContainsAny(part, `/\`)
 }
