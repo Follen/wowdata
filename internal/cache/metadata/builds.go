@@ -121,19 +121,36 @@ func ActivateBuild(db *sql.DB, region, product, buildKey string) error {
 	if err != nil {
 		return err
 	}
+	var exists int
+	if err := tx.QueryRow(`
+SELECT COUNT(1)
+FROM builds
+WHERE region = ? AND product = ? AND build_key = ?`,
+		region,
+		product,
+		buildKey,
+	).Scan(&exists); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	if exists == 0 {
+		_ = tx.Rollback()
+		return sql.ErrNoRows
+	}
 	if _, err := tx.Exec(`
 UPDATE builds
 SET active = 0
-WHERE region = ? AND product = ?`,
+WHERE region = ? AND product = ? AND build_key <> ?`,
 		region,
 		product,
+		buildKey,
 	); err != nil {
 		_ = tx.Rollback()
 		return err
 	}
 	if _, err := tx.Exec(`
 UPDATE builds
-SET active = 1, ready = 1, error = ''
+SET active = 1
 WHERE region = ? AND product = ? AND build_key = ?`,
 		region,
 		product,

@@ -2,7 +2,11 @@ package http
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
+
+	"wowdata/internal/cache"
+	"wowdata/internal/cache/metadata"
 )
 
 func TestPruneStateCanDeleteRejectsActivePinnedAndInFlightBuilds(t *testing.T) {
@@ -60,6 +64,43 @@ func TestPrunerPlanReturnsOnlyDeletableBuildsAndRecordsAudit(t *testing.T) {
 	}
 	if store.audits[0].Path != "cache/old" || store.audits[0].Reason != "prune_plan" {
 		t.Fatalf("audit = %#v, want old prune_plan", store.audits[0])
+	}
+}
+
+func TestPrunerPlanRecordsAuditThroughMetadataStore(t *testing.T) {
+	db, err := metadata.Open(filepath.Join(t.TempDir(), "metadata.sqlite"), "../../../migrations/sqlite")
+	if err != nil {
+		t.Fatalf("open metadata db: %v", err)
+	}
+	defer db.Close()
+
+	cacheRoot := t.TempDir()
+	if err := metadata.UpsertBuild(db, metadata.Build{Region: "cn", Product: "wow", BuildKey: "active", BuildName: "12.0.0.1", Active: true}); err != nil {
+		t.Fatalf("upsert active build: %v", err)
+	}
+	if err := metadata.UpsertBuild(db, metadata.Build{Region: "cn", Product: "wow", BuildKey: "old", BuildName: "12.0.0.0"}); err != nil {
+		t.Fatalf("upsert old build: %v", err)
+	}
+	oldPath := cache.RawCASCPath(cacheRoot, "cn", "wow", "old")
+
+	pruner := Pruner{
+		Store: MetadataPruneStore{DB: db, CacheRoot: cacheRoot},
+		Actor: "metadata-pruner",
+	}
+	plan, err := pruner.Plan(context.Background())
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	if len(plan.Delete) != 1 || plan.Delete[0].BuildKey != "old" || plan.Delete[0].Path != oldPath {
+		t.Fatalf("plan delete = %#v, want old path %q only", plan.Delete, oldPath)
+	}
+
+	var actor, path, reason string
+	if err := db.QueryRow(`SELECT actor, path, reason FROM cache_audit`).Scan(&actor, &path, &reason); err != nil {
+		t.Fatalf("query cache audit: %v", err)
+	}
+	if actor != "metadata-pruner" || path != oldPath || reason != "prune_plan" {
+		t.Fatalf("audit row = actor %q path %q reason %q, want metadata-pruner %q prune_plan", actor, path, reason, oldPath)
 	}
 }
 
