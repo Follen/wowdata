@@ -2095,7 +2095,7 @@ git commit -m "mcp split stdio and http tools"
 - Modify: `go.mod`
 - Modify: `go.sum`
 
-- [x] **Step 1: Add dependencies**
+- [ ] **Step 1: Add dependencies**
 
 Run:
 
@@ -2106,7 +2106,7 @@ go get github.com/marcboeker/go-duckdb/v2@v2.3.3
 
 Expected: dependencies are recorded in `go.mod` and `go.sum`.
 
-- [x] **Step 2: Write Parquet metadata tests**
+- [ ] **Step 2: Write Parquet metadata tests**
 
 Create `internal/cache/parquet/store_test.go`:
 
@@ -2125,11 +2125,11 @@ func TestMetadataFingerprintMismatchIsInvalid(t *testing.T) {
 }
 ```
 
-- [x] **Step 3: Implement Parquet metadata API**
+- [ ] **Step 3: Implement Parquet metadata API**
 
 Create `internal/cache/parquet/store.go` with `Metadata`, `Matches`, `PathFor`, and `ValidateExisting`. `ValidateExisting` must return `ErrStale` on fingerprint mismatch.
 
-- [x] **Step 4: Write DuckDB parameter test**
+- [ ] **Step 4: Write DuckDB parameter test**
 
 Create `internal/cache/duckdb/engine_test.go`:
 
@@ -2148,7 +2148,7 @@ func TestBuildQueryRejectsIdentifierInjection(t *testing.T) {
 }
 ```
 
-- [x] **Step 5: Implement DuckDB engine**
+- [ ] **Step 5: Implement DuckDB engine**
 
 Create `internal/cache/duckdb/engine.go` and `query.go` with:
 
@@ -2159,11 +2159,11 @@ func SelectByID(table string, field string, id uint32) (string, []interface{}, e
 
 `SelectByID` must return SQL with a `?` parameter marker and args slice containing `id`.
 
-- [x] **Step 6: Integrate materializer**
+- [ ] **Step 6: Integrate materializer**
 
 Modify `internal/service/http/materializer.go` so successful DB2 decode writes Parquet metadata, validates the written file, and records SQLite `materialized_tables`. If Parquet or DuckDB is unavailable, return `query_engine_unavailable` for paths that require DuckDB.
 
-- [x] **Step 7: Run cache tests**
+- [ ] **Step 7: Run cache tests**
 
 Run:
 
@@ -2173,7 +2173,7 @@ go test ./internal/cache/... ./internal/service/http -count=1
 
 Expected: all packages pass.
 
-- [x] **Step 8: Commit**
+- [ ] **Step 8: Commit**
 
 Run:
 
