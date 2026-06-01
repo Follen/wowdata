@@ -107,6 +107,10 @@ func (r *httpRuntimeState) LoadDB2Table(ctx context.Context, runtimeCtx *apprunt
 			return httpservice.LoadedDB2Table{}, err
 		}
 	}
+	r.rt.mu.Lock()
+	r.rt.DB2 = appruntime.NewMemoryDB2Store()
+	r.rt.mu.Unlock()
+	defer r.clearDB2MemoryCache()
 	if err := r.rt.warmDB2Tables(runtimeCtx.Product, []string{table}); err != nil {
 		return httpservice.LoadedDB2Table{}, err
 	}
@@ -147,6 +151,13 @@ func (r *httpRuntimeState) LoadDB2Table(ctx context.Context, runtimeCtx *apprunt
 		Schema:            parquetFields(schema),
 		Rows:              rows,
 	}, nil
+}
+
+func (r *httpRuntimeState) clearDB2MemoryCache() {
+	r.rt.mu.Lock()
+	r.rt.DB2 = appruntime.NewMemoryDB2Store()
+	r.rt.mu.Unlock()
+	r.rt.saveActiveContext()
 }
 
 func sqliteMigrationsDir() string {
