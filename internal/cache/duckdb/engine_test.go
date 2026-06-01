@@ -1,6 +1,8 @@
 package duckdb
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -40,5 +42,16 @@ func TestSelectByIDUsesParameterMarker(t *testing.T) {
 	}
 	if len(args) != 1 || args[0] != uint32(42) {
 		t.Fatalf("args = %#v, want uint32 id", args)
+	}
+}
+
+func TestEnsureDuckDBParentDirCreatesDirectory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "wowdata.duckdb")
+	if err := ensureDuckDBParentDir(path); err != nil {
+		t.Fatalf("ensureDuckDBParentDir: %v", err)
+	}
+	info, err := os.Stat(filepath.Dir(path))
+	if err != nil || !info.IsDir() {
+		t.Fatalf("parent directory was not created")
 	}
 }

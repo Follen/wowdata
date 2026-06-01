@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"os"
+	"path/filepath"
 )
 
 var ErrUnavailable = errors.New("duckdb query engine unavailable")
@@ -24,6 +26,9 @@ func (e *Engine) Available() bool {
 func (e *Engine) Open() error {
 	if !duckDBAvailable() {
 		return ErrUnavailable
+	}
+	if err := ensureDuckDBParentDir(e.path); err != nil {
+		return err
 	}
 	db, err := openDuckDB(e.path)
 	if err != nil {
@@ -81,4 +86,11 @@ func (e *Engine) QueryParquet(ctx context.Context, query string, args []interfac
 		return nil, err
 	}
 	return results, nil
+}
+
+func ensureDuckDBParentDir(path string) error {
+	if path == "" {
+		return nil
+	}
+	return os.MkdirAll(filepath.Dir(path), 0755)
 }
