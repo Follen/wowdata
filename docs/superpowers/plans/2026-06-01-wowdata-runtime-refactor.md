@@ -2193,7 +2193,7 @@ git commit -m "cache implement parquet duckdb engine"
 - Modify: `internal/cache/metadata/builds.go`
 - Modify: `internal/cache/metadata/audit.go`
 
-- [ ] **Step 1: Write atomic switch test**
+- [x] **Step 1: Write atomic switch test**
 
 Create `internal/service/http/build_watcher_test.go`:
 
@@ -2241,11 +2241,11 @@ func TestBuildWatcherSwitchesAfterPrepareSuccess(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Implement build watcher**
+- [x] **Step 2: Implement build watcher**
 
 Create `internal/service/http/build_watcher.go` with `NewBuildWatcher`, `CheckOnce`, and atomic switch that updates only active context metadata after prepare succeeds.
 
-- [ ] **Step 3: Write prune protection test**
+- [x] **Step 3: Write prune protection test**
 
 Create `internal/service/http/prune_test.go`:
 
@@ -2271,11 +2271,11 @@ func TestPruneRejectsActivePinnedAndInFlight(t *testing.T) {
 }
 ```
 
-- [ ] **Step 4: Implement prune policy**
+- [x] **Step 4: Implement prune policy**
 
 Create `internal/service/http/prune.go` with `PruneState`, `Pruner`, `CanDelete`, `Plan`, and audit recording through `metadata.RecordCacheAudit`.
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run:
 
@@ -2285,7 +2285,7 @@ go test ./internal/service/http ./internal/cache/metadata -count=1
 
 Expected: packages pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
