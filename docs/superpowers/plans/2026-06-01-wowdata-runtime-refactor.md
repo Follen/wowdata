@@ -604,7 +604,7 @@ git commit -m "runtime add local boundary"
 - Create: `internal/query/decor/service.go`
 - Create: `internal/query/video/service.go`
 
-- [ ] **Step 1: Write DB2 service tests**
+- [x] **Step 1: Write DB2 service tests**
 
 Create `internal/query/db2/service_test.go`:
 
@@ -652,7 +652,7 @@ func TestServiceRejectsEmptyTable(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Implement DB2 service**
+- [x] **Step 2: Implement DB2 service**
 
 Create `internal/query/db2/service.go`:
 
@@ -697,7 +697,7 @@ func (s *Service) Schema(table string) ([]appruntime.SchemaField, int, error) {
 }
 ```
 
-- [ ] **Step 3: Add service bundle**
+- [x] **Step 3: Add service bundle**
 
 Create `internal/query/service.go`:
 
@@ -711,7 +711,7 @@ type Services struct {
 }
 ```
 
-- [ ] **Step 4: Add spell wrapper**
+- [x] **Step 4: Add spell wrapper**
 
 Create `internal/query/spell/service.go`:
 
@@ -729,7 +729,7 @@ func NewService(inner *wowdata.SpellService) *Service {
 }
 ```
 
-- [ ] **Step 5: Add item wrapper**
+- [x] **Step 5: Add item wrapper**
 
 Create `internal/query/item/service.go`:
 
@@ -747,7 +747,7 @@ func NewService(inner *wowdata.ItemService) *Service {
 }
 ```
 
-- [ ] **Step 6: Add creature wrapper**
+- [x] **Step 6: Add creature wrapper**
 
 Create `internal/query/creature/service.go`:
 
@@ -765,7 +765,7 @@ func NewService(inner *wowdata.CreatureService) *Service {
 }
 ```
 
-- [ ] **Step 7: Add encounter wrapper**
+- [x] **Step 7: Add encounter wrapper**
 
 Create `internal/query/encounter/service.go`:
 
@@ -783,7 +783,7 @@ func NewService(inner *wowdata.EncounterService) *Service {
 }
 ```
 
-- [ ] **Step 8: Add decor wrapper**
+- [x] **Step 8: Add decor wrapper**
 
 Create `internal/query/decor/service.go`:
 
@@ -801,7 +801,7 @@ func NewService(inner *wowdata.DecorService) *Service {
 }
 ```
 
-- [ ] **Step 9: Add file wrapper**
+- [x] **Step 9: Add file wrapper**
 
 Create `internal/query/file/service.go`:
 
@@ -819,7 +819,7 @@ func NewService(store appruntime.FileStore) *Service {
 }
 ```
 
-- [ ] **Step 10: Add icon wrapper**
+- [x] **Step 10: Add icon wrapper**
 
 Create `internal/query/icon/service.go`:
 
@@ -837,7 +837,7 @@ func NewService(store appruntime.IconStore) *Service {
 }
 ```
 
-- [ ] **Step 11: Add video wrapper**
+- [x] **Step 11: Add video wrapper**
 
 Create `internal/query/video/service.go`:
 
@@ -853,7 +853,7 @@ func NewService() *Service {
 
 Do not move business logic in this task.
 
-- [ ] **Step 12: Run query tests**
+- [x] **Step 12: Run query tests**
 
 Run:
 
@@ -863,7 +863,7 @@ go test ./internal/query/... -count=1
 
 Expected: all query packages pass.
 
-- [ ] **Step 13: Run compatibility tests**
+- [x] **Step 13: Run compatibility tests**
 
 Run:
 
@@ -873,7 +873,7 @@ go test ./internal/app ./cmd/wowdata -count=1
 
 Expected: compatibility tests still pass.
 
-- [ ] **Step 14: Commit**
+- [x] **Step 14: Commit**
 
 Run:
 
