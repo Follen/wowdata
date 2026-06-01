@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"wowdata/internal/config"
@@ -36,6 +37,26 @@ func TestStdioMCPToolNamesStayStable(t *testing.T) {
 	for _, name := range want {
 		if !names[name] {
 			t.Fatalf("tool %q missing; all=%#v", name, names)
+		}
+	}
+}
+
+func TestHTTPHelpListsCodexClaudeAndCCSwitch(t *testing.T) {
+	help := mcpHelpHTML("https://mcp.lychee-addon.online:9443")
+	for _, want := range []string{
+		"codex mcp add wowdata --url https://mcp.lychee-addon.online:9443/mcp",
+		"claude mcp add --transport http wowdata https://mcp.lychee-addon.online:9443/mcp",
+		"cc-switch",
+		"wow_builds",
+		"wow_status",
+		"wow_db2",
+		"wow_icon",
+		"Local stdio fallback",
+		"Admin tools",
+		"Artifact download behavior",
+	} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("mcp help missing %q:\n%s", want, help)
 		}
 	}
 }

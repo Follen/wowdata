@@ -108,17 +108,19 @@ func mcpHelpHTML(baseURL string) string {
 	return fmt.Sprintf(`<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>wowdata MCP Help</title>
-<style>body{font-family:Segoe UI,Arial,sans-serif;line-height:1.55;max-width:980px;margin:40px auto;padding:0 18px;color:#172033}pre{background:#0f172a;color:#dbeafe;padding:14px;border-radius:8px;overflow:auto}code{background:#e5e7eb;padding:2px 5px;border-radius:4px}h1,h2{color:#0f172a}</style></head>
+<style>body{font-family:Segoe UI,Arial,sans-serif;line-height:1.55;max-width:980px;margin:40px auto;padding:0 18px;color:#172033}pre{background:#0f172a;color:#dbeafe;padding:14px;border-radius:8px;overflow:auto}code{background:#e5e7eb;padding:2px 5px;border-radius:4px}h1,h2{color:#0f172a}li{margin:4px 0}</style></head>
 <body><h1>wowdata MCP</h1><p>Endpoint: <code>%s</code></p>
-<h2>Codex</h2><pre>codex mcp add wowdata --url %s</pre>
-<h2>cc-switch</h2><pre>{
+<h2>Codex HTTP config</h2><pre>codex mcp add wowdata --url %s</pre>
+<h2>Claude Code HTTP config</h2><pre>claude mcp add --transport http wowdata %s</pre>
+<h2>cc-switch HTTP config</h2><pre>{
   "type": "http",
   "url": "%s"
 }</pre>
-<h2>Claude Code</h2><pre>claude mcp add --transport http wowdata %s</pre>
-<h2>Claude Code stdio fallback</h2><pre>claude mcp add --transport stdio wowdata -- wowdata mcp stdio</pre>
-<h2>Local stdio</h2><pre>wowdata mcp stdio</pre>
-<p>Supported HTTP tools: wow_builds, wow_status, wow_db2, wow_file, wow_icon, wow_spell, wow_encounter, wow_item, wow_creature, wow_decor, wow_video.</p>
+<h2>Local stdio fallback</h2><pre>claude mcp add --transport stdio wowdata -- wowdata mcp stdio
+wowdata mcp stdio</pre>
+<h2>HTTP supported tools</h2><p>wow_builds, wow_status, wow_db2, wow_item, wow_spell, wow_file, wow_icon, wow_creature, wow_encounter, wow_decor, wow_video.</p>
+<h2>Admin tools when enabled</h2><p>Admin tools are hidden by default and appear only when <code>tools.expose_admin_tools</code> is enabled: wow_refresh_builds, wow_prepare, wow_prune_cache.</p>
+<h2>Artifact download behavior</h2><p>Tools that create files return public artifact URLs when the server has an artifact root and base URL configured; local file URIs are preserved as <code>fileURI</code> when rewritten.</p>
 </body></html>`, endpoint, endpoint, endpoint, endpoint)
 }
 
