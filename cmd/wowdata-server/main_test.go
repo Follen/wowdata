@@ -2,11 +2,17 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
+
+	"wowdata/internal/server/health"
 )
 
 func TestServerHTTPHelpExposesHTTPCommand(t *testing.T) {
@@ -66,4 +72,50 @@ func TestServerHTTPCommandInvokesRunnerWithConfig(t *testing.T) {
 	if got.Port != 11223 {
 		t.Fatalf("Port = %d", got.Port)
 	}
+}
+
+func TestServerHealthUsesSharedHealthSnapshotProvider(t *testing.T) {
+	provider := &testHealthProvider{
+		snapshot: health.Snapshot{
+			Liveness:  health.Liveness{OK: true},
+			Readiness: health.Readiness{RequiredTargetsReady: 1, RequiredTargetsTotal: 2},
+			Matrix:    health.Matrix{TargetsTotal: 2, Ready: 1, Preparing: 1},
+			Memory:    health.Memory{MemorySoftLimitMB: 4096, MemoryHardLimitMB: 8192},
+			Storage:   health.Storage{MetadataDBBytes: 1},
+			Contexts: []health.ContextStatus{{
+				Label: "CN Retail",
+				State: health.StateReady,
+			}},
+		},
+	}
+	handler := newHTTPHandler(httpOptions{ServiceName: "wowdata-server"}, provider)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	if provider.calls != 1 {
+		t.Fatalf("provider calls = %d, want 1", provider.calls)
+	}
+
+	var got health.Snapshot
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode health: %v\n%s", err, rec.Body.String())
+	}
+	if got.Readiness.RequiredTargetsTotal != 2 || got.Contexts[0].Label != "CN Retail" {
+		t.Fatalf("/health did not return shared snapshot: %#v", got)
+	}
+}
+
+type testHealthProvider struct {
+	snapshot health.Snapshot
+	calls    int
+}
+
+func (p *testHealthProvider) HealthSnapshot(context.Context) (health.Snapshot, error) {
+	p.calls++
+	return p.snapshot, nil
 }

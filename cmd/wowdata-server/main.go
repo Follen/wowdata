@@ -7,6 +7,9 @@ import (
 	"os"
 	"time"
 
+	"wowdata/internal/server/config"
+	"wowdata/internal/server/health"
+	"wowdata/internal/server/mcphttp"
 	serverruntime "wowdata/internal/server/runtime"
 
 	"github.com/spf13/cobra"
@@ -83,23 +86,7 @@ The MCP endpoint is /mcp. Health is available at /health.`,
 
 func runHTTPServer(opts httpOptions) error {
 	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"ok":          true,
-			"service":     opts.ServiceName,
-			"endpoint":    publicURL(opts.BaseURL, "/mcp"),
-			"transport":   "streamable_http",
-			"configPath":  opts.ConfigPath,
-			"initialized": true,
-		})
-	})
-	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusNotImplemented, map[string]interface{}{
-			"error":   "mcp_not_wired",
-			"message": "server MCP tools will be wired by the server service task",
-		})
-	})
+	mux := newHTTPHandler(opts, defaultHealthProvider())
 	fmt.Fprintf(os.Stderr, "wowdata-server MCP HTTP listening on http://%s/mcp\n", addr)
 	server := &http.Server{
 		Addr:              addr,
@@ -107,6 +94,50 @@ func runHTTPServer(opts httpOptions) error {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	return server.ListenAndServe()
+}
+
+func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		snapshot, err := mcphttp.HealthSnapshot(r.Context(), healthProvider)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+				"error":   "health_unavailable",
+				"message": err.Error(),
+			})
+			return
+		}
+		writeJSON(w, http.StatusOK, snapshot)
+	})
+	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusNotImplemented, map[string]interface{}{
+			"error":   "mcp_not_wired",
+			"message": "server MCP tools will be wired by the server service task",
+		})
+	})
+	return mux
+}
+
+func defaultHealthProvider() health.Provider {
+	cfg := config.Default()
+	targets := make([]health.TargetInput, 0, len(cfg.Prepare.Targets))
+	for _, target := range cfg.Prepare.Targets {
+		targets = append(targets, health.TargetInput{
+			Label:   target.Label,
+			Region:  target.Region,
+			Product: target.Product,
+			Locale:  target.Locale,
+			Strict:  target.Strict,
+			State:   health.StatePreparing,
+		})
+	}
+	return health.StaticProvider{Snapshot: health.BuildSnapshot(health.Input{
+		Targets: targets,
+		Memory: health.Memory{
+			MemorySoftLimitMB: cfg.Limits.MemorySoftLimitMB,
+			MemoryHardLimitMB: cfg.Limits.MemoryHardLimitMB,
+		},
+	})}
 }
 
 func writeJSON(w http.ResponseWriter, code int, payload interface{}) {
