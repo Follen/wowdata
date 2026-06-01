@@ -150,3 +150,72 @@ func TestSingleflightReleasesWaitersBeforeDeletingInflight(t *testing.T) {
 		t.Fatalf("late err = %v", err)
 	}
 }
+
+func TestSingleflightPanicReleasesWaitersAndAllowsRetry(t *testing.T) {
+	group := NewSingleflight()
+	const key = "cn/wow/SpellName"
+	wantPanic := "prepare panic"
+	firstStarted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	firstDone := make(chan interface{}, 1)
+	waiterStarted := make(chan struct{})
+	waiterDone := make(chan interface{}, 1)
+	var calls int32
+
+	go func() {
+		defer func() {
+			firstDone <- recover()
+		}()
+		_, _ = group.Do(key, func() (interface{}, error) {
+			atomic.AddInt32(&calls, 1)
+			close(firstStarted)
+			<-releaseFirst
+			panic(wantPanic)
+		})
+	}()
+	<-firstStarted
+
+	go func() {
+		defer func() {
+			waiterDone <- recover()
+		}()
+		close(waiterStarted)
+		_, _ = group.Do(key, func() (interface{}, error) {
+			atomic.AddInt32(&calls, 1)
+			panic("waiter fn should not run")
+		})
+	}()
+	<-waiterStarted
+	close(releaseFirst)
+
+	select {
+	case got := <-firstDone:
+		if got != wantPanic {
+			t.Fatalf("first panic = %#v, want %#v", got, wantPanic)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("first caller did not return panic")
+	}
+	select {
+	case got := <-waiterDone:
+		if got != wantPanic {
+			t.Fatalf("waiter panic = %#v, want %#v", got, wantPanic)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("waiter blocked after panic")
+	}
+
+	value, err := group.Do(key, func() (interface{}, error) {
+		atomic.AddInt32(&calls, 1)
+		return "ok", nil
+	})
+	if err != nil {
+		t.Fatalf("retry err = %v", err)
+	}
+	if value.(string) != "ok" {
+		t.Fatalf("retry value = %#v, want ok", value)
+	}
+	if calls != 2 {
+		t.Fatalf("calls = %d, want 2", calls)
+	}
+}
