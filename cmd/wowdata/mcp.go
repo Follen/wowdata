@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"wowdata/internal/artifact"
 	"wowdata/internal/mcpserver"
@@ -34,64 +33,8 @@ Examples:
   wowdata mcp stdio
   wowdata mcp http --host 127.0.0.1 --port 9788 --base-url http://127.0.0.1:9788`,
 	}
-	var httpHost, httpBaseURL string
-	var httpArtifactRoot, httpArtifactBaseURL string
-	var httpPort int
-	var httpMaxContexts int
-	httpCmd := &cobra.Command{
-		Use:   "http",
-		Short: "Serve MCP tools over Streamable HTTP.",
-		Long: `Serve MCP tools over Streamable HTTP.
 
-Use this for remote deployments with a domain, TLS, reverse proxy, or shared service.
-The MCP endpoint is /mcp. Health and agent-readable setup guidance are available at /health and /help.
-
-Codex CLI:
-  codex mcp add wowdata --url https://mcp.example.com:9443/mcp
-
-Claude Code:
-  claude mcp add --transport http wowdata https://mcp.example.com:9443/mcp
-
-Claude Code stdio fallback:
-  claude mcp add --transport stdio wowdata -- wowdata mcp stdio
-
-cc-switch custom MCP:
-  {
-    "type": "http",
-    "url": "https://mcp.example.com:9443/mcp"
-  }
-
-Compatibility notes:
-  The HTTP server accepts GET, HEAD, OPTIONS, and POST on /mcp.
-  JSON-RPC notifications such as notifications/initialized return HTTP 202 with no JSON-RPC error.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			syncRuntimeFromPersistentFlags(cmd, rt)
-			rt.enableHTTPWarmupGate()
-			rt.enableContextCache(httpMaxContexts)
-			server := newMCPServerForRuntimeWithArtifacts(rt, artifactConfig{
-				root:    httpArtifactRoot,
-				baseURL: httpArtifactBaseURL,
-			})
-			addr := fmt.Sprintf("%s:%d", httpHost, httpPort)
-			mux := http.NewServeMux()
-			registerMCPHTTPHandlers(mux, server, httpBaseURL, rt)
-			httpServer := &http.Server{
-				Addr:              addr,
-				Handler:           mux,
-				ReadHeaderTimeout: 10 * time.Second,
-			}
-			fmt.Fprintf(cmd.ErrOrStderr(), "wowdata MCP HTTP listening on http://%s/mcp\n", addr)
-			return httpServer.ListenAndServe()
-		},
-	}
-	httpCmd.Flags().StringVar(&httpHost, "host", "127.0.0.1", "Host/interface to bind")
-	httpCmd.Flags().IntVar(&httpPort, "port", 9788, "Port to bind")
-	httpCmd.Flags().StringVar(&httpBaseURL, "base-url", "", "Public base URL used in help output, such as https://mcp.example.com:9443")
-	httpCmd.Flags().StringVar(&httpArtifactRoot, "artifact-root", "", "Local directory exposed by the reverse proxy for exported artifacts")
-	httpCmd.Flags().StringVar(&httpArtifactBaseURL, "artifact-base-url", "", "Public base URL for exported artifacts, such as https://mcp.example.com:9443/files")
-	httpCmd.Flags().IntVar(&httpMaxContexts, "max-contexts", 1, "Maximum warmed build contexts to keep in memory for HTTP MCP")
-
-	mcpCmd.AddCommand(newMCPStdioCommand(rt), httpCmd)
+	mcpCmd.AddCommand(newMCPStdioCommand(rt), newMCPHTTPCommand(rt))
 	root.AddCommand(mcpCmd)
 }
 

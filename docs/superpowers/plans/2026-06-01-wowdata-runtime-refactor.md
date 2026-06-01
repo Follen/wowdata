@@ -1842,7 +1842,7 @@ git commit -m "artifact add managed download links"
 - Modify: `cmd/wowdata/mcp_http.go`
 - Modify: `cmd/wowdata/mcp.go`
 
-- [ ] **Step 1: Write service tests**
+- [x] **Step 1: Write service tests**
 
 Create `internal/service/http/service_test.go`:
 
@@ -1890,11 +1890,11 @@ func TestEnsureTableUsesSingleflight(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Implement HTTP service root**
+- [x] **Step 2: Implement HTTP service root**
 
 Create `internal/service/http/service.go` with `Service`, `RequestContext`, `ToolPolicy`, `ResolveRequestContext`, `EnsureContext`, `EnsureTable`, `Status`, and a test hook for materialization. `EnsureTable` must cache successful table ensures by `region/product/locale/table` and use the singleflight group from Task 7.
 
-- [ ] **Step 3: Implement status model**
+- [x] **Step 3: Implement status model**
 
 Create `internal/service/http/status.go`:
 
@@ -1939,7 +1939,7 @@ type StructuredError struct {
 }
 ```
 
-- [ ] **Step 4: Implement materializer boundary**
+- [x] **Step 4: Implement materializer boundary**
 
 Create `internal/service/http/materializer.go` with `Materializer` interface:
 
@@ -1955,11 +1955,11 @@ type Materializer interface {
 
 The first implementation may delegate to existing warmup code, but only through an in-process function call. It must not call `executeCLIJSON`.
 
-- [ ] **Step 5: Wire `mcp http --config`**
+- [x] **Step 5: Wire `mcp http --config`**
 
 Create or modify `cmd/wowdata/mcp_http.go` so HTTP startup loads `internal/config.LoadHTTPConfig`, applies flags, creates `internal/service/http.Service`, and registers HTTP handlers.
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 Run:
 
@@ -1969,7 +1969,7 @@ go test ./internal/service/http ./cmd/wowdata -count=1
 
 Expected: both packages pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 

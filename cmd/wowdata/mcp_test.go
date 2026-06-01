@@ -46,6 +46,28 @@ func TestMCPHTTPHelpIncludesClientConfigGuidance(t *testing.T) {
 	}
 }
 
+func TestMCPHTTPCommandHasConfigFlag(t *testing.T) {
+	cmd := newRootCommandForRuntime(NewRuntime())
+	httpCmd, _, err := cmd.Find([]string{"mcp", "http"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if httpCmd.Flags().Lookup("config") == nil {
+		t.Fatal("mcp http missing --config flag")
+	}
+}
+
+func TestMCPStdioCommandDoesNotRequireHTTPConfig(t *testing.T) {
+	cmd := newRootCommandForRuntime(NewRuntime())
+	stdioCmd, _, err := cmd.Find([]string{"mcp", "stdio"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stdioCmd.Flags().Lookup("config") != nil {
+		t.Fatal("mcp stdio should not expose HTTP --config flag")
+	}
+}
+
 func TestMCPHTTPMaxContextsFlagEnablesRuntimeContextCache(t *testing.T) {
 	rt := NewRuntime()
 	cmd := newRootCommandForRuntime(rt)
