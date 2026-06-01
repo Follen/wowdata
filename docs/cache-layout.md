@@ -57,7 +57,7 @@ The HTTP query engine opens:
 <cache-root>/duckdb/wowdata.duckdb
 ```
 
-DuckDB reads materialized Parquet files for HTTP `wow_db2` queries. The engine
+DuckDB reads materialized Parquet files for HTTP `wow_query` queries. The engine
 creates the parent directory before opening the database file so fresh Docker
 volumes work without manual directory setup.
 

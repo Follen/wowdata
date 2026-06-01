@@ -27,15 +27,15 @@ func NewDB2HandlerWithStore(store appruntime.DB2Store) func(cmd *cobra.Command, 
 func (s *DB2Service) dispatch(cmd *cobra.Command, args []string) error {
 	use := cmd.Name()
 	switch {
-	case containsWord(cmd.CommandPath(), "db2 schema") || containsWord(use, "schema"):
+	case containsWord(cmd.CommandPath(), "query schema") || containsWord(use, "schema"):
 		return s.handleSchema(cmd, args)
-	case containsWord(cmd.CommandPath(), "db2 rows") || containsWord(use, "rows"):
+	case containsWord(cmd.CommandPath(), "query rows") || containsWord(use, "rows"):
 		return s.handleRows(cmd, args)
-	case containsWord(cmd.CommandPath(), "db2 search") || containsWord(use, "search"):
+	case containsWord(cmd.CommandPath(), "query search") || containsWord(use, "search"):
 		return s.handleSearch(cmd, args)
-	case containsWord(cmd.CommandPath(), "db2 foreign-key") || containsWord(use, "foreign-key"):
+	case containsWord(cmd.CommandPath(), "query foreign-key") || containsWord(use, "foreign-key"):
 		return s.handleForeignKey(cmd, args)
-	case containsWord(cmd.CommandPath(), "db2 stream") || containsWord(use, "stream"):
+	case containsWord(cmd.CommandPath(), "query stream") || containsWord(use, "stream"):
 		return s.handleStream(cmd, args)
 	default:
 		return s.handleList(cmd, args)
@@ -44,15 +44,15 @@ func (s *DB2Service) dispatch(cmd *cobra.Command, args []string) error {
 
 func (s *DB2Service) handleSchema(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 schema", "missing_argument", "table name required"))
+		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query schema", "missing_argument", "table name required"))
 	}
 	if db2StoreNotReady(s.store) {
-		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 schema", "not_ready", warmupRequiredMessage))
+		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query schema", "not_ready", warmupRequiredMessage))
 	}
 	if s.store != nil {
 		fields, rowCount, err := s.store.Schema(args[0])
 		if err != nil {
-			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 schema", "query_error", err.Error()))
+			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query schema", "query_error", err.Error()))
 		}
 		fieldMap := make(map[string]string, len(fields))
 		for _, field := range fields {
@@ -62,18 +62,18 @@ func (s *DB2Service) handleSchema(cmd *cobra.Command, args []string) error {
 			}
 			fieldMap[field.Name] = fieldType
 		}
-		return writeJSON(cmd.OutOrStdout(), NewSuccessResponse("db2 schema", map[string]interface{}{
+		return writeJSON(cmd.OutOrStdout(), NewSuccessResponse("query schema", map[string]interface{}{
 			"table":    args[0],
 			"rowCount": rowCount,
 			"fields":   fieldMap,
 		}))
 	}
-	return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 schema", "not_ready", warmupRequiredMessage))
+	return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query schema", "not_ready", warmupRequiredMessage))
 }
 
 func (s *DB2Service) handleRows(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 rows", "missing_argument", "table name required"))
+		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query rows", "missing_argument", "table name required"))
 	}
 
 	idFlag, _ := cmd.Flags().GetString("id")
@@ -83,30 +83,30 @@ func (s *DB2Service) handleRows(cmd *cobra.Command, args []string) error {
 	filterFlag, _ := cmd.Flags().GetString("filter")
 
 	if db2StoreNotReady(s.store) {
-		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 rows", "not_ready", warmupRequiredMessage))
+		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query rows", "not_ready", warmupRequiredMessage))
 	}
 	if s.store != nil {
 		ids, err := parseUint32CSV(idFlag, idsFlag)
 		if err != nil {
-			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 rows", "invalid_argument", err.Error()))
+			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query rows", "invalid_argument", err.Error()))
 		}
 		rows, err := s.store.Rows(args[0], ids, splitCSV(fieldsFlag), filterFlag, limitFlag)
 		if err != nil {
-			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 rows", "query_error", err.Error()))
+			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query rows", "query_error", err.Error()))
 		}
-		return writeJSON(cmd.OutOrStdout(), NewSuccessResponse("db2 rows", map[string]interface{}{
+		return writeJSON(cmd.OutOrStdout(), NewSuccessResponse("query rows", map[string]interface{}{
 			"table": args[0],
 			"mode":  "rows",
 			"count": len(rows),
 			"rows":  rows,
 		}))
 	}
-	return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 rows", "not_ready", warmupRequiredMessage))
+	return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query rows", "not_ready", warmupRequiredMessage))
 }
 
 func (s *DB2Service) handleSearch(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 search", "missing_argument", "table name required"))
+		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query search", "missing_argument", "table name required"))
 	}
 
 	fieldFlag, _ := cmd.Flags().GetString("field")
@@ -114,52 +114,52 @@ func (s *DB2Service) handleSearch(cmd *cobra.Command, args []string) error {
 	limitFlag, _ := cmd.Flags().GetInt("limit")
 
 	if db2StoreNotReady(s.store) {
-		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 search", "not_ready", warmupRequiredMessage))
+		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query search", "not_ready", warmupRequiredMessage))
 	}
 	if s.store != nil {
 		rows, err := s.store.Search(args[0], fieldFlag, queryFlag, limitFlag)
 		if err != nil {
-			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 search", "query_error", err.Error()))
+			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query search", "query_error", err.Error()))
 		}
-		return writeJSON(cmd.OutOrStdout(), NewSuccessResponse("db2 search", map[string]interface{}{
+		return writeJSON(cmd.OutOrStdout(), NewSuccessResponse("query search", map[string]interface{}{
 			"table": args[0],
 			"mode":  "search",
 			"count": len(rows),
 			"rows":  rows,
 		}))
 	}
-	return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 search", "not_ready", warmupRequiredMessage))
+	return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query search", "not_ready", warmupRequiredMessage))
 }
 
 func (s *DB2Service) handleForeignKey(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 foreign-key", "missing_argument", "table name required"))
+		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query foreign-key", "missing_argument", "table name required"))
 	}
 
 	fieldFlag, _ := cmd.Flags().GetString("field")
 	valueFlag, _ := cmd.Flags().GetUint32("value")
 
 	if db2StoreNotReady(s.store) {
-		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 foreign-key", "not_ready", warmupRequiredMessage))
+		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query foreign-key", "not_ready", warmupRequiredMessage))
 	}
 	if s.store != nil {
 		rows, err := s.store.ForeignKey(args[0], fieldFlag, valueFlag, 0)
 		if err != nil {
-			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 foreign-key", "query_error", err.Error()))
+			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query foreign-key", "query_error", err.Error()))
 		}
-		return writeJSON(cmd.OutOrStdout(), NewSuccessResponse("db2 foreign-key", map[string]interface{}{
+		return writeJSON(cmd.OutOrStdout(), NewSuccessResponse("query foreign-key", map[string]interface{}{
 			"table": args[0],
 			"mode":  "foreign-key",
 			"count": len(rows),
 			"rows":  rows,
 		}))
 	}
-	return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 foreign-key", "not_ready", warmupRequiredMessage))
+	return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query foreign-key", "not_ready", warmupRequiredMessage))
 }
 
 func (s *DB2Service) handleStream(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 stream", "missing_argument", "table name required"))
+		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query stream", "missing_argument", "table name required"))
 	}
 
 	limitFlag, _ := cmd.Flags().GetInt("limit")
@@ -168,15 +168,15 @@ func (s *DB2Service) handleStream(cmd *cobra.Command, args []string) error {
 	formatFlag, _ := cmd.Flags().GetString("format")
 
 	if db2StoreNotReady(s.store) {
-		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 stream", "not_ready", warmupRequiredMessage))
+		return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query stream", "not_ready", warmupRequiredMessage))
 	}
 	if s.store != nil {
 		rows, err := s.store.Stream(args[0], splitCSV(fieldsFlag), filterFlag, limitFlag)
 		if err != nil {
-			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 stream", "query_error", err.Error()))
+			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query stream", "query_error", err.Error()))
 		}
 		if formatFlag == "json" {
-			return writeJSON(cmd.OutOrStdout(), NewSuccessResponse("db2 stream", map[string]interface{}{
+			return writeJSON(cmd.OutOrStdout(), NewSuccessResponse("query stream", map[string]interface{}{
 				"table": args[0],
 				"mode":  "stream",
 				"count": len(rows),
@@ -184,10 +184,10 @@ func (s *DB2Service) handleStream(cmd *cobra.Command, args []string) error {
 			}))
 		}
 		if formatFlag != "" && formatFlag != "jsonl" {
-			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 stream", "invalid_argument", "--format must be jsonl or json"))
+			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query stream", "invalid_argument", "--format must be jsonl or json"))
 		}
 		for _, row := range rows {
-			if err := writeJSONLine(cmd.OutOrStdout(), NewSuccessResponse("db2 stream row", map[string]interface{}{
+			if err := writeJSONLine(cmd.OutOrStdout(), NewSuccessResponse("query stream row", map[string]interface{}{
 				"table": args[0],
 				"mode":  "stream",
 				"row":   row,
@@ -197,7 +197,7 @@ func (s *DB2Service) handleStream(cmd *cobra.Command, args []string) error {
 		}
 		return nil
 	}
-	return writeJSON(cmd.OutOrStdout(), NewErrorResponse("db2 stream", "not_ready", warmupRequiredMessage))
+	return writeJSON(cmd.OutOrStdout(), NewErrorResponse("query stream", "not_ready", warmupRequiredMessage))
 }
 
 func writeJSONLine(w interface{ Write([]byte) (int, error) }, resp Response) error {
@@ -258,8 +258,8 @@ func parseUint32CSV(values ...string) ([]uint32, error) {
 }
 
 func (s *DB2Service) handleList(cmd *cobra.Command, args []string) error {
-	resp := NewSuccessResponse("db2", map[string]interface{}{
-		"note": "use db2 subcommands: schema, rows, search, foreign-key, stream",
+	resp := NewSuccessResponse("query", map[string]interface{}{
+		"note": "use query subcommands: schema, rows, search, foreign-key, stream",
 	})
 	return writeJSON(cmd.OutOrStdout(), resp)
 }

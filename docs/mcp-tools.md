@@ -14,7 +14,7 @@ Exact stdio tool list:
 
 - `wow_warmup`
 - `wow_casc`
-- `wow_db2`
+- `wow_query`
 - `wow_file`
 - `wow_icon`
 - `wow_spell`
@@ -32,7 +32,7 @@ Exact default HTTP tool list:
 
 - `wow_builds`
 - `wow_status`
-- `wow_db2`
+- `wow_query`
 - `wow_item`
 - `wow_spell`
 - `wow_file`

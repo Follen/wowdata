@@ -35,7 +35,7 @@ func (fakeDB2Store) Stream(table string, fields []string, filter string, limit i
 }
 
 func TestRuntimeDB2RowsReturnsStoreRows(t *testing.T) {
-	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "db2", "rows", "SpellName", "--id", "123")
+	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "query", "rows", "SpellName", "--id", "123")
 	if err != nil {
 		t.Fatalf("db2 rows returned command error: %v stderr=%s", err, stderr)
 	}
@@ -48,7 +48,7 @@ func TestRuntimeDB2RowsReturnsStoreRows(t *testing.T) {
 }
 
 func TestRuntimeDB2RowsPassesFieldsAndFilter(t *testing.T) {
-	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "db2", "rows", "SpellName", "--fields", "ID,Name_lang", "--filter", "Name_lang=Fireball")
+	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "query", "rows", "SpellName", "--fields", "ID,Name_lang", "--filter", "Name_lang=Fireball")
 	if err != nil {
 		t.Fatalf("db2 rows returned command error: %v stderr=%s", err, stderr)
 	}
@@ -61,7 +61,7 @@ func TestRuntimeDB2RowsPassesFieldsAndFilter(t *testing.T) {
 }
 
 func TestRuntimeDB2RowsAcceptsMultipleIDs(t *testing.T) {
-	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "db2", "rows", "SpellName", "--id", "1,2", "--ids", "3")
+	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "query", "rows", "SpellName", "--id", "1,2", "--ids", "3")
 	if err != nil {
 		t.Fatalf("db2 rows returned command error: %v stderr=%s", err, stderr)
 	}
@@ -71,7 +71,7 @@ func TestRuntimeDB2RowsAcceptsMultipleIDs(t *testing.T) {
 }
 
 func TestRuntimeDB2RowsRejectsInvalidID(t *testing.T) {
-	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "db2", "rows", "SpellName", "--ids", "nope")
+	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "query", "rows", "SpellName", "--ids", "nope")
 	if err != nil {
 		t.Fatalf("db2 rows returned command error: %v stderr=%s", err, stderr)
 	}
@@ -81,7 +81,7 @@ func TestRuntimeDB2RowsRejectsInvalidID(t *testing.T) {
 }
 
 func TestRuntimeDB2SchemaReturnsStoreSchema(t *testing.T) {
-	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "db2", "schema", "SpellName")
+	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "query", "schema", "SpellName")
 	if err != nil {
 		t.Fatalf("db2 schema returned command error: %v stderr=%s", err, stderr)
 	}
@@ -97,7 +97,7 @@ func TestRuntimeDB2SchemaReturnsStoreSchema(t *testing.T) {
 }
 
 func TestRuntimeDB2SearchUsesStableRowsShape(t *testing.T) {
-	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "db2", "search", "SpellName", "--field", "Name_lang", "--query", "Fire", "--limit", "3")
+	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "query", "search", "SpellName", "--field", "Name_lang", "--query", "Fire", "--limit", "3")
 	if err != nil {
 		t.Fatalf("db2 search returned command error: %v stderr=%s", err, stderr)
 	}
@@ -113,7 +113,7 @@ func TestRuntimeDB2SearchUsesStableRowsShape(t *testing.T) {
 }
 
 func TestRuntimeDB2RowsIncludesMode(t *testing.T) {
-	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "db2", "rows", "SpellName", "--id", "123")
+	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "query", "rows", "SpellName", "--id", "123")
 	if err != nil {
 		t.Fatalf("db2 rows returned command error: %v stderr=%s", err, stderr)
 	}
@@ -123,7 +123,7 @@ func TestRuntimeDB2RowsIncludesMode(t *testing.T) {
 }
 
 func TestRuntimeDB2ForeignKeyUsesStableRowsShape(t *testing.T) {
-	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "db2", "foreign-key", "SpellEffect", "--field", "SpellID", "--value", "1")
+	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "query", "foreign-key", "SpellEffect", "--field", "SpellID", "--value", "1")
 	if err != nil {
 		t.Fatalf("db2 foreign-key returned command error: %v stderr=%s", err, stderr)
 	}
@@ -136,17 +136,17 @@ func TestRuntimeDB2ForeignKeyUsesStableRowsShape(t *testing.T) {
 }
 
 func TestRuntimeDB2StreamSupportsJSONFormat(t *testing.T) {
-	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "db2", "stream", "SpellEffect", "--limit", "1", "--format", "json")
+	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "query", "stream", "SpellEffect", "--limit", "1", "--format", "json")
 	if err != nil {
 		t.Fatalf("db2 stream returned command error: %v stderr=%s", err, stderr)
 	}
-	if !strings.Contains(stdout, `"command": "db2 stream"`) || !strings.Contains(stdout, `"mode": "stream"`) || !strings.Contains(stdout, `"rows": [`) {
+	if !strings.Contains(stdout, `"command": "query stream"`) || !strings.Contains(stdout, `"mode": "stream"`) || !strings.Contains(stdout, `"rows": [`) {
 		t.Fatalf("db2 stream --format json should return aggregate JSON payload:\n%s", stdout)
 	}
 }
 
 func TestRuntimeDB2StreamRejectsUnknownFormat(t *testing.T) {
-	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "db2", "stream", "SpellEffect", "--format", "yaml")
+	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "query", "stream", "SpellEffect", "--format", "yaml")
 	if err != nil {
 		t.Fatalf("db2 stream returned command error: %v stderr=%s", err, stderr)
 	}

@@ -49,9 +49,9 @@ func registerCommands(root *cobra.Command, svc *Service) {
 				{name: "listfile-format", typ: "string", dflt: "binary", desc: "Listfile source format: binary for current full listfile, text for community CSV listfile"},
 				{name: "dbd-manifest", typ: "bool", dflt: "true", desc: "Warm DBD manifest cache"},
 			}},
-		{use: "db2", short: "Query DB2 tables.", example: "  wowdata db2 rows SpellName --id 123", group: "db2", child: []commandSpec{
-			{use: "schema <table>", short: "Print parsed schema metadata.", example: "  wowdata db2 schema SpellName", group: "db2"},
-			{use: "rows <table>", short: "Fetch rows by ID, fields, filter, and limit.", example: "  wowdata db2 rows SpellName --id 123 --limit 1", group: "db2",
+		{use: "query", short: "Query DB2 tables.", example: "  wowdata query rows SpellName --id 123", group: "db2", child: []commandSpec{
+			{use: "schema <table>", short: "Print parsed schema metadata.", example: "  wowdata query schema SpellName", group: "db2"},
+			{use: "rows <table>", short: "Fetch rows by ID, fields, filter, and limit.", example: "  wowdata query rows SpellName --id 123 --limit 1", group: "db2",
 				flags: []cmdFlag{
 					{name: "id", typ: "string", desc: "Record ID, repeat as comma-separated values for multiple IDs"},
 					{name: "ids", typ: "string", desc: "Comma-separated record IDs"},
@@ -59,18 +59,18 @@ func registerCommands(root *cobra.Command, svc *Service) {
 					{name: "filter", typ: "string", desc: "Filter expression in field=value form"},
 					{name: "limit", typ: "int", desc: "Max rows"},
 				}},
-			{use: "search <table>", short: "Search a field case-insensitively.", example: "  wowdata db2 search SpellName --field Name_lang --query fire", group: "db2",
+			{use: "search <table>", short: "Search a field case-insensitively.", example: "  wowdata query search SpellName --field Name_lang --query fire", group: "db2",
 				flags: []cmdFlag{
 					{name: "field", typ: "string", desc: "Field to search"},
 					{name: "query", typ: "string", desc: "Search query"},
 					{name: "limit", typ: "int", desc: "Max rows"},
 				}},
-			{use: "foreign-key <table>", short: "Query rows by foreign key relationship.", example: "  wowdata db2 foreign-key SpellEffect --field SpellID --value 123", group: "db2",
+			{use: "foreign-key <table>", short: "Query rows by foreign key relationship.", example: "  wowdata query foreign-key SpellEffect --field SpellID --value 123", group: "db2",
 				flags: []cmdFlag{
 					{name: "field", typ: "string", desc: "Foreign key field"},
 					{name: "value", typ: "uint32", desc: "Foreign key value"},
 				}},
-			{use: "stream <table>", short: "Stream large table rows as JSON lines.", example: "  wowdata db2 stream SpellEffect --limit 100", group: "db2",
+			{use: "stream <table>", short: "Stream large table rows as JSON lines.", example: "  wowdata query stream SpellEffect --limit 100", group: "db2",
 				flags: []cmdFlag{
 					{name: "fields", typ: "string", desc: "Comma-separated fields to include"},
 					{name: "filter", typ: "string", desc: "Filter expression in field=value form"},
@@ -193,7 +193,7 @@ func registerCommands(root *cobra.Command, svc *Service) {
 				}},
 		}},
 		{use: "golden", short: "Capture and compare golden fixtures.", example: "  wowdata golden compare --fixture warmup/remote-cn-wow.json", group: "golden", child: []commandSpec{
-			{use: "capture", short: "Capture Go command output.", example: "  wowdata golden capture --name db2-spellname-123 -- wowdata db2 rows SpellName --id 123", group: "golden",
+			{use: "capture", short: "Capture Go command output.", example: "  wowdata golden capture --name db2-spellname-123 -- wowdata query rows SpellName --id 123", group: "golden",
 				flags: []cmdFlag{
 					{name: "name", typ: "string", desc: "Fixture name"},
 					{name: "command", typ: "string", desc: "Command to execute and capture"},

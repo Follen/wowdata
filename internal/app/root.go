@@ -15,7 +15,7 @@ func NewRootCommandWithService(svc *Service) *cobra.Command {
 		Long: "wowdata is a Go CLI for querying World of Warcraft CASC, DB2, listfile, texture, item, creature, decor, spell, and encounter data.\n\n" +
 			"Run warmup before commands that require an active build context. First use may take time while manifests, indexes, listfiles, and DB definitions are cached.",
 		Example: "  wowdata warmup --source remote --region cn --product wow\n" +
-			"  wowdata db2 rows SpellName --id 123\n" +
+			"  wowdata query rows SpellName --id 123\n" +
 			"  wowdata file lookup --file-data-id 456\n" +
 			"  wowdata icon export --file-data-id 789 --format png",
 		Version:       Version,

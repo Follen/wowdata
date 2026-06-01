@@ -25,7 +25,7 @@ func TestStdioMCPToolNamesStayStable(t *testing.T) {
 	want := []string{
 		"wow_warmup",
 		"wow_casc",
-		"wow_db2",
+		"wow_query",
 		"wow_file",
 		"wow_icon",
 		"wow_spell",
@@ -53,7 +53,7 @@ func TestHTTPHelpListsCodexClaudeAndCCSwitch(t *testing.T) {
 		"cc-switch",
 		"wow_builds",
 		"wow_status",
-		"wow_db2",
+		"wow_query",
 		"wow_icon",
 		"Local stdio fallback",
 		"Admin tools",

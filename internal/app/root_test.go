@@ -60,7 +60,7 @@ func TestRootHelp(t *testing.T) {
 	for _, want := range []string{
 		"wowdata",
 		"warmup",
-		"db2",
+		"query",
 		"golden",
 		"Examples:",
 	} {
@@ -168,7 +168,7 @@ func TestHandlerInjectionSeam(t *testing.T) {
 func TestAllPlannedCommandHelp(t *testing.T) {
 	commands := [][]string{
 		{"warmup"},
-		{"db2"}, {"db2", "schema"}, {"db2", "rows"}, {"db2", "search"}, {"db2", "foreign-key"}, {"db2", "stream"},
+		{"query"}, {"query", "schema"}, {"query", "rows"}, {"query", "search"}, {"query", "foreign-key"}, {"query", "stream"},
 		{"spell"}, {"spell", "info"}, {"spell", "auras"}, {"spell", "summons"},
 		{"encounter"}, {"encounter", "get"},
 		{"file"}, {"file", "lookup"}, {"file", "search"}, {"file", "extension"}, {"file", "get"}, {"file", "exists"}, {"file", "encoding"}, {"file", "export"},

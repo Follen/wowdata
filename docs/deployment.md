@@ -15,7 +15,7 @@ mkdir -p dist/linux-amd64
 CGO_ENABLED=1 go build -tags wowdata_duckdb -trimpath -ldflags="-s -w" -o dist/linux-amd64/wowdata ./cmd/wowdata
 ```
 
-The `wowdata_duckdb` tag is required for HTTP `wow_db2` queries. Without it the
+The `wowdata_duckdb` tag is required for HTTP `wow_query` queries. Without it the
 service can still start, but DB2 HTTP calls return `query_engine_unavailable`
 instead of rows.
 

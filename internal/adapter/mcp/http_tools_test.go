@@ -22,7 +22,7 @@ func TestHTTPToolNamesDefaultExcludeWarmupAndIncludeHTTPTools(t *testing.T) {
 	for _, want := range []string{
 		"wow_builds",
 		"wow_status",
-		"wow_db2",
+		"wow_query",
 		"wow_item",
 		"wow_spell",
 		"wow_file",
@@ -35,6 +35,10 @@ func TestHTTPToolNamesDefaultExcludeWarmupAndIncludeHTTPTools(t *testing.T) {
 		if !names[want] {
 			t.Fatalf("HTTPToolNames(false) missing %q; got %#v", want, names)
 		}
+	}
+	legacyName := "wow_" + "db2"
+	if names[legacyName] {
+		t.Fatalf("HTTPToolNames(false) should not expose %s; got %#v", legacyName, names)
 	}
 }
 
@@ -107,11 +111,11 @@ func TestHTTPDB2HandlerInvokesEnsureTableAndReturnsMaterializerError(t *testing.
 	svc := &fakeHTTPService{
 		ensureErr: errors.New("materializer unavailable"),
 	}
-	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_db2")
+	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_query")
 
 	result, err := tool.Handler(context.Background(), json.RawMessage(`{"table":"SpellName","region":"eu","product":"wowt","locale":"enUS"}`))
 	if err != nil {
-		t.Fatalf("wow_db2 handler should return an envelope, not handler error: %v", err)
+		t.Fatalf("wow_query handler should return an envelope, not handler error: %v", err)
 	}
 	if svc.ensureCalls != 1 {
 		t.Fatalf("EnsureTable calls = %d, want 1", svc.ensureCalls)
@@ -123,8 +127,8 @@ func TestHTTPDB2HandlerInvokesEnsureTableAndReturnsMaterializerError(t *testing.
 		t.Fatalf("EnsureTable context = %#v", svc.lastContext)
 	}
 	got := result.(map[string]interface{})
-	if got["ok"] != false || got["command"] != "db2" {
-		t.Fatalf("unexpected db2 envelope: %#v", got)
+	if got["ok"] != false || got["command"] != "query" {
+		t.Fatalf("unexpected query envelope: %#v", got)
 	}
 	if code := got["error"].(map[string]interface{})["code"]; code != "materializer_unavailable" {
 		t.Fatalf("error code = %#v, want materializer_unavailable", code)
@@ -135,11 +139,11 @@ func TestHTTPDB2HandlerQueriesDB2AfterEnsureTable(t *testing.T) {
 	svc := &fakeHTTPService{
 		queryRows: []map[string]interface{}{{"ID": uint32(123), "Name_lang": "Fireball"}},
 	}
-	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_db2")
+	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_query")
 
 	result, err := tool.Handler(context.Background(), json.RawMessage(`{"table":"SpellName","id":123,"field":"ID","filter":"Name_lang LIKE 'Fire%'","limit":1,"fields":["ID","Name_lang"]}`))
 	if err != nil {
-		t.Fatalf("wow_db2 handler: %v", err)
+		t.Fatalf("wow_query handler: %v", err)
 	}
 	if svc.ensureCalls != 1 {
 		t.Fatalf("EnsureTable calls = %d, want 1", svc.ensureCalls)
@@ -157,8 +161,8 @@ func TestHTTPDB2HandlerQueriesDB2AfterEnsureTable(t *testing.T) {
 		t.Fatalf("QueryDB2 fields = %#v", svc.lastQuery.Fields)
 	}
 	got := result.(map[string]interface{})
-	if got["ok"] != true || got["command"] != "db2 rows" {
-		t.Fatalf("unexpected db2 envelope: %#v", got)
+	if got["ok"] != true || got["command"] != "query rows" {
+		t.Fatalf("unexpected query envelope: %#v", got)
 	}
 	rows := got["data"].(map[string]interface{})["rows"].([]map[string]interface{})
 	if len(rows) != 1 || rows[0]["Name_lang"] != "Fireball" {
@@ -198,11 +202,11 @@ func TestHTTPDB2HandlerSupportsSearchForeignKeyAndStreamModes(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := &fakeHTTPService{queryRows: []map[string]interface{}{{"ID": uint32(123)}}}
-			tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_db2")
+			tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_query")
 
 			result, err := tool.Handler(context.Background(), tc.raw)
 			if err != nil {
-				t.Fatalf("wow_db2 handler: %v", err)
+				t.Fatalf("wow_query handler: %v", err)
 			}
 			if svc.queryCalls != 1 {
 				t.Fatalf("QueryDB2 calls = %d, want 1", svc.queryCalls)
@@ -235,11 +239,11 @@ func TestHTTPDB2HandlerSupportsSchemaMode(t *testing.T) {
 			Fields:   map[string]string{"ID": "INTEGER", "Name_lang": "VARCHAR"},
 		},
 	}
-	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_db2")
+	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_query")
 
 	result, err := tool.Handler(context.Background(), json.RawMessage(`{"mode":"schema","table":"SpellName"}`))
 	if err != nil {
-		t.Fatalf("wow_db2 handler: %v", err)
+		t.Fatalf("wow_query handler: %v", err)
 	}
 	if svc.schemaCalls != 1 || svc.lastSchemaTable != "SpellName" {
 		t.Fatalf("SchemaDB2 calls/table = %d/%q, want 1/SpellName", svc.schemaCalls, svc.lastSchemaTable)
@@ -254,15 +258,15 @@ func TestHTTPDB2HandlerReturnsQueryErrorEnvelope(t *testing.T) {
 	svc := &fakeHTTPService{
 		queryErr: httpservice.CapabilityError{Code: "invalid_filter", Message: "unsafe filter value"},
 	}
-	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_db2")
+	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_query")
 
 	result, err := tool.Handler(context.Background(), json.RawMessage(`{"table":"SpellName","filter":"Name_lang = 'Fireball' OR 1=1"}`))
 	if err != nil {
-		t.Fatalf("wow_db2 handler: %v", err)
+		t.Fatalf("wow_query handler: %v", err)
 	}
 	got := result.(map[string]interface{})
 	if got["ok"] != false {
-		t.Fatalf("db2 should return structured error, got %#v", got)
+		t.Fatalf("query should return structured error, got %#v", got)
 	}
 	if code := got["error"].(map[string]interface{})["code"]; code != "invalid_filter" {
 		t.Fatalf("error code = %#v, want invalid_filter", code)

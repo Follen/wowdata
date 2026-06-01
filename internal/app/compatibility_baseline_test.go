@@ -6,7 +6,7 @@ import (
 )
 
 func TestResponseEnvelopeKeysStayStable(t *testing.T) {
-	resp := NewSuccessResponse("db2 rows", map[string]interface{}{"rows": []interface{}{}})
+	resp := NewSuccessResponse("query rows", map[string]interface{}{"rows": []interface{}{}})
 	data, err := json.Marshal(resp)
 	if err != nil {
 		t.Fatalf("marshal response: %v", err)

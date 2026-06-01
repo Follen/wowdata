@@ -193,7 +193,7 @@ This plan has 14 tasks. Each task is intended to be independently reviewable and
 - Modify: `cmd/wowdata/mcp_test.go`
 - Modify: `cmd/wowdata/mcp_compatibility_test.go`
 
-- [ ] **Step 1: Write failing CLI help tests for `query`**
+- [x] **Step 1: Write failing CLI help tests for `query`**
 
 Update `internal/app/root_test.go` so `TestRootHelp` expects `query`, and `TestAllPlannedCommandHelp` uses:
 
@@ -209,7 +209,7 @@ Run:
 
 Expected: FAIL with `unknown command "query"`.
 
-- [ ] **Step 2: Write failing MCP tool-name tests for `wow_query`**
+- [x] **Step 2: Write failing MCP tool-name tests for `wow_query`**
 
 Update `internal/adapter/mcp/stdio_tools_test.go`, `internal/adapter/mcp/http_tools_test.go`, and `cmd/wowdata/mcp_test.go` to expect `wow_query` and not `wow_db2`.
 
@@ -221,7 +221,7 @@ Run:
 
 Expected: FAIL because `wow_query` is missing and `wow_db2` still exists.
 
-- [ ] **Step 3: Implement the public rename**
+- [x] **Step 3: Implement the public rename**
 
 Make these exact behavior changes:
 
@@ -242,7 +242,7 @@ Response commands:
 
 Keep internal names such as `DB2Store`, `DB2Query`, `internal/db2`, and cache path `db2` when they refer to the real DB2 data format.
 
-- [ ] **Step 4: Verify no legacy public surface remains**
+- [x] **Step 4: Verify no legacy public surface remains**
 
 Run:
 
@@ -252,7 +252,7 @@ rg -n "wow_db2|wowdata db2|`\"db2 (schema|rows|search|foreign-key|stream)`\"" RE
 
 Expected: no matches except historical specs/plans that explicitly discuss old names. If a new current doc or current test matches, fix it.
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 
@@ -262,7 +262,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 

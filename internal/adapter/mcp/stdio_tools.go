@@ -10,7 +10,7 @@ import (
 var stdioToolNames = []string{
 	"wow_warmup",
 	"wow_casc",
-	"wow_db2",
+	"wow_query",
 	"wow_file",
 	"wow_icon",
 	"wow_spell",
@@ -51,7 +51,7 @@ func stdioToolDescription(name string) string {
 		return "Initialize local or remote WoW data context."
 	case "wow_casc":
 		return "Inspect CASC source state."
-	case "wow_db2":
+	case "wow_query":
 		return "Query DB2 tables."
 	case "wow_file":
 		return "Query and export CASC files."

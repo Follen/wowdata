@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <code>wow_warmup</code> · <code>wow_casc</code> · <code>wow_db2</code> · <code>wow_file</code> · <code>wow_icon</code> · <code>wow_spell</code> · <code>wow_item</code>
+  <code>wow_warmup</code> · <code>wow_casc</code> · <code>wow_query</code> · <code>wow_file</code> · <code>wow_icon</code> · <code>wow_spell</code> · <code>wow_item</code>
 </p>
 
 ## 中文
@@ -71,7 +71,7 @@ wowdata warmup --source local --path "D:\Game\World of Warcraft" --region cn --p
 查询 DB2：
 
 ```powershell
-wowdata --auto-warmup --source remote --region us --product wow_classic_era --tables=SpellName db2 rows SpellName --id 1
+wowdata --auto-warmup --source remote --region us --product wow_classic_era --tables=SpellName query rows SpellName --id 1
 ```
 
 导出图标：
@@ -169,7 +169,7 @@ claude mcp add --transport stdio wowdata -- wowdata mcp stdio
 | --- | --- |
 | `wow_warmup` | 初始化本地或远端 WoW 数据上下文 |
 | `wow_casc` | 查看 CASC 状态、产品和诊断信息 |
-| `wow_db2` | 查询 DB2 schema、行、搜索、外键和流式输出 |
+| `wow_query` | 查询 DB2 schema、行、搜索、外键和流式输出 |
 | `wow_file` | 查询、搜索、读取和导出 CASC 文件 |
 | `wow_icon` | 从 BLP 导出 PNG/WebP 图标 |
 | `wow_spell` | 查询法术、光环和召唤关系 |
@@ -183,7 +183,7 @@ claude mcp add --transport stdio wowdata -- wowdata mcp stdio
 
 ```text
 warmup
-db2 schema|rows|search|foreign-key|stream
+query schema|rows|search|foreign-key|stream
 spell info|auras|summons
 encounter get
 file lookup|search|extension|get|exists|encoding|export
@@ -266,7 +266,7 @@ wowdata warmup --source local --path "/Applications/World of Warcraft/_retail_" 
 Query DB2:
 
 ```bash
-wowdata --auto-warmup --source remote --region us --product wow_classic_era --tables=SpellName db2 rows SpellName --id 1
+wowdata --auto-warmup --source remote --region us --product wow_classic_era --tables=SpellName query rows SpellName --id 1
 ```
 
 Export an icon:
@@ -364,7 +364,7 @@ Exposed MCP tools:
 | --- | --- |
 | `wow_warmup` | Initialize a local or remote WoW data context |
 | `wow_casc` | Inspect CASC state, products, and diagnostics |
-| `wow_db2` | Query DB2 schemas, rows, search results, foreign keys, and streams |
+| `wow_query` | Query DB2 schemas, rows, search results, foreign keys, and streams |
 | `wow_file` | Lookup, search, read, and export CASC files |
 | `wow_icon` | Export PNG/WebP icons from BLP assets |
 | `wow_spell` | Inspect spells, auras, and summon relationships |
@@ -378,7 +378,7 @@ Exposed MCP tools:
 
 ```text
 warmup
-db2 schema|rows|search|foreign-key|stream
+query schema|rows|search|foreign-key|stream
 spell info|auras|summons
 encounter get
 file lookup|search|extension|get|exists|encoding|export

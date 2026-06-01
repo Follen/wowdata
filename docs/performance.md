@@ -6,14 +6,14 @@ committed.
 
 ## Benchmark Categories
 
-- HTTP cold `wow_db2` query: first remote HTTP DB2 request after a fresh service
+- HTTP cold `wow_query` query: first remote HTTP DB2 request after a fresh service
   start or empty materialized table cache. This includes build resolution,
   table materialization, DuckDB initialization, and query execution.
-- HTTP warm `wow_db2` query: same HTTP query after the table has already been
+- HTTP warm `wow_query` query: same HTTP query after the table has already been
   materialized. This should avoid the expensive prepare path.
-- HTTP repeated `wow_db2` query: multiple warm HTTP calls in sequence. This is
+- HTTP repeated `wow_query` query: multiple warm HTTP calls in sequence. This is
   the best signal for steady-state MCP latency.
-- stdio warm `wow_db2` query: local MCP stdio path after local warmup. This
+- stdio warm `wow_query` query: local MCP stdio path after local warmup. This
   measures local process overhead without HTTP transport or remote service
   startup costs.
 - CLI auto-warmup DB2 query: direct CLI path that may initialize local context
@@ -49,7 +49,7 @@ The remote HTTP deployment must pass a real DB2 smoke before release readiness:
 
 ```json
 {
-  "tool": "wow_db2",
+  "tool": "wow_query",
   "table": "SpellName",
   "field": "ID",
   "id": 1,

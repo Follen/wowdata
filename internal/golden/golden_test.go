@@ -73,7 +73,7 @@ func TestCompareJSONCapturedJSONLinesMatchesStreamPayload(t *testing.T) {
 	}`)
 	actual := []byte(`{
 		"exitCode": 0,
-		"stdout": "{\"ok\":true,\"command\":\"db2 stream row\",\"data\":{\"table\":\"SpellEffect\",\"mode\":\"stream\",\"row\":{\"ID\":1}},\"warnings\":[]}\n{\"ok\":true,\"command\":\"db2 stream row\",\"data\":{\"table\":\"SpellEffect\",\"mode\":\"stream\",\"row\":{\"ID\":2}},\"warnings\":[]}\n",
+		"stdout": "{\"ok\":true,\"command\":\"query stream row\",\"data\":{\"table\":\"SpellEffect\",\"mode\":\"stream\",\"row\":{\"ID\":1}},\"warnings\":[]}\n{\"ok\":true,\"command\":\"query stream row\",\"data\":{\"table\":\"SpellEffect\",\"mode\":\"stream\",\"row\":{\"ID\":2}},\"warnings\":[]}\n",
 		"stderr": ""
 	}`)
 

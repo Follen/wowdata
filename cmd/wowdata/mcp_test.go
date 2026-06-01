@@ -204,7 +204,7 @@ func TestMCPToolsIncludeAllCapabilityGroups(t *testing.T) {
 	for _, want := range []string{
 		"wow_warmup",
 		"wow_casc",
-		"wow_db2",
+		"wow_query",
 		"wow_file",
 		"wow_icon",
 		"wow_spell",
@@ -381,7 +381,7 @@ func TestAllBusinessMCPToolsAreCallable(t *testing.T) {
 	tests := map[string]string{
 		"wow_warmup":    `{}`,
 		"wow_casc":      `{"mode":"info"}`,
-		"wow_db2":       `{"mode":"schema","table":"SpellName"}`,
+		"wow_query":     `{"mode":"schema","table":"SpellName"}`,
 		"wow_file":      `{"mode":"lookup","fileDataID":1}`,
 		"wow_icon":      `{"fileDataID":1,"output":"output/mcp-test-icon.png"}`,
 		"wow_spell":     `{"mode":"info","spellID":1}`,
@@ -430,7 +430,11 @@ func TestMCPServerListsAndCallsCLIBackedTools(t *testing.T) {
 		t.Fatalf("Serve: %v", err)
 	}
 	out := stdout.String()
-	if !strings.Contains(out, `"name":"wow_db2"`) || !strings.Contains(out, `"name":"wow_casc"`) {
+	legacyToolJSON := `"name":"wow_` + `db2"`
+	if strings.Contains(out, legacyToolJSON) {
+		t.Fatalf("tools/list should not expose legacy query tool:\n%s", out)
+	}
+	if !strings.Contains(out, `"name":"wow_query"`) || !strings.Contains(out, `"name":"wow_casc"`) {
 		t.Fatalf("tools/list missing CLI-backed tools:\n%s", out)
 	}
 	if !strings.Contains(out, `CASC 未就绪`) {

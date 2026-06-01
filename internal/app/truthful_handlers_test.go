@@ -9,7 +9,7 @@ import (
 )
 
 func TestIncompleteDB2RowsDoesNotReturnSuccess(t *testing.T) {
-	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2Handler()}, "db2", "rows", "SpellName", "--id", "123")
+	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2Handler()}, "query", "rows", "SpellName", "--id", "123")
 	if err != nil {
 		t.Fatalf("db2 rows returned command error: %v stderr=%s", err, stderr)
 	}
@@ -22,7 +22,7 @@ func TestIncompleteDB2RowsDoesNotReturnSuccess(t *testing.T) {
 }
 
 func TestIncompleteDB2SchemaDoesNotReturnSuccess(t *testing.T) {
-	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2Handler()}, "db2", "schema", "SpellName")
+	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2Handler()}, "query", "schema", "SpellName")
 	if err != nil {
 		t.Fatalf("db2 schema returned command error: %v stderr=%s", err, stderr)
 	}

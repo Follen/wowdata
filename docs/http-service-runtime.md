@@ -43,7 +43,7 @@ HTTP tool calls may pass `region`, `product`, and `locale`; omitted values are f
 
 ## Lazy prepare
 
-HTTP requests use lazy prepare by default. A tool such as `wow_db2` resolves the request context, ensures the requested table is materialized, and then serves the query from the materialized cache. Successful table materializations are cached per `region/product/locale/table`, and concurrent requests for the same table share one in-flight materialization.
+HTTP requests use lazy prepare by default. A tool such as `wow_query` resolves the request context, ensures the requested table is materialized, and then serves the query from the materialized cache. Successful table materializations are cached per `region/product/locale/table`, and concurrent requests for the same table share one in-flight materialization.
 
 The stdio-only `wow_warmup` tool is not exposed as a default HTTP tool. Explicit prepare is available through `wow_prepare` only when admin tools are enabled.
 

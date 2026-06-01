@@ -21,7 +21,7 @@ import (
 var httpDefaultToolNames = []string{
 	"wow_builds",
 	"wow_status",
-	"wow_db2",
+	"wow_query",
 	"wow_item",
 	"wow_spell",
 	"wow_file",
@@ -160,7 +160,7 @@ func httpDB2Tool(svc interface {
 	DB2SchemaQuerier
 }) mcpserver.Tool {
 	return mcpserver.Tool{
-		Name:        "wow_db2",
+		Name:        "wow_query",
 		Description: "Query DB2 tables through the HTTP service.",
 		InputSchema: objectSchema(),
 		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
@@ -170,19 +170,19 @@ func httpDB2Tool(svc interface {
 			}
 			table := stringArg(args, "table", "")
 			if table == "" {
-				return errorEnvelope("db2", "invalid_request", "table is required"), nil
+				return errorEnvelope("query", "invalid_request", "table is required"), nil
 			}
 			rc := requestContextFromArgs(args)
 			if err := svc.EnsureTable(ctx, rc, table); err != nil {
-				return errorEnvelopeFromError("db2", "materializer_unavailable", err), nil
+				return errorEnvelopeFromError("query", "materializer_unavailable", err), nil
 			}
 			mode := stringArg(args, "mode", "rows")
 			if mode == "schema" {
 				schema, err := svc.SchemaDB2(ctx, rc, table)
 				if err != nil {
-					return errorEnvelopeFromError("db2 schema", "query_engine_unavailable", err), nil
+					return errorEnvelopeFromError("query schema", "query_engine_unavailable", err), nil
 				}
-				return okEnvelope("db2 schema", map[string]interface{}{
+				return okEnvelope("query schema", map[string]interface{}{
 					"table":    schema.Table,
 					"mode":     "schema",
 					"rowCount": schema.RowCount,
@@ -209,13 +209,13 @@ func httpDB2Tool(svc interface {
 				query.IDField = stringArg(args, "field", "")
 			case "stream":
 			default:
-				return errorEnvelope("db2", "invalid_mode", "mode must be schema, rows, search, foreign-key, or stream"), nil
+				return errorEnvelope("query", "invalid_mode", "mode must be schema, rows, search, foreign-key, or stream"), nil
 			}
 			rows, err := svc.QueryDB2(ctx, query)
 			if err != nil {
-				return errorEnvelopeFromError("db2", "query_engine_unavailable", err), nil
+				return errorEnvelopeFromError("query", "query_engine_unavailable", err), nil
 			}
-			return okEnvelope("db2 "+mode, map[string]interface{}{
+			return okEnvelope("query "+mode, map[string]interface{}{
 				"table": table,
 				"mode":  mode,
 				"rows":  rows,

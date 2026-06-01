@@ -38,12 +38,12 @@
 
 - [x] `warmup --source local` — Go local CASC source reads `.build.info`, local `.idx` files, config files, encoding, root, and local data archives; real-client fixture `warmup/local-wow-cn` covers `D:\Game\World of Warcraft`
 - [x] `icon export` WebP mode — Go WebP output is intentionally always lossless and has no quality toggle
-- [x] `db2 schema/rows/search/foreign-key/stream` — relationship-map semantics and both JSONL/default stream support plus `--format json` aggregate output are covered
+- [x] `query schema/rows/search/foreign-key/stream` — relationship-map semantics and both JSONL/default stream support plus `--format json` aggregate output are covered
 - [x] `spell`, `encounter`, `item`, `creature`, `decor` — spell info/auras/summons, item get/models/geosets/textures, creature display/model, Retail encounter section tree, and Retail decor get by ID/model are covered
 - [x] `casc info/products/diagnose` — handler paths exist; remote products, remote diagnose, local warmup state, local `casc products --source local --path ...`, and `casc info` locale output are covered by tests or fixtures
 - [x] Golden capture/compare — implementation exists, quoted command arguments are supported for paths with spaces, and `golden compare --all` passes for seeded required groups
 - [x] Documentation and intentional differences — binary listfile, DXT, WebP lossless-only, partial DB2 decrypt, and concurrent range download decisions are documented as approved behavior or implementation improvements
-- [x] MCP service mode — `wow_warmup`, `wow_casc`, `wow_db2`, `wow_file`, `wow_icon`, `wow_spell`, `wow_encounter`, `wow_item`, `wow_creature`, `wow_decor`, and `wow_video` reuse the Go CLI runtime in process; development-only `golden` stays CLI-only
+- [x] MCP service mode — `wow_warmup`, `wow_casc`, `wow_query`, `wow_file`, `wow_icon`, `wow_spell`, `wow_encounter`, `wow_item`, `wow_creature`, `wow_decor`, and `wow_video` reuse the Go CLI runtime in process; development-only `golden` stays CLI-only
 
 ## Runtime Cutover
 

@@ -177,7 +177,7 @@ func mcpHelpHTML(baseURL string) string {
 }</pre>
 <h2>Local stdio fallback</h2><pre>claude mcp add --transport stdio wowdata -- wowdata mcp stdio
 wowdata mcp stdio</pre>
-<h2>HTTP supported tools</h2><p>wow_builds, wow_status, wow_db2, wow_item, wow_spell, wow_file, wow_icon, wow_creature, wow_encounter, wow_decor, wow_video.</p>
+<h2>HTTP supported tools</h2><p>wow_builds, wow_status, wow_query, wow_item, wow_spell, wow_file, wow_icon, wow_creature, wow_encounter, wow_decor, wow_video.</p>
 <h2>Admin tools when enabled</h2><p>Admin tools are hidden by default and appear only when <code>tools.expose_admin_tools</code> is enabled: wow_refresh_builds, wow_prepare, wow_prune_cache.</p>
 <h2>Artifact download behavior</h2><p>Tools that create files return public artifact URLs when the server has an artifact root and base URL configured; local file URIs are preserved as <code>fileURI</code> when rewritten.</p>
 </body></html>`, escapedEndpoint, escapedEndpoint, escapedEndpoint, escapedJSONEndpoint)
@@ -302,8 +302,8 @@ func stdioCLIHandler(rt *Runtime, name string, artifacts artifactConfig) mcpadap
 		return cliTool(rt, name, "", []string{"warmup"}, warmupArgs, artifacts).Handler
 	case "wow_casc":
 		return cliTool(rt, name, "", []string{"casc"}, cascArgs, artifacts).Handler
-	case "wow_db2":
-		return cliTool(rt, name, "", []string{"db2"}, db2Args, artifacts).Handler
+	case "wow_query":
+		return cliTool(rt, name, "", []string{"query"}, db2Args, artifacts).Handler
 	case "wow_file":
 		return cliTool(rt, name, "", []string{"file"}, func(args map[string]interface{}) ([]string, error) {
 			return fileArgsWithArtifacts(args, artifacts)
