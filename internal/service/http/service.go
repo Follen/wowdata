@@ -198,9 +198,25 @@ func (s *Service) SetQueryEngineForTest(engine parquetQueryEngine) {
 }
 
 func (s *Service) SetMetadataDBForTest(db *sql.DB) {
+	s.SetMetadataDB(db)
+}
+
+func (s *Service) SetMetadataDB(db *sql.DB) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.metadataDB = db
+}
+
+func (s *Service) HasMaterializerForTest() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.materializer != nil
+}
+
+func (s *Service) HasMetadataDBForTest() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.metadataDB != nil
 }
 
 func (s *Service) buildDB2SQL(query DB2Query) (string, []interface{}, error) {
@@ -240,7 +256,12 @@ func (s *Service) buildDB2SQL(query DB2Query) (string, []interface{}, error) {
 		clauses = append(clauses, fmt.Sprintf(`"%s" IN (%s)`, idField, strings.Join(placeholders, ", ")))
 	}
 	if strings.TrimSpace(query.Filter) != "" {
-		clauses = append(clauses, "("+query.Filter+")")
+		clause, value, err := safeFilterClause(query.Filter)
+		if err != nil {
+			return "", nil, CapabilityError{Code: "invalid_filter", Message: err.Error()}
+		}
+		clauses = append(clauses, clause)
+		args = append(args, value)
 	}
 	if len(clauses) > 0 {
 		builder.WriteString(" WHERE ")
@@ -284,6 +305,25 @@ func (s *Service) openMetadataDB() (*sql.DB, error) {
 	}
 	s.metadataDB = db
 	return db, nil
+}
+
+func safeFilterClause(filter string) (string, interface{}, error) {
+	parts := strings.SplitN(strings.TrimSpace(filter), "=", 2)
+	if len(parts) != 2 {
+		return "", nil, fmt.Errorf("invalid filter %q, expected field=value", filter)
+	}
+	field := strings.TrimSpace(parts[0])
+	value := strings.TrimSpace(parts[1])
+	if !duckdb.IsSafeIdentifier(field) {
+		return "", nil, fmt.Errorf("unsafe filter field %q", field)
+	}
+	if strings.ContainsAny(value, "'\";()") || strings.Contains(strings.ToLower(value), " or ") || strings.Contains(strings.ToLower(value), " and ") {
+		return "", nil, fmt.Errorf("unsafe filter value")
+	}
+	if value == "" {
+		return "", nil, fmt.Errorf("filter value is required")
+	}
+	return fmt.Sprintf(`"%s" = ?`, field), value, nil
 }
 
 func selectList(fields []string) (string, error) {

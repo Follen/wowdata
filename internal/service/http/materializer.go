@@ -28,6 +28,8 @@ type LoadedDB2Table struct {
 	DBDDefinitionHash string
 	DecoderVersion    string
 	RowCount          int
+	Schema            []cacheparquet.Field
+	Rows              []map[string]interface{}
 }
 
 type DB2Materializer struct {
@@ -37,7 +39,7 @@ type DB2Materializer struct {
 	Loader                TableLoader
 	MaterializerVersion   string
 	MigrationsDescription string
-	WriteParquet          func(path string, meta cacheparquet.Metadata) error
+	WriteParquet          func(path string, meta cacheparquet.Metadata, loaded LoadedDB2Table) error
 	ValidateParquet       func(path string, want cacheparquet.Metadata) (cacheparquet.Metadata, error)
 }
 
@@ -82,7 +84,7 @@ func (m *DB2Materializer) EnsureTable(ctx context.Context, rc RequestContext, ta
 		MaterializerVersion: m.materializerVersion(),
 	}
 	path := cacheparquet.PathFor(m.CacheRoot, meta)
-	if err := m.writeParquet(path, meta); err != nil {
+	if err := m.writeParquet(path, meta, loaded); err != nil {
 		return err
 	}
 	if _, err := m.validateParquet(path, meta); err != nil {
@@ -118,11 +120,11 @@ func (m *DB2Materializer) materializerVersion() string {
 	return "http-materializer-v1"
 }
 
-func (m *DB2Materializer) writeParquet(path string, meta cacheparquet.Metadata) error {
+func (m *DB2Materializer) writeParquet(path string, meta cacheparquet.Metadata, loaded LoadedDB2Table) error {
 	if m.WriteParquet != nil {
-		return m.WriteParquet(path, meta)
+		return m.WriteParquet(path, meta, loaded)
 	}
-	return cacheparquet.WriteMetadataFile(path, meta)
+	return cacheparquet.WriteRowsFile(path, meta, loaded.Schema, loaded.Rows)
 }
 
 func (m *DB2Materializer) validateParquet(path string, meta cacheparquet.Metadata) (cacheparquet.Metadata, error) {

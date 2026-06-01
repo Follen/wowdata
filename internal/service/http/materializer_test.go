@@ -69,7 +69,7 @@ func TestDB2MaterializerDoesNotRecordSuccessWhenParquetWriteFails(t *testing.T) 
 		Resolver:            fakeContextResolver{ctx: materializerRuntimeContext()},
 		Loader:              fakeTableLoader{loaded: materializerLoadedTable()},
 		MaterializerVersion: "materializer-test",
-		WriteParquet: func(string, cacheparquet.Metadata) error {
+		WriteParquet: func(string, cacheparquet.Metadata, LoadedDB2Table) error {
 			return fail
 		},
 	}
@@ -112,6 +112,13 @@ func materializerLoadedTable() LoadedDB2Table {
 		DBDDefinitionHash: "dbd-hash",
 		DecoderVersion:    "decoder-v1",
 		RowCount:          42,
+		Schema: []cacheparquet.Field{
+			{Name: "ID", Type: "uint32"},
+			{Name: "Name_lang", Type: "string"},
+		},
+		Rows: []map[string]interface{}{
+			{"ID": uint32(123), "Name_lang": "Fireball"},
+		},
 	}
 }
 

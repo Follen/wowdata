@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"testing"
 
 	"wowdata/internal/config"
@@ -70,5 +71,29 @@ func TestHTTPMCPToolNamesExcludeWarmupAndIncludeStatusBuilds(t *testing.T) {
 		if !bytes.Contains(stdout.Bytes(), []byte(want)) {
 			t.Fatalf("HTTP MCP tools/list missing %s:\n%s", want, out)
 		}
+	}
+}
+
+func TestNewHTTPServiceRuntimeWiresMaterializerAndMetadataDB(t *testing.T) {
+	cfg := config.DefaultHTTPConfig()
+	cfg.Cache.Root = t.TempDir()
+	cfg.Cache.MetadataDB = filepath.Join(t.TempDir(), "metadata.sqlite")
+	cfg.Cache.DuckDBPath = filepath.Join(t.TempDir(), "wowdata.duckdb")
+	rt := NewRuntime()
+
+	svc, closeFn, err := NewHTTPServiceRuntime(cfg, rt)
+	if err != nil {
+		t.Fatalf("NewHTTPServiceRuntime: %v", err)
+	}
+	defer closeFn()
+
+	if svc == nil {
+		t.Fatal("service is nil")
+	}
+	if !svc.HasMaterializerForTest() {
+		t.Fatal("HTTP service materializer is not wired")
+	}
+	if !svc.HasMetadataDBForTest() {
+		t.Fatal("HTTP service metadata DB is not wired")
 	}
 }

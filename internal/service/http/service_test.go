@@ -258,6 +258,48 @@ func TestServiceQueryDB2UsesMaterializedParquetRecord(t *testing.T) {
 	}
 }
 
+func TestServiceQueryDB2RejectsUnsafeFilter(t *testing.T) {
+	db, err := metadata.Open(filepath.Join(t.TempDir(), "metadata.sqlite"), "../../../migrations/sqlite")
+	if err != nil {
+		t.Fatalf("open metadata db: %v", err)
+	}
+	defer db.Close()
+	if err := metadata.UpsertMaterializedTable(db, metadata.MaterializedTable{
+		Region:              "cn",
+		Product:             "wow",
+		BuildKey:            "build-key",
+		BuildName:           "12.0.0.61234",
+		Locale:              "zhCN",
+		TableName:           "SpellName",
+		DB2FileDataID:       123,
+		DBDDefinitionHash:   "dbd-hash",
+		DecoderVersion:      "decoder-v1",
+		MaterializerVersion: "materializer-v1",
+		ParquetPath:         filepath.Join(t.TempDir(), "SpellName.parquet"),
+		RowCount:            1,
+		State:               metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert materialized table: %v", err)
+	}
+	engine := &fakeParquetQueryEngine{}
+	svc := NewService(config.DefaultHTTPConfig(), nil)
+	svc.SetMetadataDBForTest(db)
+	svc.SetQueryEngineForTest(engine)
+	svc.SetMaterializeFuncForTest(func(context.Context, RequestContext, string) error { return nil })
+
+	_, err = svc.QueryDB2(context.Background(), DB2Query{
+		RequestContext: RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"},
+		Table:          "SpellName",
+		Filter:         "Name_lang = 'Fireball' OR 1=1",
+	})
+	if err == nil {
+		t.Fatal("QueryDB2 unsafe filter error = nil")
+	}
+	if engine.calls != 0 {
+		t.Fatalf("query engine calls = %d, want 0", engine.calls)
+	}
+}
+
 func TestServiceStatusReportsCacheAndContextLimits(t *testing.T) {
 	cfg := config.DefaultHTTPConfig()
 	cfg.Cache.Root = "test-cache"

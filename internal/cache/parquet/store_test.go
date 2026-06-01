@@ -2,10 +2,13 @@ package parquet
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	parquetgo "github.com/parquet-go/parquet-go"
 )
 
 func TestMetadataMatchesFingerprintFields(t *testing.T) {
@@ -94,6 +97,50 @@ func TestWriteMetadataFileWritesRealParquetAndValidateReadsFooter(t *testing.T) 
 	}
 	if _, err := ValidateExisting(path, meta); err != nil {
 		t.Fatalf("ValidateExisting: %v", err)
+	}
+}
+
+func TestWriteRowsFileWritesDB2RowsAndMetadataFooter(t *testing.T) {
+	root := t.TempDir()
+	meta := testMetadata()
+	path := PathFor(root, meta)
+	rows := []map[string]interface{}{
+		{"ID": uint32(123), "Name_lang": "Fireball"},
+	}
+
+	if err := WriteRowsFile(path, meta, []Field{
+		{Name: "ID", Type: "uint32"},
+		{Name: "Name_lang", Type: "string"},
+	}, rows); err != nil {
+		t.Fatalf("WriteRowsFile: %v", err)
+	}
+	if _, err := ValidateExisting(path, meta); err != nil {
+		t.Fatalf("ValidateExisting: %v", err)
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open parquet: %v", err)
+	}
+	defer file.Close()
+	type spellNameRow struct {
+		ID       int32  `parquet:"ID"`
+		NameLang string `parquet:"Name_lang"`
+	}
+	reader := parquetgo.NewGenericReader[spellNameRow](file)
+	got := make([]spellNameRow, 1)
+	n, err := reader.Read(got)
+	if err != nil && !errors.Is(err, io.EOF) {
+		t.Fatalf("read parquet rows: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("read rows = %d, want 1", n)
+	}
+	if got[0].ID != 123 {
+		t.Fatalf("ID = %#v", got[0].ID)
+	}
+	if got[0].NameLang != "Fireball" {
+		t.Fatalf("Name_lang = %#v", got[0].NameLang)
 	}
 }
 

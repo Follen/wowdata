@@ -163,6 +163,25 @@ func TestHTTPDB2HandlerQueriesDB2AfterEnsureTable(t *testing.T) {
 	}
 }
 
+func TestHTTPDB2HandlerReturnsQueryErrorEnvelope(t *testing.T) {
+	svc := &fakeHTTPService{
+		queryErr: httpservice.CapabilityError{Code: "invalid_filter", Message: "unsafe filter value"},
+	}
+	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_db2")
+
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{"table":"SpellName","filter":"Name_lang = 'Fireball' OR 1=1"}`))
+	if err != nil {
+		t.Fatalf("wow_db2 handler: %v", err)
+	}
+	got := result.(map[string]interface{})
+	if got["ok"] != false {
+		t.Fatalf("db2 should return structured error, got %#v", got)
+	}
+	if code := got["error"].(map[string]interface{})["code"]; code != "invalid_filter" {
+		t.Fatalf("error code = %#v, want invalid_filter", code)
+	}
+}
+
 func TestHTTPIconHandlerMapsArtifactLinkResult(t *testing.T) {
 	svc := &fakeHTTPService{}
 	linker := &fakeArtifactLinker{

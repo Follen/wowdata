@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"wowdata/internal/config"
-	httpservice "wowdata/internal/service/http"
 
 	"github.com/spf13/cobra"
 )
@@ -55,7 +54,11 @@ Compatibility notes:
 			syncRuntimeFromPersistentFlags(cmd, rt)
 			rt.enableHTTPWarmupGate()
 			rt.enableContextCache(cfg.Contexts.MaxContexts)
-			svc := httpservice.NewService(cfg, nil)
+			svc, closeService, err := NewHTTPServiceRuntime(cfg, rt)
+			if err != nil {
+				return err
+			}
+			defer closeService()
 
 			server := newMCPHTTPServerForService(svc, artifactConfig{
 				root:    cfg.Artifacts.Root,
