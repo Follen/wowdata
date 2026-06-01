@@ -1,45 +1,45 @@
 package config
 
 type Config struct {
-	Server  ServerConfig
-	Cache   CacheConfig
-	Prepare PrepareConfig
-	Limits  LimitsConfig
+	Server  ServerConfig  `yaml:"server"`
+	Cache   CacheConfig   `yaml:"cache"`
+	Prepare PrepareConfig `yaml:"prepare"`
+	Limits  LimitsConfig  `yaml:"limits"`
 }
 
 type ServerConfig struct {
-	Host    string
-	Port    int
-	BaseURL string
+	Host    string `yaml:"host"`
+	Port    int    `yaml:"port"`
+	BaseURL string `yaml:"base_url"`
 }
 
 type CacheConfig struct {
-	Root       string
-	MetadataDB string
-	RawDir     string
-	DB2Dir     string
-	DuckDBPath string
+	Root       string `yaml:"root"`
+	MetadataDB string `yaml:"metadata_db"`
+	RawDir     string `yaml:"raw_dir"`
+	DB2Dir     string `yaml:"db2_dir"`
+	DuckDBPath string `yaml:"duckdb_path"`
 }
 
 type PrepareConfig struct {
-	Targets []PrepareTarget
+	Targets []PrepareTarget `yaml:"targets"`
 }
 
 type PrepareTarget struct {
-	Label   string
-	Region  string
-	Product string
-	Locale  string
-	Strict  bool
+	Label   string `yaml:"label"`
+	Region  string `yaml:"region"`
+	Product string `yaml:"product"`
+	Locale  string `yaml:"locale"`
+	Strict  bool   `yaml:"strict"`
 }
 
 type LimitsConfig struct {
-	MaxParallelContextPrepares       int
-	MaxParallelTableMaterializations int
-	MaxParallelDownloads             int
-	MaxParallelQueries               int
-	MemorySoftLimitMB                int
-	MemoryHardLimitMB                int
+	MaxParallelContextPrepares       int `yaml:"max_parallel_context_prepares"`
+	MaxParallelTableMaterializations int `yaml:"max_parallel_table_materializations"`
+	MaxParallelDownloads             int `yaml:"max_parallel_downloads"`
+	MaxParallelQueries               int `yaml:"max_parallel_queries"`
+	MemorySoftLimitMB                int `yaml:"memory_soft_limit_mb"`
+	MemoryHardLimitMB                int `yaml:"memory_hard_limit_mb"`
 }
 
 func Default() Config {

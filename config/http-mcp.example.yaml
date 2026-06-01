@@ -8,9 +8,6 @@ defaults:
   product: wow
   locale: zhCN
 
-contexts:
-  max_contexts: 4
-
 cache:
   root: /opt/wowdata/cache
   metadata_db: /opt/wowdata/cache/metadata.sqlite
