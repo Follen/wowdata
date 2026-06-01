@@ -16,6 +16,10 @@ func RawCASCPath(root, region, product, buildKey string) string {
 	return filepath.Join(root, "raw", "casc", region, product, buildKey)
 }
 
+func filepathSlash(path string) string {
+	return filepath.ToSlash(path)
+}
+
 func EnsureUnderRoot(root, child string) (string, error) {
 	if strings.TrimSpace(root) == "" {
 		return "", ErrPathOutsideRoot

@@ -6,7 +6,7 @@ import (
 )
 
 func TestDB2ParquetPath(t *testing.T) {
-	got := filepath.ToSlash(DB2ParquetPath("root", "cn", "wow", "abcd", "zhCN", "SpellName"))
+	got := filepathSlash(DB2ParquetPath("root", "cn", "wow", "abcd", "zhCN", "SpellName"))
 	want := "root/db2/cn/wow/abcd/zhCN/SpellName.parquet"
 	if got != want {
 		t.Fatalf("DB2ParquetPath = %q, want %q", got, want)
@@ -14,7 +14,7 @@ func TestDB2ParquetPath(t *testing.T) {
 }
 
 func TestRawCASCPath(t *testing.T) {
-	got := filepath.ToSlash(RawCASCPath("root", "cn", "wow", "abcd"))
+	got := filepathSlash(RawCASCPath("root", "cn", "wow", "abcd"))
 	want := "root/raw/casc/cn/wow/abcd"
 	if got != want {
 		t.Fatalf("RawCASCPath = %q, want %q", got, want)

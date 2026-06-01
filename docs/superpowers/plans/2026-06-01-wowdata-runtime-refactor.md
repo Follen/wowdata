@@ -1729,7 +1729,7 @@ go test ./internal/cache/... -count=1
 
 Expected: cache packages pass.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 Run:
 
