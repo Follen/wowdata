@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -59,9 +60,13 @@ Compatibility notes:
 				return err
 			}
 			defer closeService()
-			if err := svc.PrewarmConfiguredContexts(cmd.Context()); err != nil {
-				return err
-			}
+			go func() {
+				if err := svc.PrewarmConfiguredContexts(cmd.Context()); err != nil {
+					log.Printf("wowdata HTTP prewarm failed: %v", err)
+					return
+				}
+				log.Printf("wowdata HTTP prewarm complete")
+			}()
 
 			server := newMCPHTTPServerForService(svc, rt, artifactConfig{
 				root:    cfg.Artifacts.Root,
