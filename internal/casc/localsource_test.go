@@ -84,6 +84,42 @@ func TestCASCLocalParseIndexAndReadData(t *testing.T) {
 	}
 }
 
+func TestCASCLocalReadFileDataDecodesBLTE(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "Data", "data")
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	encodingKey := "00112233445566778899aabbccddeeff"
+	indexData := buildLocalIndexFixture(encodingKey[:18], 0, 64, 0x1e+len(buildCascTestBLTE([]byte("WDC5 payload"))))
+	indexPath := filepath.Join(dataDir, "test.idx")
+	if err := os.WriteFile(indexPath, indexData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	archive := make([]byte, 64+0x1e+len(buildCascTestBLTE([]byte("WDC5 payload"))))
+	copy(archive[64+0x1e:], buildCascTestBLTE([]byte("WDC5 payload")))
+	if err := os.WriteFile(filepath.Join(dataDir, "data.000"), archive, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	local := NewCASCLocal(dir)
+	local.RootEntries[10] = []RootEntry{{TypeIndex: 0, ContentKey: "content"}}
+	local.RootTypes = append(local.RootTypes, RootType{LocaleFlags: LocaleEnUS})
+	local.EncodingEntries["content"] = EncodingEntry{Key: encodingKey}
+	local.Locale = LocaleEnUS
+	if err := local.ParseIndex(indexPath); err != nil {
+		t.Fatalf("ParseIndex: %v", err)
+	}
+	data, err := local.ReadFileData(10)
+	if err != nil {
+		t.Fatalf("ReadFileData: %v", err)
+	}
+	if string(data) != "WDC5 payload" {
+		t.Fatalf("data = %q", data)
+	}
+}
+
 func buildLocalIndexFixture(keyPrefix string, archiveIndex int, offset int, size int) []byte {
 	data := make([]byte, 0x20+18)
 	binary.LittleEndian.PutUint32(data[0:], 0)

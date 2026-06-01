@@ -81,7 +81,7 @@ func (l *DB2Loader) LoadTable(store *MemoryDB2Store, tableName string) error {
 func schemaForRuntime(schema []db2.SchemaField) []SchemaField {
 	out := make([]SchemaField, 0, len(schema))
 	for _, field := range schema {
-		out = append(out, SchemaField{Name: field.Name, Type: field.Type.SchemaDescription()})
+		out = append(out, SchemaField{Name: field.Name, Type: field.Type.SchemaDescription(), ArrayLen: field.ArrayLen})
 	}
 	return out
 }

@@ -36,23 +36,23 @@ func (t FieldType) SchemaDescription() string {
 	case FieldString:
 		return "dbFieldString"
 	case FieldInt8:
-		return "dbFieldI8"
+		return "dbFieldInt8"
 	case FieldUInt8:
-		return "dbFieldU8"
+		return "dbFieldUInt8"
 	case FieldInt16:
-		return "dbFieldI16"
+		return "dbFieldInt16"
 	case FieldUInt16:
-		return "dbFieldU16"
+		return "dbFieldUInt16"
 	case FieldInt32:
-		return "dbFieldI32"
+		return "dbFieldInt32"
 	case FieldUInt32:
-		return "dbFieldU32"
+		return "dbFieldUInt32"
 	case FieldInt64:
-		return "dbFieldI64"
+		return "dbFieldInt64"
 	case FieldUInt64:
-		return "dbFieldU64"
+		return "dbFieldUInt64"
 	case FieldFloat:
-		return "dbFieldF32"
+		return "dbFieldFloat"
 	case FieldRelation:
 		return "dbFieldRelation"
 	case FieldNonInlineID:

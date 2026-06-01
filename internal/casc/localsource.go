@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"wowdata/internal/blte"
 )
 
 type CASCLocal struct {
@@ -149,11 +151,29 @@ func (l *CASCLocal) ReadFileData(fileDataID uint32) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return l.ReadEncodingData(encodingKey)
+	data, err := l.ReadEncodingData(encodingKey)
+	if err != nil {
+		return nil, err
+	}
+	if !blte.Check(data) {
+		return data, nil
+	}
+	return DecodeCASCData(data)
 }
 
 func (l *CASCLocal) ReadFileDataPartial(fileDataID uint32) ([]byte, error) {
-	return l.ReadFileData(fileDataID)
+	_, encodingKey, err := l.ResolveFileKeys(fileDataID)
+	if err != nil {
+		return nil, err
+	}
+	data, err := l.ReadEncodingData(encodingKey)
+	if err != nil {
+		return nil, err
+	}
+	if !blte.Check(data) {
+		return data, nil
+	}
+	return DecodeCASCDataPartial(data)
 }
 
 func (l *CASCLocal) GetBuildName() string {

@@ -15,7 +15,7 @@ import (
 type fakeDB2Store struct{}
 
 func (fakeDB2Store) Schema(table string) ([]appruntime.SchemaField, int, error) {
-	return []appruntime.SchemaField{{Name: "ID", Type: "uint32"}, {Name: "Name_lang", Type: "string"}}, 2, nil
+	return []appruntime.SchemaField{{Name: "ID", Type: "dbFieldNonInlineID"}, {Name: "Name_lang", Type: "dbFieldString"}, {Name: "EffectMiscValue", Type: "dbFieldInt32", ArrayLen: 2}}, 2, nil
 }
 
 func (fakeDB2Store) Rows(table string, ids []uint32, fields []string, filter string, limit int) ([]map[string]interface{}, error) {
@@ -90,6 +90,9 @@ func TestRuntimeDB2SchemaReturnsStoreSchema(t *testing.T) {
 	}
 	if !strings.Contains(stdout, `"Name_lang"`) {
 		t.Fatalf("db2 schema should include field names:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, `"EffectMiscValue": "dbFieldInt32[2]"`) {
+		t.Fatalf("db2 schema should include array lengths in Node-compatible field descriptions:\n%s", stdout)
 	}
 }
 

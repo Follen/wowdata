@@ -56,7 +56,11 @@ func (s *DB2Service) handleSchema(cmd *cobra.Command, args []string) error {
 		}
 		fieldMap := make(map[string]string, len(fields))
 		for _, field := range fields {
-			fieldMap[field.Name] = field.Type
+			fieldType := field.Type
+			if field.ArrayLen > 0 {
+				fieldType = fmt.Sprintf("%s[%d]", fieldType, field.ArrayLen)
+			}
+			fieldMap[field.Name] = fieldType
 		}
 		return writeJSON(cmd.OutOrStdout(), NewSuccessResponse("db2 schema", map[string]interface{}{
 			"table":    args[0],

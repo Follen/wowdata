@@ -607,15 +607,6 @@ func (rt *Runtime) warmListfile(format string) error {
 		return err
 	}
 	rt.mu.Lock()
-	cascSource := rt.CASC
-	localSource := rt.Local
-	rt.mu.Unlock()
-	if cascSource != nil {
-		lf.FilterIDs(rootEntryMap(cascSource.CASCSource))
-	} else if localSource != nil {
-		lf.FilterIDs(rootEntryMap(localSource.CASCSource))
-	}
-	rt.mu.Lock()
 	rt.LF.ReplaceFrom(lf)
 	rt.mu.Unlock()
 	return nil

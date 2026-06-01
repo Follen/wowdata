@@ -1,8 +1,9 @@
 package runtime
 
 type SchemaField struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	ArrayLen int    `json:"arrayLen,omitempty"`
 }
 
 type DB2Store interface {

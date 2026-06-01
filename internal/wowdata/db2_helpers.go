@@ -6,8 +6,9 @@ type raceGender struct {
 }
 
 type componentInfoEntry struct {
-	RaceID int
-	Gender int
+	RaceID        int
+	Gender        int
+	PositionIndex int
 }
 
 func mustRows(store rowStore, table string) []map[string]interface{} {
@@ -65,7 +66,7 @@ func componentModelInfo(rows []map[string]interface{}) map[uint32]componentInfoE
 	out := map[uint32]componentInfoEntry{}
 	for _, row := range rows {
 		if id := rowUint32(row, "ID"); id != 0 {
-			out[id] = componentInfoEntry{RaceID: rowInt(row, "RaceID"), Gender: rowInt(row, "GenderIndex")}
+			out[id] = componentInfoEntry{RaceID: rowInt(row, "RaceID"), Gender: rowInt(row, "GenderIndex"), PositionIndex: rowInt(row, "PositionIndex")}
 		}
 	}
 	return out
@@ -84,7 +85,43 @@ func chooseComponentModel(candidates []uint32, want raceGender, infos map[uint32
 			return fdid
 		}
 	}
+	for _, fdid := range candidates {
+		info, ok := infos[fdid]
+		if ok && info.RaceID == want.RaceID && info.Gender == 2 {
+			return fdid
+		}
+	}
+	for _, fdid := range candidates {
+		info, ok := infos[fdid]
+		if ok && info.RaceID == 0 {
+			return fdid
+		}
+	}
 	return candidates[0]
+}
+
+func chooseShoulderComponentModels(candidates []uint32, want raceGender, infos map[uint32]componentInfoEntry) []uint32 {
+	out := make([]uint32, 0, 2)
+	for _, position := range []int{0, 1} {
+		if fdid := chooseComponentModelForPosition(candidates, want, infos, position); fdid != 0 {
+			out = append(out, fdid)
+		}
+	}
+	return out
+}
+
+func chooseComponentModelForPosition(candidates []uint32, want raceGender, infos map[uint32]componentInfoEntry, position int) uint32 {
+	positionCandidates := make([]uint32, 0)
+	for _, fdid := range candidates {
+		info, ok := infos[fdid]
+		if ok && info.PositionIndex == position {
+			positionCandidates = append(positionCandidates, fdid)
+		}
+	}
+	if len(positionCandidates) == 0 {
+		return 0
+	}
+	return chooseComponentModel(positionCandidates, want, infos)
 }
 
 func helmetHideByVis(rows []map[string]interface{}) map[uint32][]int {

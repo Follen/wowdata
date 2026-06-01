@@ -1,55 +1,62 @@
 package wowdata
 
-var inventoryTypeToSlotID = map[int]int{
-	1:  1,  // Head
-	2:  3,  // Neck
-	3:  5,  // Shoulder
-	4:  4,  // Shirt (Body)
-	5:  6,  // Chest
-	6:  8,  // Waist
-	7:  9,  // Legs
-	8:  10, // Feet
-	9:  11, // Wrists
-	10: 12, // Hands
-	11: 2,  // Finger
-	12: 7,  // Trinket
-	13: 21, // One-Hand
-	14: 4,  // Shield (Off Hand)
-	15: 15, // Ranged
-	16: 16, // Back
-	17: 17, // Two-Hand
-	18: 6,  // Bag (Chest slot)
-	19: 19, // Tabard
-	20: 20, // Robe (Chest)
-	21: 21, // Main Hand
-	22: 22, // Off Hand (weapon)
-	23: 23, // Held In Off-Hand
-	24: 24, // Projectile (ammo)
-	25: 25, // Thrown
-	26: 26, // Ranged Right
-	27: 27, // Quiver
-	28: 28, // Relic
-}
-
-var itemSlots = map[int]string{
+var itemInventoryTypeNames = map[int]string{
 	0: "None", 1: "Head", 2: "Neck", 3: "Shoulder", 4: "Shirt",
-	5: "Chest", 6: "Wrist", 7: "Hands", 8: "Waist", 9: "Legs",
-	10: "Feet", 11: "Finger", 12: "Trinket", 13: "One-Hand",
-	14: "Shield", 15: "Ranged", 16: "Back", 17: "Two-Hand",
-	18: "Bag", 19: "Tabard", 20: "Robe", 21: "Main Hand",
-	22: "Off Hand", 23: "Held In Off-Hand", 24: "Ammo", 25: "Thrown",
-	26: "Ranged Right", 27: "Quiver", 28: "Relic",
+	5: "Chest", 6: "Waist", 7: "Legs", 8: "Feet", 9: "Wrist",
+	10: "Hands", 11: "Finger", 12: "Trinket", 13: "One-Hand",
+	14: "Off Hand", 15: "Ranged", 16: "Back", 17: "Two-Hand",
+	18: "Bag", 19: "Tabard", 20: "Chest", 21: "Main Hand",
+	22: "Off Hand", 23: "Off Hand", 24: "Ammo", 25: "Thrown",
+	26: "Ranged", 27: "Quiver", 28: "Relic",
 }
 
-func GetSlotIDForInventoryType(invType int) int {
-	if id, ok := inventoryTypeToSlotID[invType]; ok {
+var equipmentSlotNames = map[int]string{
+	1: "Head", 2: "Neck", 3: "Shoulder", 4: "Shirt",
+	5: "Chest", 6: "Waist", 7: "Legs", 8: "Feet",
+	9: "Wrist", 10: "Hands", 15: "Back", 16: "Main-hand",
+	17: "Off-hand", 19: "Tabard",
+}
+
+var inventoryTypeToEquipmentSlotID = map[int]int{
+	1:  1,
+	2:  2,
+	3:  3,
+	4:  4,
+	5:  5,
+	6:  6,
+	7:  7,
+	8:  8,
+	9:  9,
+	10: 10,
+	13: 16,
+	14: 17,
+	15: 16,
+	16: 15,
+	17: 16,
+	19: 19,
+	20: 5,
+	21: 16,
+	22: 17,
+	23: 17,
+	26: 16,
+}
+
+func GetItemSlotNameForInventoryType(invType int) string {
+	if name, ok := itemInventoryTypeNames[invType]; ok {
+		return name
+	}
+	return "Unknown"
+}
+
+func GetEquipmentSlotIDForInventoryType(invType int) int {
+	if id, ok := inventoryTypeToEquipmentSlotID[invType]; ok {
 		return id
 	}
 	return 0
 }
 
-func GetSlotName(slotID int) string {
-	if name, ok := itemSlots[slotID]; ok {
+func GetEquipmentSlotName(slotID int) string {
+	if name, ok := equipmentSlotNames[slotID]; ok {
 		return name
 	}
 	return "Unknown"

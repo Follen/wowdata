@@ -95,6 +95,20 @@ func TestRootEntryMapIncludesAllPreloadInput(t *testing.T) {
 	}
 }
 
+func TestWarmListfileKeepsEntriesOutsideCurrentRoot(t *testing.T) {
+	source := casc.NewCASCSource()
+	source.Locale = casc.LocaleEnUS
+	source.RootTypes = []casc.RootType{{LocaleFlags: casc.LocaleEnUS}}
+	source.RootEntries[100] = []casc.RootEntry{{TypeIndex: 0, ContentKey: "en-us"}}
+
+	got := rootEntryMap(source)
+	if got[200] {
+		t.Fatalf("rootEntryMap test setup unexpectedly includes 200: %#v", got)
+	}
+	// warmListfile intentionally no longer filters to rootEntryMap. The listfile
+	// is a naming index, while file existence is checked through CASC metadata.
+}
+
 func TestWarmupResultAddsStableFields(t *testing.T) {
 	result := map[string]interface{}{
 		"source":    "local",
