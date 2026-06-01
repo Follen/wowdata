@@ -1318,7 +1318,7 @@ git commit -m "config add http mcp settings"
 - Create: `internal/service/http/prepare_scheduler.go`
 - Create: `internal/service/http/prepare_scheduler_test.go`
 
-- [ ] **Step 1: Write context pool tests**
+- [x] **Step 1: Write context pool tests**
 
 Create `internal/service/http/context_pool_test.go`:
 
@@ -1346,11 +1346,11 @@ func TestContextPoolKeepsPinnedDuringEviction(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Implement context pool**
+- [x] **Step 2: Implement context pool**
 
 Create `internal/service/http/context_pool.go` with `NewContextPool(max int)`, `Pin(key string)`, `Put(key string, ctx *runtime.Context)`, `Get(key string) (*runtime.Context, bool)`, and LRU eviction that never removes pinned keys.
 
-- [ ] **Step 3: Write singleflight tests**
+- [x] **Step 3: Write singleflight tests**
 
 Create `internal/service/http/singleflight_test.go`:
 
@@ -1387,11 +1387,11 @@ func TestSingleflightRunsSameKeyOnce(t *testing.T) {
 }
 ```
 
-- [ ] **Step 4: Implement singleflight**
+- [x] **Step 4: Implement singleflight**
 
 Create `internal/service/http/singleflight.go` with a mutex, in-flight map, per-call wait channel, result value, and error. Delete the key after waiters are released.
 
-- [ ] **Step 5: Write scheduler limit tests**
+- [x] **Step 5: Write scheduler limit tests**
 
 Create `internal/service/http/prepare_scheduler_test.go`:
 
@@ -1433,11 +1433,11 @@ func TestPrepareSchedulerLimitsConcurrency(t *testing.T) {
 }
 ```
 
-- [ ] **Step 6: Implement scheduler**
+- [x] **Step 6: Implement scheduler**
 
 Create `internal/service/http/prepare_scheduler.go` with a buffered channel semaphore and `Run(ctx context.Context, fn func(context.Context) error) error`.
 
-- [ ] **Step 7: Run tests**
+- [x] **Step 7: Run tests**
 
 Run:
 
@@ -1447,7 +1447,7 @@ go test ./internal/service/http -count=1
 
 Expected: package passes.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Run:
 
