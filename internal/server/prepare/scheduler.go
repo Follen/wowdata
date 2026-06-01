@@ -9,9 +9,10 @@ import (
 )
 
 var (
-	ErrContextNotReady = errors.New("context_not_ready")
-	ErrBuildNotReady   = errors.New("build_not_ready")
-	ErrTableNotReady   = errors.New("table_not_ready")
+	ErrSchedulerNotStarted = errors.New("scheduler_not_started")
+	ErrContextNotReady     = errors.New("context_not_ready")
+	ErrBuildNotReady       = errors.New("build_not_ready")
+	ErrTableNotReady       = errors.New("table_not_ready")
 )
 
 type Target struct {
@@ -53,6 +54,9 @@ type Scheduler struct {
 	startOnce sync.Once
 	wg        sync.WaitGroup
 
+	startMu sync.Mutex
+	started bool
+
 	errMu sync.Mutex
 	errs  []error
 }
@@ -85,6 +89,11 @@ func NewScheduler(targets []Target, limits Limits, prepare ContextPreparer, mate
 func (s *Scheduler) StartAfterReady(ctx context.Context, listenerReady <-chan struct{}) {
 	s.startOnce.Do(func() {
 		s.wg.Add(1)
+
+		s.startMu.Lock()
+		s.started = true
+		s.startMu.Unlock()
+
 		go func() {
 			defer s.wg.Done()
 			select {
@@ -107,6 +116,13 @@ func (s *Scheduler) StartAfterReady(ctx context.Context, listenerReady <-chan st
 }
 
 func (s *Scheduler) Wait() error {
+	s.startMu.Lock()
+	started := s.started
+	s.startMu.Unlock()
+	if !started {
+		return ErrSchedulerNotStarted
+	}
+
 	s.wg.Wait()
 
 	s.errMu.Lock()

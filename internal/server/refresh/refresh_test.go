@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"wowdata/internal/server/storage/metadata"
@@ -104,6 +105,81 @@ func TestRefreshCandidateFailurePreservesOldActiveBuild(t *testing.T) {
 	assertBuildState(t, db, "build-2", metadata.StateFailed)
 }
 
+func TestRefreshActiveUnchangedCandidateSkipsPrepareAndPreservesState(t *testing.T) {
+	ctx := context.Background()
+	db := openRefreshTestDB(t)
+	seedActiveBuild(t, ctx, db, "build-1")
+	seedValidTable(t, ctx, db, "Spell", "dbd-a", "decoder-1", "materializer-1")
+	sourceKey := seedValidListfile(t, ctx, db, "build-1", "hash-a")
+	seedValidCASC(t, ctx, db, "build-1", "build-config-a", "cdn-config-a")
+
+	var prepareCalls int32
+	workflow := Workflow{
+		DB: db,
+		Discoverer: fixtureDiscoverer{candidate: BuildCandidate{
+			Region:             "us",
+			Product:            "wow",
+			Locale:             "enUS",
+			BuildKey:           "build-1",
+			BuildName:          "build one",
+			ListfileSourceHash: "hash-a",
+			CASCBuildConfig:    "build-config-a",
+			CASCCDNConfig:      "cdn-config-a",
+			Tables: []TableFingerprint{
+				{TableName: "Spell", DB2FileDataID: 123, DBDHash: "dbd-a", DecoderVersion: "decoder-1", MaterializerVersion: "materializer-1"},
+			},
+		}},
+		Preparer: fixturePreparer{err: errors.New("preparer should not be called"), calls: &prepareCalls},
+	}
+	result, err := workflow.RefreshTarget(ctx, Target{Region: "us", Product: "wow", Locale: "enUS"})
+	if err != nil {
+		t.Fatalf("refresh unchanged active candidate: %v", err)
+	}
+	if got := atomic.LoadInt32(&prepareCalls); got != 0 {
+		t.Fatalf("prepare calls = %d, want 0", got)
+	}
+	if result.Activated {
+		t.Fatalf("activated = true, want false")
+	}
+	if len(result.StaleTables) != 0 {
+		t.Fatalf("stale tables = %#v, want none", result.StaleTables)
+	}
+	assertActiveBuild(t, ctx, db, "build-1")
+	assertBuildState(t, db, "build-1", metadata.StateValid)
+	assertTableState(t, db, "Spell", metadata.StateValid)
+	assertListfileIndexState(t, ctx, db, sourceKey, "main", metadata.StateValid)
+	assertCASCIndexState(t, ctx, db, sourceKey, "root-encoding-archive", metadata.StateValid)
+}
+
+func TestRefreshActiveChangedCandidateFailurePreservesActiveBuildState(t *testing.T) {
+	ctx := context.Background()
+	db := openRefreshTestDB(t)
+	seedActiveBuild(t, ctx, db, "build-1")
+	seedValidTable(t, ctx, db, "Spell", "dbd-a", "decoder-1", "materializer-1")
+
+	prepareErr := errors.New("fixture prepare failed")
+	workflow := Workflow{
+		DB: db,
+		Discoverer: fixtureDiscoverer{candidate: BuildCandidate{
+			Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1", BuildName: "build one",
+			Tables: []TableFingerprint{
+				{TableName: "Spell", DB2FileDataID: 123, DBDHash: "dbd-b", DecoderVersion: "decoder-1", MaterializerVersion: "materializer-1"},
+			},
+		}},
+		Preparer: fixturePreparer{err: prepareErr},
+	}
+	result, err := workflow.RefreshTarget(ctx, Target{Region: "us", Product: "wow", Locale: "enUS"})
+	if !errors.Is(err, prepareErr) {
+		t.Fatalf("refresh error = %v, want %v", err, prepareErr)
+	}
+	if result.Activated {
+		t.Fatalf("activated = true, want false")
+	}
+	assertActiveBuild(t, ctx, db, "build-1")
+	assertBuildState(t, db, "build-1", metadata.StateValid)
+	assertTableState(t, db, "Spell", metadata.StateValid)
+}
+
 func TestRefreshListfileSourceHashChangeMarksListfileStale(t *testing.T) {
 	ctx := context.Background()
 	db := openRefreshTestDB(t)
@@ -191,6 +267,35 @@ func TestRefreshDB2FingerprintChangeMarksOnlyAffectedTableStale(t *testing.T) {
 	assertTableState(t, db, "Item", metadata.StateValid)
 }
 
+func TestRefreshDB2FingerprintChangeTargetsActiveBuildTable(t *testing.T) {
+	ctx := context.Background()
+	db := openRefreshTestDB(t)
+	seedActiveBuild(t, ctx, db, "build-1")
+	seedValidTableForBuild(t, ctx, db, "build-1", "Spell", "dbd-a", "decoder-1", "materializer-1")
+	seedInactiveBuild(t, ctx, db, "build-2")
+	seedValidTableForBuild(t, ctx, db, "build-2", "Spell", "dbd-a", "decoder-1", "materializer-1")
+
+	workflow := Workflow{
+		DB: db,
+		Discoverer: fixtureDiscoverer{candidate: BuildCandidate{
+			Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1", BuildName: "build one",
+			Tables: []TableFingerprint{
+				{TableName: "Spell", DB2FileDataID: 123, DBDHash: "dbd-b", DecoderVersion: "decoder-1", MaterializerVersion: "materializer-1"},
+			},
+		}},
+		Preparer: fixturePreparer{},
+	}
+	result, err := workflow.RefreshTarget(ctx, Target{Region: "us", Product: "wow", Locale: "enUS"})
+	if err != nil {
+		t.Fatalf("refresh target: %v", err)
+	}
+	if len(result.StaleTables) != 1 || result.StaleTables[0] != "Spell" {
+		t.Fatalf("stale tables = %#v, want Spell only", result.StaleTables)
+	}
+	assertTableStateForBuild(t, db, "build-1", "Spell", metadata.StateStale)
+	assertTableStateForBuild(t, db, "build-2", "Spell", metadata.StateValid)
+}
+
 func TestRefreshUnaffectedTableRemainsValid(t *testing.T) {
 	ctx := context.Background()
 	db := openRefreshTestDB(t)
@@ -227,10 +332,14 @@ func (d fixtureDiscoverer) LatestBuild(context.Context, Target) (BuildCandidate,
 }
 
 type fixturePreparer struct {
-	err error
+	err   error
+	calls *int32
 }
 
 func (p fixturePreparer) PrepareCandidate(context.Context, BuildCandidate) error {
+	if p.calls != nil {
+		atomic.AddInt32(p.calls, 1)
+	}
 	return p.err
 }
 
@@ -263,11 +372,32 @@ func seedActiveBuild(t *testing.T, ctx context.Context, db *sql.DB, buildKey str
 	return build
 }
 
+func seedInactiveBuild(t *testing.T, ctx context.Context, db *sql.DB, buildKey string) metadata.Build {
+	t.Helper()
+	build := metadata.Build{
+		Key:       metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: buildKey},
+		BuildName: buildKey,
+		State:     metadata.StateValid,
+	}
+	if err := metadata.UpsertDiscoveredBuild(ctx, db, build); err != nil {
+		t.Fatalf("upsert inactive seed: %v", err)
+	}
+	if err := metadata.MarkBuildReady(ctx, db, build.Key); err != nil {
+		t.Fatalf("mark inactive seed ready: %v", err)
+	}
+	return build
+}
+
 func seedValidTable(t *testing.T, ctx context.Context, db *sql.DB, tableName, dbdHash, decoderVersion, materializerVersion string) {
+	t.Helper()
+	seedValidTableForBuild(t, ctx, db, "build-1", tableName, dbdHash, decoderVersion, materializerVersion)
+}
+
+func seedValidTableForBuild(t *testing.T, ctx context.Context, db *sql.DB, buildKey, tableName, dbdHash, decoderVersion, materializerVersion string) {
 	t.Helper()
 	if err := metadata.UpsertMaterializedTable(ctx, db, metadata.MaterializedTable{
 		Key: metadata.TableKey{
-			Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1", TableName: tableName,
+			Region: "us", Product: "wow", Locale: "enUS", BuildKey: buildKey, TableName: tableName,
 		},
 		DB2FileDataID:       map[string]int{"Spell": 123, "Item": 456}[tableName],
 		DBDHash:             dbdHash,
@@ -279,6 +409,35 @@ func seedValidTable(t *testing.T, ctx context.Context, db *sql.DB, tableName, db
 	}); err != nil {
 		t.Fatalf("seed table %s: %v", tableName, err)
 	}
+}
+
+func seedValidListfile(t *testing.T, ctx context.Context, db *sql.DB, buildKey, sourceHash string) metadata.SourceKey {
+	t.Helper()
+	key := metadata.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: buildKey}
+	if changed, err := metadata.UpsertListfileSource(ctx, db, metadata.ListfileSource{
+		Region: "us", Product: "wow", Locale: "enUS", BuildKey: buildKey, SourceHash: sourceHash, State: metadata.StateValid,
+	}); err != nil || changed {
+		t.Fatalf("seed listfile source changed=%v err=%v, want false nil", changed, err)
+	}
+	if err := metadata.UpsertListfileIndexState(ctx, db, key, "main", metadata.StateValid, ""); err != nil {
+		t.Fatalf("seed listfile index: %v", err)
+	}
+	return key
+}
+
+func seedValidCASC(t *testing.T, ctx context.Context, db *sql.DB, buildKey, buildConfig, cdnConfig string) metadata.SourceKey {
+	t.Helper()
+	key := metadata.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: buildKey}
+	if changed, err := metadata.UpsertCASCSource(ctx, db, metadata.CASCSource{
+		Region: "us", Product: "wow", Locale: "enUS", BuildKey: buildKey,
+		BuildConfig: buildConfig, CDNConfig: cdnConfig, State: metadata.StateValid,
+	}); err != nil || changed {
+		t.Fatalf("seed casc source changed=%v err=%v, want false nil", changed, err)
+	}
+	if err := metadata.UpsertCASCIndexState(ctx, db, key, "root-encoding-archive", metadata.StateValid, ""); err != nil {
+		t.Fatalf("seed casc index: %v", err)
+	}
+	return key
 }
 
 func assertActiveBuild(t *testing.T, ctx context.Context, db *sql.DB, want string) {
@@ -327,11 +486,16 @@ func assertCASCIndexState(t *testing.T, ctx context.Context, db *sql.DB, key met
 
 func assertTableState(t *testing.T, db *sql.DB, tableName, want string) {
 	t.Helper()
+	assertTableStateForBuild(t, db, "build-1", tableName, want)
+}
+
+func assertTableStateForBuild(t *testing.T, db *sql.DB, buildKey, tableName, want string) {
+	t.Helper()
 	var state string
-	if err := db.QueryRow(`SELECT state FROM server_materialized_tables WHERE region = 'us' AND product = 'wow' AND locale = 'enUS' AND build_key = 'build-1' AND table_name = ?`, tableName).Scan(&state); err != nil {
+	if err := db.QueryRow(`SELECT state FROM server_materialized_tables WHERE region = 'us' AND product = 'wow' AND locale = 'enUS' AND build_key = ? AND table_name = ?`, buildKey, tableName).Scan(&state); err != nil {
 		t.Fatalf("query table state: %v", err)
 	}
 	if state != want {
-		t.Fatalf("table %s state = %q, want %q", tableName, state, want)
+		t.Fatalf("table %s/%s state = %q, want %q", buildKey, tableName, state, want)
 	}
 }

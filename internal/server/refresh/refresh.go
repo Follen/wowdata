@@ -76,48 +76,74 @@ func (w Workflow) RefreshTarget(ctx context.Context, target Target) (Result, err
 	buildKey := metadata.BuildKey{
 		Region: candidate.Region, Product: candidate.Product, Locale: candidate.Locale, BuildKey: candidate.BuildKey,
 	}
-	if err := metadata.UpsertDiscoveredBuild(ctx, w.DB, metadata.Build{
-		Key:       buildKey,
-		BuildName: candidate.BuildName,
-		State:     metadata.StatePreparing,
-	}); err != nil {
-		return result, err
+
+	active, activeErr := metadata.ActiveBuild(ctx, w.DB, candidate.Region, candidate.Product, candidate.Locale)
+	if activeErr != nil && !errors.Is(activeErr, sql.ErrNoRows) {
+		return result, activeErr
+	}
+	hasActive := activeErr == nil
+	if hasActive && active.Key.BuildKey == candidate.BuildKey {
+		unchanged, err := candidateUnchangedForActive(ctx, w.DB, active, candidate)
+		if err != nil {
+			return result, err
+		}
+		if unchanged {
+			return result, nil
+		}
+	}
+	sameActive := hasActive && active.Key.BuildKey == candidate.BuildKey
+
+	if !sameActive {
+		if err := metadata.UpsertDiscoveredBuild(ctx, w.DB, metadata.Build{
+			Key:       buildKey,
+			BuildName: candidate.BuildName,
+			State:     metadata.StatePreparing,
+		}); err != nil {
+			return result, err
+		}
+	}
+	markCandidateFailed := func(err error) {
+		if !sameActive {
+			_ = metadata.MarkBuildFailed(ctx, w.DB, buildKey, err.Error())
+		}
 	}
 
 	if w.Preparer != nil {
 		if err := w.Preparer.PrepareCandidate(ctx, candidate); err != nil {
-			_ = metadata.MarkBuildFailed(ctx, w.DB, buildKey, err.Error())
+			markCandidateFailed(err)
 			return result, err
 		}
 	}
 	if err := w.upsertSources(ctx, candidate); err != nil {
-		_ = metadata.MarkBuildFailed(ctx, w.DB, buildKey, err.Error())
+		markCandidateFailed(err)
 		return result, err
 	}
-
-	staleTables, err := markChangedTablesStale(ctx, w.DB, candidate)
-	if err != nil {
-		_ = metadata.MarkBuildFailed(ctx, w.DB, buildKey, err.Error())
-		return result, err
-	}
-	result.StaleTables = staleTables
 
 	if err := metadata.MarkBuildReady(ctx, w.DB, buildKey); err != nil {
 		return result, err
 	}
 
-	active, err := metadata.ActiveBuild(ctx, w.DB, candidate.Region, candidate.Product, candidate.Locale)
-	if err == nil && active.Key.BuildKey == candidate.BuildKey {
+	if hasActive && active.Key.BuildKey == candidate.BuildKey {
+		staleTables, err := markChangedTablesStaleForBuild(ctx, w.DB, active.Key, candidate.Tables)
+		if err != nil {
+			return result, err
+		}
+		result.StaleTables = staleTables
 		return result, nil
-	}
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return result, err
 	}
 
 	if err := metadata.ActivateBuild(ctx, w.DB, buildKey); err != nil {
 		return result, err
 	}
 	result.Activated = true
+
+	if hasActive {
+		staleTables, err := markChangedTablesStaleForBuild(ctx, w.DB, active.Key, candidate.Tables)
+		if err != nil {
+			return result, err
+		}
+		result.StaleTables = staleTables
+	}
 	return result, nil
 }
 
@@ -152,14 +178,11 @@ func (w Workflow) upsertSources(ctx context.Context, candidate BuildCandidate) e
 	return nil
 }
 
-func markChangedTablesStale(ctx context.Context, db *sql.DB, candidate BuildCandidate) ([]string, error) {
+func markChangedTablesStaleForBuild(ctx context.Context, db *sql.DB, key metadata.BuildKey, tables []TableFingerprint) ([]string, error) {
 	stale := make([]string, 0)
-	for _, table := range candidate.Tables {
-		existing, err := metadata.LatestValidMaterializedTable(ctx, db, metadata.TableLookup{
-			Region:    candidate.Region,
-			Product:   candidate.Product,
-			Locale:    candidate.Locale,
-			TableName: table.TableName,
+	for _, table := range tables {
+		existing, err := materializedTableForBuild(ctx, db, metadata.TableKey{
+			Region: key.Region, Product: key.Product, Locale: key.Locale, BuildKey: key.BuildKey, TableName: table.TableName,
 		})
 		if errors.Is(err, sql.ErrNoRows) {
 			continue
@@ -176,6 +199,103 @@ func markChangedTablesStale(ctx context.Context, db *sql.DB, candidate BuildCand
 		stale = append(stale, table.TableName)
 	}
 	return stale, nil
+}
+
+func candidateUnchangedForActive(ctx context.Context, db *sql.DB, active metadata.Build, candidate BuildCandidate) (bool, error) {
+	listfileUnchanged, err := listfileSourceMatches(ctx, db, active.Key, candidate.ListfileSourceHash)
+	if err != nil || !listfileUnchanged {
+		return listfileUnchanged, err
+	}
+	cascUnchanged, err := cascSourceMatches(ctx, db, active.Key, candidate.CASCBuildConfig, candidate.CASCCDNConfig)
+	if err != nil || !cascUnchanged {
+		return cascUnchanged, err
+	}
+	for _, table := range candidate.Tables {
+		existing, err := materializedTableForBuild(ctx, db, metadata.TableKey{
+			Region: active.Key.Region, Product: active.Key.Product, Locale: active.Key.Locale, BuildKey: active.Key.BuildKey, TableName: table.TableName,
+		})
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		if !tableMatches(existing, table) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func listfileSourceMatches(ctx context.Context, db *sql.DB, key metadata.BuildKey, sourceHash string) (bool, error) {
+	if sourceHash == "" {
+		return true, nil
+	}
+	var current string
+	err := db.QueryRowContext(ctx, `
+SELECT source_hash FROM server_listfile_sources
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		key.Region, key.Product, key.Locale, key.BuildKey,
+	).Scan(&current)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return current == sourceHash, nil
+}
+
+func cascSourceMatches(ctx context.Context, db *sql.DB, key metadata.BuildKey, buildConfig, cdnConfig string) (bool, error) {
+	if buildConfig == "" && cdnConfig == "" {
+		return true, nil
+	}
+	var currentBuildConfig, currentCDNConfig string
+	err := db.QueryRowContext(ctx, `
+SELECT build_config, cdn_config FROM server_casc_sources
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		key.Region, key.Product, key.Locale, key.BuildKey,
+	).Scan(&currentBuildConfig, &currentCDNConfig)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return currentBuildConfig == buildConfig && currentCDNConfig == cdnConfig, nil
+}
+
+func materializedTableForBuild(ctx context.Context, db *sql.DB, key metadata.TableKey) (metadata.MaterializedTable, error) {
+	var table metadata.MaterializedTable
+	err := db.QueryRowContext(ctx, `
+SELECT region, product, locale, build_key, table_name,
+  db2_file_data_id, dbd_hash, decoder_version, materializer_version,
+  parquet_path, row_count, state, error
+FROM server_materialized_tables
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ? AND table_name = ? AND state = ?
+LIMIT 1`,
+		key.Region,
+		key.Product,
+		key.Locale,
+		key.BuildKey,
+		key.TableName,
+		metadata.StateValid,
+	).Scan(
+		&table.Key.Region,
+		&table.Key.Product,
+		&table.Key.Locale,
+		&table.Key.BuildKey,
+		&table.Key.TableName,
+		&table.DB2FileDataID,
+		&table.DBDHash,
+		&table.DecoderVersion,
+		&table.MaterializerVersion,
+		&table.ParquetPath,
+		&table.RowCount,
+		&table.State,
+		&table.Error,
+	)
+	return table, err
 }
 
 func tableMatches(existing metadata.MaterializedTable, next TableFingerprint) bool {

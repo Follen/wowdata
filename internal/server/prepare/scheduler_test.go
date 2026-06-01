@@ -43,12 +43,26 @@ func TestBackgroundPrepareStartsAfterListenerReady(t *testing.T) {
 	}
 }
 
+func TestWaitBeforeStartReturnsError(t *testing.T) {
+	scheduler := NewScheduler(
+		[]Target{{Label: "us-retail", Region: "us", Product: "wow", Locale: "enUS"}},
+		Limits{MaxParallelContextPrepares: 1, MaxParallelTableMaterializations: 1},
+		func(context.Context, Target) error { return nil },
+		func(context.Context, Target, string) error { return nil },
+	)
+
+	if err := scheduler.Wait(); err == nil {
+		t.Fatalf("Wait before StartAfterReady returned nil, want lifecycle error")
+	}
+}
+
 func TestMaxParallelContextPreparesIsEnforced(t *testing.T) {
 	ctx := context.Background()
 	release := make(chan struct{})
 
 	var current int32
 	var maxObserved int32
+	var violations int32
 	targets := []Target{
 		{Label: "target-1", Region: "us", Product: "wow", Locale: "enUS"},
 		{Label: "target-2", Region: "eu", Product: "wow", Locale: "enUS"},
@@ -62,16 +76,16 @@ func TestMaxParallelContextPreparesIsEnforced(t *testing.T) {
 		Limits{MaxParallelContextPrepares: int(limit), MaxParallelTableMaterializations: 1},
 		func(ctx context.Context, _ Target) error {
 			now := atomic.AddInt32(&current, 1)
+			defer atomic.AddInt32(&current, -1)
 			recordMax(&maxObserved, now)
 			if now > limit {
-				t.Fatalf("parallel context prepares = %d, want <= %d", now, limit)
+				atomic.AddInt32(&violations, 1)
 			}
 			select {
 			case <-release:
 			case <-ctx.Done():
 				return ctx.Err()
 			}
-			atomic.AddInt32(&current, -1)
 			return nil
 		},
 		func(context.Context, Target, string) error { return nil },
@@ -86,6 +100,9 @@ func TestMaxParallelContextPreparesIsEnforced(t *testing.T) {
 	if err := scheduler.Wait(); err != nil {
 		t.Fatalf("wait: %v", err)
 	}
+	if got := atomic.LoadInt32(&violations); got != 0 {
+		t.Fatalf("parallel context prepare limit violations = %d, want 0", got)
+	}
 	if got := atomic.LoadInt32(&maxObserved); got > limit {
 		t.Fatalf("max observed parallel context prepares = %d, want <= %d", got, limit)
 	}
@@ -97,6 +114,7 @@ func TestMaxParallelTableMaterializationsIsEnforced(t *testing.T) {
 
 	var current int32
 	var maxObserved int32
+	var violations int32
 	targets := []Target{
 		{Label: "target-1", Region: "us", Product: "wow", Locale: "enUS", Tables: []string{"Spell", "Item"}},
 		{Label: "target-2", Region: "eu", Product: "wow", Locale: "enUS", Tables: []string{"Quest", "Creature"}},
@@ -109,16 +127,16 @@ func TestMaxParallelTableMaterializationsIsEnforced(t *testing.T) {
 		func(context.Context, Target) error { return nil },
 		func(ctx context.Context, _ Target, _ string) error {
 			now := atomic.AddInt32(&current, 1)
+			defer atomic.AddInt32(&current, -1)
 			recordMax(&maxObserved, now)
 			if now > limit {
-				t.Fatalf("parallel table materializations = %d, want <= %d", now, limit)
+				atomic.AddInt32(&violations, 1)
 			}
 			select {
 			case <-release:
 			case <-ctx.Done():
 				return ctx.Err()
 			}
-			atomic.AddInt32(&current, -1)
 			return nil
 		},
 	)
@@ -131,6 +149,9 @@ func TestMaxParallelTableMaterializationsIsEnforced(t *testing.T) {
 
 	if err := scheduler.Wait(); err != nil {
 		t.Fatalf("wait: %v", err)
+	}
+	if got := atomic.LoadInt32(&violations); got != 0 {
+		t.Fatalf("parallel table materialization limit violations = %d, want 0", got)
 	}
 	if got := atomic.LoadInt32(&maxObserved); got > limit {
 		t.Fatalf("max observed parallel table materializations = %d, want <= %d", got, limit)
