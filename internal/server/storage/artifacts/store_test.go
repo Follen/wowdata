@@ -113,6 +113,53 @@ WHERE artifact_path = ?`, filepath.ToSlash(record.Path)).Scan(
 	}
 }
 
+func TestStoreBytesRejectsExistingSymlinkFinalPath(t *testing.T) {
+	root := t.TempDir()
+	outsideDir := t.TempDir()
+	outsidePath := filepath.Join(outsideDir, "outside.txt")
+	original := []byte("do not overwrite")
+	if err := os.WriteFile(outsidePath, original, 0644); err != nil {
+		t.Fatalf("write outside file: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "exports"), 0755); err != nil {
+		t.Fatalf("create exports dir: %v", err)
+	}
+	linkPath := filepath.Join(root, "exports", "payload.bin")
+	if err := os.Symlink(outsidePath, linkPath); err != nil {
+		t.Skipf("creating symlink unavailable: %v", err)
+	}
+	db := openMetadataDB(t)
+	store := NewStore(Config{
+		Root:    root,
+		BaseURL: "http://example.test/files",
+	}, db)
+
+	_, err := store.StoreBytes(context.Background(), RequestContext{
+		Region:   "cn",
+		Product:  "wow",
+		Locale:   "zhCN",
+		BuildKey: "build-1",
+	}, "exports", "payload.bin", "application/octet-stream", []byte("attacker overwrite"))
+	if err == nil {
+		t.Fatal("StoreBytes succeeded for existing symlink final path, want error")
+	}
+	got, err := os.ReadFile(outsidePath)
+	if err != nil {
+		t.Fatalf("read outside file: %v", err)
+	}
+	if !bytes.Equal(got, original) {
+		t.Fatalf("outside file was overwritten through symlink: got %q, want %q", got, original)
+	}
+
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM server_artifacts WHERE artifact_path = ?`, filepath.ToSlash(linkPath)).Scan(&count); err != nil {
+		t.Fatalf("count artifact metadata: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("metadata rows = %d, want 0 after rejected write", count)
+	}
+}
+
 func TestStaticFileHandlerServesBytes(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "exports"), 0755); err != nil {
@@ -132,6 +179,50 @@ func TestStaticFileHandlerServesBytes(t *testing.T) {
 	}
 	if !bytes.Equal(rec.Body.Bytes(), want) {
 		t.Fatalf("body = %q, want %q", rec.Body.Bytes(), want)
+	}
+}
+
+func TestStaticFileHandlerRejectsSymlinkEscapingRoot(t *testing.T) {
+	root := t.TempDir()
+	outsidePath := filepath.Join(t.TempDir(), "secret.txt")
+	if err := os.WriteFile(outsidePath, []byte("secret"), 0644); err != nil {
+		t.Fatalf("write outside file: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "exports"), 0755); err != nil {
+		t.Fatalf("create exports dir: %v", err)
+	}
+	if err := os.Symlink(outsidePath, filepath.Join(root, "exports", "secret.txt")); err != nil {
+		t.Skipf("creating symlink unavailable: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/files/exports/secret.txt", nil)
+	FileHandler(root).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden && rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 403 or 404", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "secret") {
+		t.Fatalf("handler served escaped symlink contents: %q", rec.Body.String())
+	}
+}
+
+func TestFileHandlerEmptyRootDoesNotServeWorkingDirectory(t *testing.T) {
+	name := "artifact-handler-working-dir-sentinel.txt"
+	if err := os.WriteFile(name, []byte("cwd sentinel"), 0644); err != nil {
+		t.Fatalf("write cwd sentinel: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(name) })
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/files/"+name, nil)
+	FileHandler("").ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden && rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 403 or 404", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "cwd sentinel") {
+		t.Fatalf("handler served from working directory with empty root: %q", rec.Body.String())
 	}
 }
 

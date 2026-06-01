@@ -39,15 +39,18 @@ type Record struct {
 type Store struct {
 	manager *artifact.Manager
 	db      *sql.DB
+	root    string
 }
 
 func NewStore(cfg Config, db *sql.DB) *Store {
+	root := cleanRoot(cfg.Root)
 	return &Store{
 		manager: artifact.NewManager(artifact.Config{
 			Root:    cfg.Root,
 			BaseURL: cfg.BaseURL,
 		}),
-		db: db,
+		db:   db,
+		root: root,
 	}
 }
 
@@ -67,7 +70,7 @@ func (s *Store) StoreBytes(ctx context.Context, rc RequestContext, category, fil
 	if err != nil {
 		return Record{}, err
 	}
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := writeFileAtomically(s.root, path, data); err != nil {
 		return Record{}, fmt.Errorf("write artifact: %w", err)
 	}
 	link, err := s.manager.LinkForPath(path, mimeType)
@@ -94,7 +97,10 @@ func (s *Store) StoreBytes(ctx context.Context, rc RequestContext, category, fil
 }
 
 func FileHandler(root string) http.Handler {
-	root = filepath.Clean(root)
+	root = cleanRoot(root)
+	if root == "" {
+		return http.HandlerFunc(notFound)
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rel, ok := cleanRequestPath(r)
 		if !ok {
@@ -106,16 +112,28 @@ func FileHandler(root string) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		if realPath, err := filepath.EvalSymlinks(filePath); err == nil && !insideRoot(root, realPath) {
+		realRoot, err := filepath.EvalSymlinks(root)
+		if err != nil {
 			http.NotFound(w, r)
 			return
 		}
-		info, err := os.Stat(filePath)
+		realPath, err := filepath.EvalSymlinks(filePath)
+		if err != nil || !insideRoot(realRoot, realPath) {
+			http.NotFound(w, r)
+			return
+		}
+		file, err := os.Open(realPath)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		defer file.Close()
+		info, err := file.Stat()
 		if err != nil || info.IsDir() {
 			http.NotFound(w, r)
 			return
 		}
-		http.ServeFile(w, r, filePath)
+		http.ServeContent(w, r, info.Name(), info.ModTime(), file)
 	})
 }
 
@@ -168,4 +186,115 @@ func insideRoot(root, path string) bool {
 		return false
 	}
 	return rel != "." && rel != ".." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+func writeFileAtomically(root string, path string, data []byte) error {
+	if root == "" {
+		return fmt.Errorf("artifact root is required")
+	}
+	if err := validateRealParentInsideRoot(root, path); err != nil {
+		return err
+	}
+	if err := rejectFinalSymlink(path); err != nil {
+		return err
+	}
+	dir := filepath.Dir(path)
+	temp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	tempPath := temp.Name()
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(tempPath)
+		}
+	}()
+
+	if _, err := temp.Write(data); err != nil {
+		_ = temp.Close()
+		return err
+	}
+	if err := temp.Chmod(0644); err != nil {
+		_ = temp.Close()
+		return err
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
+	if err := rejectFinalSymlink(path); err != nil {
+		return err
+	}
+	if err := os.Rename(tempPath, path); err != nil {
+		if retryErr := replaceExistingFile(tempPath, path); retryErr != nil {
+			return err
+		}
+	}
+	cleanup = false
+	return nil
+}
+
+func validateRealParentInsideRoot(root string, path string) error {
+	realRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return err
+	}
+	parent := filepath.Dir(path)
+	realParent, err := filepath.EvalSymlinks(parent)
+	if err != nil {
+		return err
+	}
+	if !insideRoot(realRoot, realParent) {
+		return fmt.Errorf("artifact parent %q escapes artifact root", parent)
+	}
+	return nil
+}
+
+func replaceExistingFile(tempPath string, path string) error {
+	if err := rejectFinalSymlink(path); err != nil {
+		return err
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return fmt.Errorf("artifact path %q is a directory", path)
+	}
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	if err := os.Rename(tempPath, path); err != nil {
+		return err
+	}
+	return nil
+}
+
+func rejectFinalSymlink(path string) error {
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("artifact path %q is a symlink", path)
+	}
+	return nil
+}
+
+func notFound(w http.ResponseWriter, r *http.Request) {
+	http.NotFound(w, r)
+}
+
+func cleanRoot(root string) string {
+	if root == "" || filepath.Clean(root) == "." {
+		return ""
+	}
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return ""
+	}
+	return filepath.Clean(abs)
 }
