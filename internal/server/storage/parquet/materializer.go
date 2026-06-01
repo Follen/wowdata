@@ -101,16 +101,23 @@ func (m Materializer) Materialize(ctx context.Context, spec TableSpec) (Result, 
 		_ = metadata.MarkMaterializedTableState(ctx, m.db, spec.Key, metadata.StateFailed, err.Error())
 		return Result{}, err
 	}
+	released := false
+	releaseDecoded := func() {
+		if released || decoded.Release == nil {
+			return
+		}
+		decoded.Release()
+		decoded.Rows = nil
+		released = true
+	}
+	defer releaseDecoded()
 
 	if err := m.writeAtomically(spec.ParquetPath, want, spec.Schema, decoded.Rows); err != nil {
 		_ = metadata.MarkMaterializedTableState(ctx, m.db, spec.Key, metadata.StateFailed, err.Error())
 		return Result{}, err
 	}
 	rowCount := len(decoded.Rows)
-	if decoded.Release != nil {
-		decoded.Release()
-		decoded.Rows = nil
-	}
+	releaseDecoded()
 	if _, err := m.validateExisting(spec.ParquetPath, want); err != nil {
 		_ = metadata.MarkMaterializedTableState(ctx, m.db, spec.Key, metadata.StateFailed, err.Error())
 		return Result{}, err

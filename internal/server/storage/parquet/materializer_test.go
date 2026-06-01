@@ -246,6 +246,34 @@ func TestMaterializeReleasesRowsBeforeFooterValidationAndMetadataUpsert(t *testi
 	}
 }
 
+func TestMaterializeReleasesDecodedRowsWhenWriterFails(t *testing.T) {
+	ctx := context.Background()
+	db := openMetadataDB(t)
+	root := t.TempDir()
+	spec := testSpec(root)
+	rows := &rowBuffer{values: []map[string]interface{}{{"ID": int32(1), "Name": "Failed write"}}}
+	decoder := &fakeDecoder{buffer: rows}
+	writer := &observingWriter{
+		write: func(string, cacheparquet.Metadata, []cacheparquet.Field, []map[string]interface{}) error {
+			return errors.New("disk full")
+		},
+	}
+
+	_, err := NewMaterializer(db, decoder, writer).Materialize(ctx, spec)
+	if err == nil || !strings.Contains(err.Error(), "disk full") {
+		t.Fatalf("Materialize error = %v, want disk full", err)
+	}
+	if got := materializedState(t, db, spec.Key); got != metadata.StateFailed {
+		t.Fatalf("state after writer failure = %q, want failed", got)
+	}
+	if !rows.released {
+		t.Fatal("decoded rows were not released after writer failure")
+	}
+	if rows.values != nil {
+		t.Fatalf("row values = %#v, want nil after writer failure", rows.values)
+	}
+}
+
 type fakeDecoder struct {
 	rows            []map[string]interface{}
 	buffer          *rowBuffer
