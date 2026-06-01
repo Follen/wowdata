@@ -480,6 +480,13 @@ prepare:
     - CreatureModelData
     - HouseDecor
 
+refresh:
+  product_check_interval_minutes: 30
+  auto_prepare_new_builds: true
+  keep_builds_per_product: 2
+  prune_on_start: true
+  max_cache_gb: 80
+
 limits:
   max_concurrent_prepares: 1
   max_concurrent_materializations: 2
@@ -551,6 +558,21 @@ Parquet 保存 decoded DB2 表数据。路径由 `region/product/buildKey/locale
 - schema 变化时必须生成新的 materialization 或标记旧缓存失效。
 - 不能把整张大表序列化成 JSON 作为持久化格式。
 
+每个 Parquet 文件必须写入并校验以下 metadata：
+
+- `region`
+- `product`
+- `buildKey`
+- `buildName`
+- `locale`
+- `table`
+- `db2FileDataID`
+- `dbdDefinitionHash`
+- `decoderVersion`
+- `materializerVersion`
+
+只要这些指纹中任一值与 SQLite `materialized_tables` 记录不一致，就必须拒绝复用该 Parquet 文件，并重新 materialize。
+
 ### DuckDB
 
 DuckDB 作为查询引擎读取 Parquet。要求：
@@ -569,6 +591,122 @@ Go memory 保存热路径：
 - in-flight prepare/materialization singleflight 状态
 
 HTTP 内存上限由配置控制。超过 context 上限时使用 LRU 淘汰；pinned context 不被普通 LRU 淘汰。
+
+## HTTP 更新与缓存失效策略
+
+HTTP 远端服务必须假设 Blizzard CDN、DBD schema、listfile 和本服务的 materializer 都会更新。缓存策略以 `buildKey` 为不可变边界，不能用新数据覆盖旧 build 的缓存。
+
+### buildKey 不可变缓存
+
+所有 raw CASC、Parquet、SQLite materialization 状态都必须包含 `region/product/buildKey/locale`：
+
+```text
+cache/raw/casc/{region}/{product}/{buildKey}/data
+cache/db2/{region}/{product}/{buildKey}/{locale}/{table}.parquet
+```
+
+当同一个 `region/product` 发现新的 `buildKey` 时，服务创建新 build context。旧 build context 继续服务已有请求，直到新 build 准备完成并完成原子切换。
+
+### Build watcher
+
+HTTP service runtime 必须包含 build watcher。它按配置间隔检查 pinned contexts 和默认 context 对应的 product/build：
+
+```yaml
+refresh:
+  product_check_interval_minutes: 30
+  auto_prepare_new_builds: true
+```
+
+流程：
+
+```text
+poll product list
+  │
+  ├─ buildKey unchanged: no-op
+  └─ buildKey changed:
+       ├─ record update candidate in SQLite
+       ├─ start background prepare for new build
+       ├─ keep old context active
+       ├─ if new build prepare succeeds: atomically switch default context
+       └─ if prepare fails: keep old context and surface failure in wow_status
+```
+
+### 原子切换
+
+新 build 只有在以下条件全部满足后才能成为默认 context：
+
+- CASC metadata loaded。
+- DBD manifest/schema ready。
+- pinned/default tables 已按配置 prepare 或 materialize。
+- `wow_status` 对该 context 显示 `ready`。
+- 旧 context 没有被直接覆盖或删除。
+
+切换必须只更新 context pointer / metadata 状态，不得修改旧 build 的 Parquet 或 raw cache。
+
+### DBD、decoder、materializer 失效
+
+DBD 定义变化、decoder 版本变化、materializer 版本变化，即使 buildKey 不变，也必须让对应 table 的 Parquet 失效。失效判断使用以下指纹：
+
+```text
+dbdDefinitionHash
+decoderVersion
+materializerVersion
+db2FileDataID
+```
+
+当指纹不一致：
+
+- SQLite `materialized_tables` 标记为 `stale`。
+- 下一次查询该表时重新 materialize。
+- 如果 stale table 当前正在被查询，当前查询继续使用已打开的旧数据；新查询在重新 materialize 后使用新数据。
+
+### Admin refresh tools
+
+HTTP 普通工具不暴露手动刷新。开启 admin tools 后必须提供：
+
+```text
+wow_refresh_builds
+wow_prepare
+wow_prune_cache
+```
+
+`wow_refresh_builds` 强制检查 product/build 更新。
+
+`wow_prepare` 支持：
+
+```json
+{
+  "region": "cn",
+  "product": "wow",
+  "locale": "zhCN",
+  "force": {
+    "schema": true,
+    "tables": ["ItemSparse", "SpellEffect"]
+  }
+}
+```
+
+`wow_prune_cache` 支持按 build、product、table 和 artifact retention 清理，但必须拒绝删除 active context、pinned context 和 in-flight materialization 正在使用的路径。
+
+### Cache prune
+
+缓存清理由配置控制：
+
+```yaml
+refresh:
+  keep_builds_per_product: 2
+  prune_on_start: true
+  max_cache_gb: 80
+```
+
+清理顺序：
+
+1. 删除过期 artifacts。
+2. 删除非 active、非 pinned、非 in-flight 的旧 Parquet。
+3. 删除非 active、非 pinned、非 in-flight 的旧 raw CASC cache。
+4. 如果仍超过 `max_cache_gb`，返回 `cache_pressure` 状态并停止自动 materialization，直到管理员清理或提高上限。
+
+清理必须写入 SQLite audit 记录，包含时间、路径、大小、原因和操作者。
 
 ## HTTP lazy prepare 流程
 
@@ -705,6 +843,12 @@ Docker 验收要求：
 - HTTP `wow_icon` 返回公开 download URL。
 - HTTP `wow_builds` 返回 CN/US/EU/KR/TW product/build 列表。
 - HTTP `wow_status` 返回 context、cache、in-flight jobs、memory 状态。
+- HTTP build watcher 发现新 build 后，旧 context 继续服务，新 context 后台 prepare。
+- HTTP 新 build prepare 成功后默认 context 原子切换。
+- HTTP 新 build prepare 失败时保留旧 context，并在 `wow_status` 暴露失败原因。
+- HTTP DBD hash、decoderVersion 或 materializerVersion 变化时，旧 Parquet 被标记 stale，下一次查询重新 materialize。
+- HTTP `wow_prune_cache` 不删除 active、pinned 或 in-flight context 使用的缓存。
+- HTTP admin force refresh 只刷新指定 schema/table，不影响未指定表。
 
 ### 真实数据验证
 
@@ -739,8 +883,9 @@ Docker 验收要求：
 8. Artifact download URL 在远端 HTTP 模式可用。
 9. 远端开发服务器 `http://211.154.18.253:11224/health`、`/help`、`/mcp` 验证通过。
 10. 远端 Docker `20.10.24` 容器部署验证通过，容器重启后持久化 cache 保留。
-11. 真实 region/product/build 审计通过，失败项必须分类为网络、当前 build 不可用、schema 缺失或真实业务 bug，不允许吞错。
-12. spec、README、CHANGELOG、部署说明同步更新。
+11. HTTP build watcher、原子切换、stale Parquet、admin force refresh 和 cache prune 测试通过。
+12. 真实 region/product/build 审计通过，失败项必须分类为网络、当前 build 不可用、schema 缺失或真实业务 bug，不允许吞错。
+13. spec、README、CHANGELOG、部署说明同步更新。
 
 ## 禁止事项
 
@@ -751,6 +896,8 @@ Docker 验收要求：
 - 禁止把 `.local/`、SSH key、服务器私有配置提交到仓库。
 - 禁止使用 JSON 文件作为 DB2 大表的持久化主格式。
 - 禁止 HTTP 查询路径继续依赖 Cobra command stdout 作为最终架构。
+- 禁止新 build 覆盖旧 build 缓存；必须以 buildKey 隔离。
+- 禁止 cache prune 删除 active、pinned 或 in-flight context 使用的数据。
 
 ## 后续计划
 
