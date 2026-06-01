@@ -1,6 +1,7 @@
 package db2
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -10,15 +11,27 @@ import (
 type fakeStore struct {
 	rowsCalled   bool
 	schemaCalled bool
+	rowsTable    string
+	rowsIDs      []uint32
+	rowsFields   []string
+	rowsFilter   string
+	rowsLimit    int
+	schemaTable  string
 }
 
 func (s *fakeStore) Schema(table string) ([]appruntime.SchemaField, int, error) {
 	s.schemaCalled = true
+	s.schemaTable = table
 	return []appruntime.SchemaField{{Name: "ID", Type: "uint32"}}, 1, nil
 }
 
 func (s *fakeStore) Rows(table string, ids []uint32, fields []string, filter string, limit int) ([]map[string]interface{}, error) {
 	s.rowsCalled = true
+	s.rowsTable = table
+	s.rowsIDs = ids
+	s.rowsFields = fields
+	s.rowsFilter = filter
+	s.rowsLimit = limit
 	return []map[string]interface{}{{"ID": uint32(1)}}, nil
 }
 
@@ -36,7 +49,14 @@ func (s *fakeStore) Stream(table string, fields []string, filter string, limit i
 
 func TestRowsCallsStoreAndReturnsRows(t *testing.T) {
 	store := &fakeStore{}
-	rows, err := NewService(store).Rows(Query{Table: "SpellName", IDs: []uint32{1}, Limit: 1})
+	query := Query{
+		Table:  "SpellName",
+		IDs:    []uint32{1, 2},
+		Fields: []string{"ID", "Name"},
+		Filter: "ID > 0",
+		Limit:  7,
+	}
+	rows, err := NewService(store).Rows(query)
 	if err != nil {
 		t.Fatalf("Rows returned error: %v", err)
 	}
@@ -45,6 +65,21 @@ func TestRowsCallsStoreAndReturnsRows(t *testing.T) {
 	}
 	if len(rows) != 1 || rows[0]["ID"] != uint32(1) {
 		t.Fatalf("Rows = %#v, want ID 1", rows)
+	}
+	if store.rowsTable != query.Table {
+		t.Fatalf("Rows table = %q, want %q", store.rowsTable, query.Table)
+	}
+	if !reflect.DeepEqual(store.rowsIDs, query.IDs) {
+		t.Fatalf("Rows ids = %#v, want %#v", store.rowsIDs, query.IDs)
+	}
+	if !reflect.DeepEqual(store.rowsFields, query.Fields) {
+		t.Fatalf("Rows fields = %#v, want %#v", store.rowsFields, query.Fields)
+	}
+	if store.rowsFilter != query.Filter {
+		t.Fatalf("Rows filter = %q, want %q", store.rowsFilter, query.Filter)
+	}
+	if store.rowsLimit != query.Limit {
+		t.Fatalf("Rows limit = %d, want %d", store.rowsLimit, query.Limit)
 	}
 }
 
@@ -68,7 +103,7 @@ func TestSchemaRejectsEmptyTable(t *testing.T) {
 	}
 }
 
-func TestSchemaForwardsStoreSchema(t *testing.T) {
+func TestServiceSchemaCallsStore(t *testing.T) {
 	store := &fakeStore{}
 	fields, rowCount, err := NewService(store).Schema("SpellName")
 	if err != nil {
@@ -76,6 +111,9 @@ func TestSchemaForwardsStoreSchema(t *testing.T) {
 	}
 	if !store.schemaCalled {
 		t.Fatal("Schema did not call store")
+	}
+	if store.schemaTable != "SpellName" {
+		t.Fatalf("Schema table = %q, want SpellName", store.schemaTable)
 	}
 	if rowCount != 1 || len(fields) != 1 || fields[0].Name != "ID" {
 		t.Fatalf("Schema = %#v, %d; want ID field and row count 1", fields, rowCount)

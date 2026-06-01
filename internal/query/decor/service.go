@@ -9,10 +9,3 @@ type Service struct {
 func NewService(service *wowdata.DecorService) *Service {
 	return &Service{service: service}
 }
-
-func (s *Service) WowDataService() *wowdata.DecorService {
-	if s == nil {
-		return nil
-	}
-	return s.service
-}
