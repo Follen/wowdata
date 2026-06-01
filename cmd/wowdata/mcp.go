@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"wowdata/internal/artifact"
 	"wowdata/internal/mcpserver"
 
 	"github.com/spf13/cobra"
@@ -246,54 +247,51 @@ func addArtifactDownloadLinks(result interface{}, artifacts artifactConfig) inte
 	if artifacts.root == "" || artifacts.baseURL == "" {
 		return result
 	}
-	root, err := filepath.Abs(artifacts.root)
-	if err != nil {
-		return result
-	}
-	root = filepath.Clean(root)
-	addDownloadLinks(result, root, strings.TrimRight(artifacts.baseURL, "/"))
+	manager := artifact.NewManager(artifact.Config{Root: artifacts.root, BaseURL: artifacts.baseURL})
+	addDownloadLinks(result, manager)
 	return result
 }
 
-func addDownloadLinks(value interface{}, root, baseURL string) {
+func addDownloadLinks(value interface{}, manager *artifact.Manager) {
 	switch v := value.(type) {
 	case map[string]interface{}:
-		addDownloadLinkToMap(v, root, baseURL)
+		addDownloadLinkToMap(v, manager)
 		for _, child := range v {
-			addDownloadLinks(child, root, baseURL)
+			addDownloadLinks(child, manager)
 		}
 	case []interface{}:
 		for _, child := range v {
-			addDownloadLinks(child, root, baseURL)
+			addDownloadLinks(child, manager)
 		}
 	case []map[string]interface{}:
 		for _, child := range v {
-			addDownloadLinks(child, root, baseURL)
+			addDownloadLinks(child, manager)
 		}
 	}
 }
 
-func addDownloadLinkToMap(v map[string]interface{}, root, baseURL string) {
+func addDownloadLinkToMap(v map[string]interface{}, manager *artifact.Manager) {
 	rawPath, ok := mcpStringValue(v["path"])
 	if !ok || rawPath == "" {
 		return
 	}
-	absPath, err := filepath.Abs(rawPath)
+	mimeType, _ := mcpStringValue(v["mimeType"])
+	link, err := manager.LinkForPath(rawPath, mimeType)
 	if err != nil {
 		return
 	}
-	rel, err := filepath.Rel(root, absPath)
-	if err != nil || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." || filepath.IsAbs(rel) {
-		return
-	}
-	publicURL := baseURL + "/" + path.Join(strings.Split(filepath.ToSlash(rel), "/")...)
 	if uri, ok := mcpStringValue(v["uri"]); ok && strings.HasPrefix(uri, "file://") {
 		v["fileURI"] = uri
 	}
-	v["downloadUrl"] = publicURL
-	v["uri"] = publicURL
+	v["downloadUrl"] = link.DownloadURL
+	v["uri"] = link.URI
+	if link.MimeType != "" {
+		v["mimeType"] = link.MimeType
+	}
+	v["size"] = link.Size
+	v["sha256"] = link.SHA256
 	if _, ok := v["name"]; !ok {
-		v["name"] = path.Base(publicURL)
+		v["name"] = link.Name
 	}
 }
 
@@ -381,12 +379,21 @@ func fileArgs(args map[string]interface{}) ([]string, error) {
 func fileArgsWithArtifacts(args map[string]interface{}, artifacts artifactConfig) ([]string, error) {
 	mode := stringArg(args, "mode", "lookup")
 	if artifacts.root != "" && stringArg(args, "output", "") == "" && (mode == "get" || mode == "export") {
+		manager := artifact.NewManager(artifact.Config{Root: artifacts.root, BaseURL: artifacts.baseURL})
 		if id, ok := args["fileDataID"]; ok {
+			outputPath, _, err := manager.Reserve("files", scalarString(id)+".bin", "application/octet-stream")
+			if err != nil {
+				return nil, err
+			}
 			args = cloneArgs(args)
-			args["output"] = filepath.Join(artifacts.root, "files", scalarString(id)+".bin")
+			args["output"] = outputPath
 		} else if filename := stringArg(args, "filename", ""); filename != "" {
+			outputPath, _, err := manager.Reserve("files", path.Base(filepath.ToSlash(filename)), "application/octet-stream")
+			if err != nil {
+				return nil, err
+			}
 			args = cloneArgs(args)
-			args["output"] = filepath.Join(artifacts.root, "files", path.Base(filepath.ToSlash(filename)))
+			args["output"] = outputPath
 		}
 	}
 	out := []string{mode}
@@ -406,9 +413,14 @@ func iconArgs(args map[string]interface{}) ([]string, error) {
 func iconArgsWithArtifacts(args map[string]interface{}, artifacts artifactConfig) ([]string, error) {
 	if artifacts.root != "" && stringArg(args, "output", "") == "" {
 		if id, ok := args["fileDataID"]; ok {
-			args = cloneArgs(args)
 			format := stringArg(args, "format", "png")
-			args["output"] = filepath.Join(artifacts.root, "icons", scalarString(id)+"."+format)
+			manager := artifact.NewManager(artifact.Config{Root: artifacts.root, BaseURL: artifacts.baseURL})
+			outputPath, _, err := manager.Reserve("icons", scalarString(id)+"."+format, "image/"+format)
+			if err != nil {
+				return nil, err
+			}
+			args = cloneArgs(args)
+			args["output"] = outputPath
 		}
 	}
 	out := []string{}

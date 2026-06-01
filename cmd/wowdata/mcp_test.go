@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -209,6 +211,12 @@ func TestMCPHTTPWarmupGateReturnsBusyEnvelope(t *testing.T) {
 func TestMCPArtifactConfigAddsDownloadURLForExportResults(t *testing.T) {
 	root := t.TempDir()
 	artifactPath := filepath.Join(root, "icons", "134400.png")
+	if err := os.MkdirAll(filepath.Dir(artifactPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(artifactPath, []byte("icon bytes"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	result := map[string]interface{}{
 		"ok":      true,
 		"command": "icon export",
@@ -234,6 +242,10 @@ func TestMCPArtifactConfigAddsDownloadURLForExportResults(t *testing.T) {
 	}
 	if data["fileURI"] == "" {
 		t.Fatalf("fileURI should preserve original local file URI: %#v", data)
+	}
+	wantHash := fmt.Sprintf("%x", sha256.Sum256([]byte("icon bytes")))
+	if data["sha256"] != wantHash {
+		t.Fatalf("sha256 should be populated by artifact manager, got %#v want %q in %#v", data["sha256"], wantHash, data)
 	}
 }
 

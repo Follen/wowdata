@@ -1749,7 +1749,7 @@ git commit -m "cache add sqlite metadata"
 - Create: `internal/artifact/cleanup.go`
 - Modify: `cmd/wowdata/mcp.go`
 
-- [ ] **Step 1: Write artifact manager tests**
+- [x] **Step 1: Write artifact manager tests**
 
 Create `internal/artifact/manager_test.go`:
 
@@ -1804,15 +1804,15 @@ func TestCleanupDeletesExpiredFiles(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Implement artifact manager**
+- [x] **Step 2: Implement artifact manager**
 
 Create `internal/artifact/manager.go`, `paths.go`, `links.go`, and `cleanup.go` with `Config`, `Link`, `Manager`, `Reserve`, `LinkForPath`, `CleanupExpired`, and root traversal rejection.
 
-- [ ] **Step 3: Replace HTTP artifact link helper**
+- [x] **Step 3: Replace HTTP artifact link helper**
 
 Modify `cmd/wowdata/mcp.go` so `artifactConfig` calls `artifact.Manager` for default output path and download URL mapping. Existing HTTP `wow_icon` and `wow_file` tests must keep passing.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run:
 
@@ -1822,7 +1822,7 @@ go test ./internal/artifact ./cmd/wowdata -count=1
 
 Expected: both packages pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
