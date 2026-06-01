@@ -85,18 +85,45 @@ INSERT INTO server_listfile_sources (
 	if oldHash == source.SourceHash {
 		return false, nil
 	}
-	_, err = db.ExecContext(ctx, `
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+	if _, err = tx.ExecContext(ctx, `
 UPDATE server_listfile_sources
-SET source_hash = ?, state = ?, error = '', updated_at = CURRENT_TIMESTAMP
+SET source_hash = ?, state = ?, error = ?, updated_at = CURRENT_TIMESTAMP
 WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 		source.SourceHash,
+		state,
+		source.Error,
+		source.Region,
+		source.Product,
+		source.Locale,
+		source.BuildKey,
+	); err != nil {
+		return false, err
+	}
+	if _, err = tx.ExecContext(ctx, `
+UPDATE server_listfile_indexes
+SET state = ?, error = '', updated_at = CURRENT_TIMESTAMP
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 		StateStale,
 		source.Region,
 		source.Product,
 		source.Locale,
 		source.BuildKey,
-	)
-	return true, err
+	); err != nil {
+		return false, err
+	}
+	if err = tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func MarkListfileSourceState(ctx context.Context, db *sql.DB, key SourceKey, state string, message string) error {
@@ -112,6 +139,40 @@ WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 		key.BuildKey,
 	)
 	return err
+}
+
+func UpsertListfileIndexState(ctx context.Context, db *sql.DB, key SourceKey, indexName string, state string, message string) error {
+	_, err := db.ExecContext(ctx, `
+INSERT INTO server_listfile_indexes (
+  region, product, locale, build_key, index_name, state, error, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+ON CONFLICT(region, product, locale, build_key, index_name) DO UPDATE SET
+  state = excluded.state,
+  error = excluded.error,
+  updated_at = CURRENT_TIMESTAMP`,
+		key.Region,
+		key.Product,
+		key.Locale,
+		key.BuildKey,
+		indexName,
+		state,
+		message,
+	)
+	return err
+}
+
+func ListfileIndexState(ctx context.Context, db *sql.DB, key SourceKey, indexName string) (string, error) {
+	var state string
+	err := db.QueryRowContext(ctx, `
+SELECT state FROM server_listfile_indexes
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ? AND index_name = ?`,
+		key.Region,
+		key.Product,
+		key.Locale,
+		key.BuildKey,
+		indexName,
+	).Scan(&state)
+	return state, err
 }
 
 func UpsertCASCSource(ctx context.Context, db *sql.DB, source CASCSource) (bool, error) {
@@ -147,19 +208,46 @@ INSERT INTO server_casc_sources (
 	if oldBuildConfig == source.BuildConfig && oldCDNConfig == source.CDNConfig {
 		return false, nil
 	}
-	_, err = db.ExecContext(ctx, `
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+	if _, err = tx.ExecContext(ctx, `
 UPDATE server_casc_sources
-SET build_config = ?, cdn_config = ?, state = ?, error = '', updated_at = CURRENT_TIMESTAMP
+SET build_config = ?, cdn_config = ?, state = ?, error = ?, updated_at = CURRENT_TIMESTAMP
 WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 		source.BuildConfig,
 		source.CDNConfig,
+		state,
+		source.Error,
+		source.Region,
+		source.Product,
+		source.Locale,
+		source.BuildKey,
+	); err != nil {
+		return false, err
+	}
+	if _, err = tx.ExecContext(ctx, `
+UPDATE server_casc_indexes
+SET state = ?, error = '', updated_at = CURRENT_TIMESTAMP
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 		StateStale,
 		source.Region,
 		source.Product,
 		source.Locale,
 		source.BuildKey,
-	)
-	return true, err
+	); err != nil {
+		return false, err
+	}
+	if err = tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func MarkCASCSourceState(ctx context.Context, db *sql.DB, key SourceKey, state string, message string) error {
@@ -175,6 +263,40 @@ WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 		key.BuildKey,
 	)
 	return err
+}
+
+func UpsertCASCIndexState(ctx context.Context, db *sql.DB, key SourceKey, indexName string, state string, message string) error {
+	_, err := db.ExecContext(ctx, `
+INSERT INTO server_casc_indexes (
+  region, product, locale, build_key, index_name, state, error, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+ON CONFLICT(region, product, locale, build_key, index_name) DO UPDATE SET
+  state = excluded.state,
+  error = excluded.error,
+  updated_at = CURRENT_TIMESTAMP`,
+		key.Region,
+		key.Product,
+		key.Locale,
+		key.BuildKey,
+		indexName,
+		state,
+		message,
+	)
+	return err
+}
+
+func CASCIndexState(ctx context.Context, db *sql.DB, key SourceKey, indexName string) (string, error) {
+	var state string
+	err := db.QueryRowContext(ctx, `
+SELECT state FROM server_casc_indexes
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ? AND index_name = ?`,
+		key.Region,
+		key.Product,
+		key.Locale,
+		key.BuildKey,
+		indexName,
+	).Scan(&state)
+	return state, err
 }
 
 func UpsertArtifact(ctx context.Context, db *sql.DB, artifact Artifact) error {

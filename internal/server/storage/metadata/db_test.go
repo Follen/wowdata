@@ -251,6 +251,9 @@ func TestListfileSourceHashUpdateMarksIndexStale(t *testing.T) {
 	if err := MarkListfileSourceState(ctx, db, source.Key(), StateValid, ""); err != nil {
 		t.Fatalf("mark listfile valid: %v", err)
 	}
+	if err := UpsertListfileIndexState(ctx, db, source.Key(), "main", StateValid, ""); err != nil {
+		t.Fatalf("upsert listfile index state: %v", err)
+	}
 	changed, err = UpsertListfileSource(ctx, db, source)
 	if err != nil {
 		t.Fatalf("upsert unchanged listfile source: %v", err)
@@ -259,6 +262,7 @@ func TestListfileSourceHashUpdateMarksIndexStale(t *testing.T) {
 		t.Fatalf("unchanged listfile source changed = true, want false")
 	}
 	assertListfileState(t, db, source.Key(), StateValid)
+	assertListfileIndexState(t, ctx, db, source.Key(), "main", StateValid)
 
 	source.SourceHash = "hash-b"
 	changed, err = UpsertListfileSource(ctx, db, source)
@@ -268,7 +272,9 @@ func TestListfileSourceHashUpdateMarksIndexStale(t *testing.T) {
 	if !changed {
 		t.Fatalf("changed listfile source changed = false, want true")
 	}
-	assertListfileState(t, db, source.Key(), StateStale)
+	assertListfileState(t, db, source.Key(), StateValid)
+	assertListfileSourceHash(t, db, source.Key(), "hash-b")
+	assertListfileIndexState(t, ctx, db, source.Key(), "main", StateStale)
 }
 
 func TestCASCIndexVersionUpdateMarksIndexStale(t *testing.T) {
@@ -291,6 +297,9 @@ func TestCASCIndexVersionUpdateMarksIndexStale(t *testing.T) {
 	if err := MarkCASCSourceState(ctx, db, source.Key(), StateValid, ""); err != nil {
 		t.Fatalf("mark casc valid: %v", err)
 	}
+	if err := UpsertCASCIndexState(ctx, db, source.Key(), "root-encoding-archive", StateValid, ""); err != nil {
+		t.Fatalf("upsert casc index state: %v", err)
+	}
 	changed, err = UpsertCASCSource(ctx, db, source)
 	if err != nil {
 		t.Fatalf("upsert unchanged casc source: %v", err)
@@ -299,6 +308,7 @@ func TestCASCIndexVersionUpdateMarksIndexStale(t *testing.T) {
 		t.Fatalf("unchanged casc source changed = true, want false")
 	}
 	assertCASCState(t, db, source.Key(), StateValid)
+	assertCASCIndexState(t, ctx, db, source.Key(), "root-encoding-archive", StateValid)
 
 	source.CDNConfig = "cdn-config-b"
 	changed, err = UpsertCASCSource(ctx, db, source)
@@ -308,7 +318,9 @@ func TestCASCIndexVersionUpdateMarksIndexStale(t *testing.T) {
 	if !changed {
 		t.Fatalf("changed casc source changed = false, want true")
 	}
-	assertCASCState(t, db, source.Key(), StateStale)
+	assertCASCState(t, db, source.Key(), StateValid)
+	assertCASCSourceConfigs(t, db, source.Key(), "build-config-a", "cdn-config-b")
+	assertCASCIndexState(t, ctx, db, source.Key(), "root-encoding-archive", StateStale)
 }
 
 func openTestDB(t *testing.T) *sql.DB {
@@ -348,6 +360,33 @@ WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 	}
 }
 
+func assertListfileSourceHash(t *testing.T, db *sql.DB, key SourceKey, want string) {
+	t.Helper()
+	var hash string
+	err := db.QueryRow(`
+SELECT source_hash FROM server_listfile_sources
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		key.Region, key.Product, key.Locale, key.BuildKey,
+	).Scan(&hash)
+	if err != nil {
+		t.Fatalf("query listfile source hash: %v", err)
+	}
+	if hash != want {
+		t.Fatalf("listfile source hash = %q, want %q", hash, want)
+	}
+}
+
+func assertListfileIndexState(t *testing.T, ctx context.Context, db *sql.DB, key SourceKey, indexName string, want string) {
+	t.Helper()
+	state, err := ListfileIndexState(ctx, db, key, indexName)
+	if err != nil {
+		t.Fatalf("query listfile index state: %v", err)
+	}
+	if state != want {
+		t.Fatalf("listfile index state = %q, want %q", state, want)
+	}
+}
+
 func assertCASCState(t *testing.T, db *sql.DB, key SourceKey, want string) {
 	t.Helper()
 	var state string
@@ -361,5 +400,32 @@ WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 	}
 	if state != want {
 		t.Fatalf("casc state = %q, want %q", state, want)
+	}
+}
+
+func assertCASCSourceConfigs(t *testing.T, db *sql.DB, key SourceKey, wantBuildConfig string, wantCDNConfig string) {
+	t.Helper()
+	var buildConfig, cdnConfig string
+	err := db.QueryRow(`
+SELECT build_config, cdn_config FROM server_casc_sources
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		key.Region, key.Product, key.Locale, key.BuildKey,
+	).Scan(&buildConfig, &cdnConfig)
+	if err != nil {
+		t.Fatalf("query casc source configs: %v", err)
+	}
+	if buildConfig != wantBuildConfig || cdnConfig != wantCDNConfig {
+		t.Fatalf("casc configs = %q/%q, want %q/%q", buildConfig, cdnConfig, wantBuildConfig, wantCDNConfig)
+	}
+}
+
+func assertCASCIndexState(t *testing.T, ctx context.Context, db *sql.DB, key SourceKey, indexName string, want string) {
+	t.Helper()
+	state, err := CASCIndexState(ctx, db, key, indexName)
+	if err != nil {
+		t.Fatalf("query casc index state: %v", err)
+	}
+	if state != want {
+		t.Fatalf("casc index state = %q, want %q", state, want)
 	}
 }
