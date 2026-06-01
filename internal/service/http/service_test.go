@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"wowdata/internal/config"
@@ -78,6 +79,27 @@ func TestServiceEnsureTableRejectsEmptyTable(t *testing.T) {
 
 	if err := svc.EnsureTable(context.Background(), RequestContext{}, ""); err == nil {
 		t.Fatal("EnsureTable empty table error = nil")
+	}
+}
+
+func TestServiceEnsureTableRejectsMissingMaterializerWithoutCaching(t *testing.T) {
+	svc := NewService(config.DefaultHTTPConfig(), nil)
+	rc := RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"}
+
+	err := svc.EnsureTable(context.Background(), rc, "SpellName")
+	if err == nil {
+		t.Fatal("EnsureTable missing materializer error = nil")
+	}
+	if !strings.Contains(err.Error(), "materializer") {
+		t.Fatalf("EnsureTable error = %q, want materializer context", err.Error())
+	}
+
+	err = svc.EnsureTable(context.Background(), rc, "SpellName")
+	if err == nil {
+		t.Fatal("EnsureTable second missing materializer error = nil")
+	}
+	if !strings.Contains(err.Error(), "materializer") {
+		t.Fatalf("EnsureTable second error = %q, want materializer context", err.Error())
 	}
 }
 

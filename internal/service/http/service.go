@@ -129,7 +129,7 @@ func (s *Service) materialize(ctx context.Context, rc RequestContext, table stri
 	if s.materializer != nil {
 		return s.materializer.EnsureTable(ctx, rc, table)
 	}
-	return nil
+	return fmt.Errorf("materializer unavailable")
 }
 
 func tableKey(rc RequestContext, table string) string {
