@@ -70,10 +70,10 @@ Use this for remote deployments with a domain, TLS, reverse proxy, or shared ser
 The MCP endpoint is /mcp. Health and agent-readable setup guidance are available at /health and /help.
 
 Codex CLI:
-  codex mcp add wowdata --url https://mcp.lychee-addon.online:9443/mcp
+  codex mcp add wowdata --url https://mcp.example.com:9443/mcp
 
 Claude Code:
-  claude mcp add --transport http wowdata https://mcp.lychee-addon.online:9443/mcp
+  claude mcp add --transport http wowdata https://mcp.example.com:9443/mcp
 
 Claude Code stdio fallback:
   claude mcp add --transport stdio wowdata -- wowdata mcp stdio
@@ -81,7 +81,7 @@ Claude Code stdio fallback:
 cc-switch custom MCP:
   {
     "type": "http",
-    "url": "https://mcp.lychee-addon.online:9443/mcp"
+    "url": "https://mcp.example.com:9443/mcp"
   }
 
 Compatibility notes:

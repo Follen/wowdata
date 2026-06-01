@@ -43,6 +43,25 @@ func TestMCPHTTPHelpIncludesClientConfigGuidance(t *testing.T) {
 	}
 }
 
+func TestMCPHTTPHelpUsesGenericExampleDomain(t *testing.T) {
+	cmd := newRootCommandForRuntime(NewRuntime())
+	cmd.SetArgs([]string{"mcp", "http", "--help"})
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("mcp http --help: %v stderr=%s", err, stderr.String())
+	}
+	help := stdout.String()
+	if strings.Contains(help, "lychee-addon.online") || strings.Contains(help, "wowdata.online") {
+		t.Fatalf("Go HTTP help should use generic examples, not deployment domains:\n%s", help)
+	}
+	if !strings.Contains(help, "https://mcp.example.com:9443/mcp") {
+		t.Fatalf("Go HTTP help should include generic MCP endpoint example:\n%s", help)
+	}
+}
+
 func TestMCPWebHelpOmitsServerStartupCommand(t *testing.T) {
 	help := mcpHelpHTML("https://mcp.lychee-addon.online:9443")
 	if strings.Contains(help, "HTTP server") || strings.Contains(help, "wowdata mcp http") {

@@ -107,6 +107,8 @@ HTTP endpoint:
 - `GET /health`：服务健康状态
 - `GET /help`：面向用户和 agent 的配置指南
 
+`--base-url` 只用于生成运行时返回的公开 endpoint。生产环境可以在 nginx/CDN 层用静态 `/help` 覆盖 Go 的内置帮助页，把实际域名、NAT 端口和客户端配置留在部署层维护。
+
 Codex:
 
 ```powershell
@@ -274,6 +276,8 @@ HTTP endpoints:
 - `GET|HEAD /mcp`: health/reachability checks for clients
 - `GET /health`: service health
 - `GET /help`: setup guide for users and agents
+
+`--base-url` is only used to generate the public endpoint returned at runtime. Production deployments can serve a static `/help` page from nginx/CDN instead of the built-in Go help page, keeping the real domain, NAT port, and client setup in the deployment layer.
 
 Codex:
 
