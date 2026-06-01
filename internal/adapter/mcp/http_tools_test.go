@@ -157,12 +157,96 @@ func TestHTTPDB2HandlerQueriesDB2AfterEnsureTable(t *testing.T) {
 		t.Fatalf("QueryDB2 fields = %#v", svc.lastQuery.Fields)
 	}
 	got := result.(map[string]interface{})
-	if got["ok"] != true || got["command"] != "db2" {
+	if got["ok"] != true || got["command"] != "db2 rows" {
 		t.Fatalf("unexpected db2 envelope: %#v", got)
 	}
 	rows := got["data"].(map[string]interface{})["rows"].([]map[string]interface{})
 	if len(rows) != 1 || rows[0]["Name_lang"] != "Fireball" {
 		t.Fatalf("rows = %#v", rows)
+	}
+}
+
+func TestHTTPDB2HandlerSupportsSearchForeignKeyAndStreamModes(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		raw       json.RawMessage
+		wantMode  string
+		wantField string
+		wantIDs   []uint32
+		wantLimit int
+	}{
+		{
+			name:      "search",
+			raw:       json.RawMessage(`{"mode":"search","table":"SpellName","field":"Name_lang","query":"Fire","limit":3}`),
+			wantMode:  "search",
+			wantField: "Name_lang",
+			wantLimit: 3,
+		},
+		{
+			name:      "foreign-key",
+			raw:       json.RawMessage(`{"mode":"foreign-key","table":"SpellEffect","field":"SpellID","value":123}`),
+			wantMode:  "foreign-key",
+			wantField: "SpellID",
+			wantIDs:   []uint32{123},
+		},
+		{
+			name:      "stream",
+			raw:       json.RawMessage(`{"mode":"stream","table":"SpellEffect","fields":["ID"],"limit":2}`),
+			wantMode:  "stream",
+			wantLimit: 2,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &fakeHTTPService{queryRows: []map[string]interface{}{{"ID": uint32(123)}}}
+			tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_db2")
+
+			result, err := tool.Handler(context.Background(), tc.raw)
+			if err != nil {
+				t.Fatalf("wow_db2 handler: %v", err)
+			}
+			if svc.queryCalls != 1 {
+				t.Fatalf("QueryDB2 calls = %d, want 1", svc.queryCalls)
+			}
+			if svc.lastQuery.Table == "" {
+				t.Fatalf("QueryDB2 query missing table: %#v", svc.lastQuery)
+			}
+			if tc.wantField != "" && svc.lastQuery.IDField != tc.wantField {
+				t.Fatalf("IDField = %q, want %q", svc.lastQuery.IDField, tc.wantField)
+			}
+			if len(tc.wantIDs) > 0 && (len(svc.lastQuery.IDs) != len(tc.wantIDs) || svc.lastQuery.IDs[0] != tc.wantIDs[0]) {
+				t.Fatalf("IDs = %#v, want %#v", svc.lastQuery.IDs, tc.wantIDs)
+			}
+			if svc.lastQuery.Limit != tc.wantLimit {
+				t.Fatalf("Limit = %d, want %d", svc.lastQuery.Limit, tc.wantLimit)
+			}
+			data := result.(map[string]interface{})["data"].(map[string]interface{})
+			if data["mode"] != tc.wantMode {
+				t.Fatalf("mode = %#v, want %q; data=%#v", data["mode"], tc.wantMode, data)
+			}
+		})
+	}
+}
+
+func TestHTTPDB2HandlerSupportsSchemaMode(t *testing.T) {
+	svc := &fakeHTTPService{
+		schema: httpservice.DB2Schema{
+			Table:    "SpellName",
+			RowCount: 42,
+			Fields:   map[string]string{"ID": "INTEGER", "Name_lang": "VARCHAR"},
+		},
+	}
+	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_db2")
+
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{"mode":"schema","table":"SpellName"}`))
+	if err != nil {
+		t.Fatalf("wow_db2 handler: %v", err)
+	}
+	if svc.schemaCalls != 1 || svc.lastSchemaTable != "SpellName" {
+		t.Fatalf("SchemaDB2 calls/table = %d/%q, want 1/SpellName", svc.schemaCalls, svc.lastSchemaTable)
+	}
+	data := result.(map[string]interface{})["data"].(map[string]interface{})
+	if data["mode"] != "schema" || data["rowCount"] != 42 {
+		t.Fatalf("schema data = %#v", data)
 	}
 }
 
@@ -349,6 +433,10 @@ type fakeHTTPService struct {
 	queryErr        error
 	queryCalls      int
 	lastQuery       httpservice.DB2Query
+	schema          httpservice.DB2Schema
+	schemaErr       error
+	schemaCalls     int
+	lastSchemaTable string
 }
 
 func (f *fakeHTTPService) Status() httpservice.Status {
@@ -379,6 +467,13 @@ func (f *fakeHTTPService) QueryDB2(ctx context.Context, query httpservice.DB2Que
 	f.queryCalls++
 	f.lastQuery = query
 	return f.queryRows, f.queryErr
+}
+
+func (f *fakeHTTPService) SchemaDB2(ctx context.Context, rc httpservice.RequestContext, table string) (httpservice.DB2Schema, error) {
+	f.schemaCalls++
+	f.lastContext = rc
+	f.lastSchemaTable = table
+	return f.schema, f.schemaErr
 }
 
 type fakeArtifactLinker struct {

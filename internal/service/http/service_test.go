@@ -361,6 +361,97 @@ func TestServiceQueryDB2RejectsUnsafeFilter(t *testing.T) {
 	}
 }
 
+func TestServiceQueryDB2BuildsSearchPredicate(t *testing.T) {
+	db, err := metadata.Open(filepath.Join(t.TempDir(), "metadata.sqlite"), "../../../migrations/sqlite")
+	if err != nil {
+		t.Fatalf("open metadata db: %v", err)
+	}
+	defer db.Close()
+	if err := metadata.UpsertMaterializedTable(db, metadata.MaterializedTable{
+		Region:              "cn",
+		Product:             "wow",
+		BuildKey:            "build-key",
+		BuildName:           "12.0.0.61234",
+		Locale:              "zhCN",
+		TableName:           "SpellName",
+		DB2FileDataID:       123,
+		DBDDefinitionHash:   "dbd-hash",
+		DecoderVersion:      "decoder-v1",
+		MaterializerVersion: "materializer-v1",
+		ParquetPath:         filepath.Join(t.TempDir(), "SpellName.parquet"),
+		RowCount:            1,
+		State:               metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert materialized table: %v", err)
+	}
+	engine := &fakeParquetQueryEngine{rows: []map[string]interface{}{{"ID": uint32(1)}}}
+	svc := NewService(config.DefaultHTTPConfig(), nil)
+	svc.SetMetadataDBForTest(db)
+	svc.SetQueryEngineForTest(engine)
+	svc.SetMaterializeFuncForTest(func(context.Context, RequestContext, string) error { return nil })
+
+	if _, err := svc.QueryDB2(context.Background(), DB2Query{
+		RequestContext: RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"},
+		Table:          "SpellName",
+		SearchField:    "Name_lang",
+		SearchQuery:    "Fire",
+		Limit:          3,
+	}); err != nil {
+		t.Fatalf("QueryDB2 search: %v", err)
+	}
+	if !strings.Contains(engine.query, `lower(CAST("Name_lang" AS VARCHAR)) LIKE ?`) {
+		t.Fatalf("query = %q, want search predicate", engine.query)
+	}
+	if len(engine.args) != 1 || engine.args[0] != "%fire%" {
+		t.Fatalf("args = %#v, want %%fire%%", engine.args)
+	}
+}
+
+func TestServiceSchemaDB2DescribesMaterializedParquet(t *testing.T) {
+	db, err := metadata.Open(filepath.Join(t.TempDir(), "metadata.sqlite"), "../../../migrations/sqlite")
+	if err != nil {
+		t.Fatalf("open metadata db: %v", err)
+	}
+	defer db.Close()
+	parquetPath := filepath.Join(t.TempDir(), "SpellName.parquet")
+	if err := metadata.UpsertMaterializedTable(db, metadata.MaterializedTable{
+		Region:              "cn",
+		Product:             "wow",
+		BuildKey:            "build-key",
+		BuildName:           "12.0.0.61234",
+		Locale:              "zhCN",
+		TableName:           "SpellName",
+		DB2FileDataID:       123,
+		DBDDefinitionHash:   "dbd-hash",
+		DecoderVersion:      "decoder-v1",
+		MaterializerVersion: "materializer-v1",
+		ParquetPath:         parquetPath,
+		RowCount:            42,
+		State:               metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert materialized table: %v", err)
+	}
+	engine := &fakeParquetQueryEngine{rows: []map[string]interface{}{
+		{"column_name": "ID", "column_type": "INTEGER"},
+		{"column_name": "Name_lang", "column_type": "VARCHAR"},
+	}}
+	svc := NewService(config.DefaultHTTPConfig(), nil)
+	svc.SetMetadataDBForTest(db)
+	svc.SetQueryEngineForTest(engine)
+	svc.SetMaterializeFuncForTest(func(context.Context, RequestContext, string) error { return nil })
+
+	schema, err := svc.SchemaDB2(context.Background(), RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"}, "SpellName")
+	if err != nil {
+		t.Fatalf("SchemaDB2: %v", err)
+	}
+	if schema.RowCount != 42 || schema.Fields["ID"] != "INTEGER" || schema.Fields["Name_lang"] != "VARCHAR" {
+		t.Fatalf("schema = %#v", schema)
+	}
+	if !strings.Contains(engine.query, "DESCRIBE SELECT * FROM read_parquet") || !strings.Contains(engine.query, strings.ReplaceAll(parquetPath, `\`, `/`)) {
+		t.Fatalf("query = %q, want DESCRIBE parquet path", engine.query)
+	}
+}
+
 func TestServiceStatusReportsCacheAndContextLimits(t *testing.T) {
 	cfg := config.DefaultHTTPConfig()
 	cfg.Cache.Root = "test-cache"

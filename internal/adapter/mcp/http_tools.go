@@ -54,6 +54,10 @@ type DB2Querier interface {
 	QueryDB2(context.Context, httpservice.DB2Query) ([]map[string]interface{}, error)
 }
 
+type DB2SchemaQuerier interface {
+	SchemaDB2(context.Context, httpservice.RequestContext, string) (httpservice.DB2Schema, error)
+}
+
 type CapabilityProvider interface {
 	RequireCapability(context.Context, httpservice.RequestContext, string) error
 }
@@ -63,6 +67,7 @@ type HTTPService interface {
 	BuildProvider
 	TableEnsurer
 	DB2Querier
+	DB2SchemaQuerier
 	CapabilityProvider
 }
 
@@ -152,6 +157,7 @@ func httpStatusTool(svc StatusProvider) mcpserver.Tool {
 func httpDB2Tool(svc interface {
 	TableEnsurer
 	DB2Querier
+	DB2SchemaQuerier
 }) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_db2",
@@ -170,7 +176,20 @@ func httpDB2Tool(svc interface {
 			if err := svc.EnsureTable(ctx, rc, table); err != nil {
 				return errorEnvelopeFromError("db2", "materializer_unavailable", err), nil
 			}
-			rows, err := svc.QueryDB2(ctx, httpservice.DB2Query{
+			mode := stringArg(args, "mode", "rows")
+			if mode == "schema" {
+				schema, err := svc.SchemaDB2(ctx, rc, table)
+				if err != nil {
+					return errorEnvelopeFromError("db2 schema", "query_engine_unavailable", err), nil
+				}
+				return okEnvelope("db2 schema", map[string]interface{}{
+					"table":    schema.Table,
+					"mode":     "schema",
+					"rowCount": schema.RowCount,
+					"fields":   schema.Fields,
+				}), nil
+			}
+			query := httpservice.DB2Query{
 				RequestContext: rc,
 				Table:          table,
 				IDs:            uint32ListArg(args, "id", "ids"),
@@ -178,12 +197,27 @@ func httpDB2Tool(svc interface {
 				Fields:         stringListArg(args, "fields"),
 				Filter:         stringArg(args, "filter", ""),
 				Limit:          intArg(args, "limit", 0),
-			})
+			}
+			switch mode {
+			case "rows", "":
+				mode = "rows"
+			case "search":
+				query.SearchField = stringArg(args, "field", "")
+				query.SearchQuery = stringArg(args, "query", "")
+			case "foreign-key":
+				query.IDs = uint32ListArg(args, "value")
+				query.IDField = stringArg(args, "field", "")
+			case "stream":
+			default:
+				return errorEnvelope("db2", "invalid_mode", "mode must be schema, rows, search, foreign-key, or stream"), nil
+			}
+			rows, err := svc.QueryDB2(ctx, query)
 			if err != nil {
 				return errorEnvelopeFromError("db2", "query_engine_unavailable", err), nil
 			}
-			return okEnvelope("db2", map[string]interface{}{
+			return okEnvelope("db2 "+mode, map[string]interface{}{
 				"table": table,
+				"mode":  mode,
 				"rows":  rows,
 				"count": len(rows),
 			}), nil

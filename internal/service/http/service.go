@@ -69,9 +69,17 @@ type DB2Query struct {
 	Table          string
 	IDs            []uint32
 	IDField        string
+	SearchField    string
+	SearchQuery    string
 	Fields         []string
 	Filter         string
 	Limit          int
+}
+
+type DB2Schema struct {
+	Table    string            `json:"table"`
+	RowCount int               `json:"rowCount"`
+	Fields   map[string]string `json:"fields"`
 }
 
 type parquetQueryEngine interface {
@@ -268,6 +276,45 @@ func (s *Service) QueryDB2(ctx context.Context, query DB2Query) ([]map[string]in
 	return rows, err
 }
 
+func (s *Service) SchemaDB2(ctx context.Context, rc RequestContext, table string) (DB2Schema, error) {
+	table = strings.TrimSpace(table)
+	if table == "" {
+		return DB2Schema{}, fmt.Errorf("table is required")
+	}
+	rc = s.ResolveRequestContext(rc)
+	if err := s.EnsureTable(ctx, rc, table); err != nil {
+		return DB2Schema{}, err
+	}
+	record, err := s.materializedTableRecord(rc, table)
+	if err != nil {
+		return DB2Schema{}, err
+	}
+	path := strings.ReplaceAll(record.ParquetPath, `\`, `/`)
+	if strings.Contains(path, "'") {
+		return DB2Schema{}, fmt.Errorf("unsafe parquet path")
+	}
+	engine := s.queryEngine
+	if engine == nil {
+		engine = duckdb.NewEngine(s.cfg.Cache.DuckDBPath)
+	}
+	rows, err := engine.QueryParquet(ctx, "DESCRIBE SELECT * FROM read_parquet('"+path+"')", nil)
+	if errors.Is(err, duckdb.ErrUnavailable) {
+		return DB2Schema{}, NewCapabilityError("query_engine_unavailable", "query engine")
+	}
+	if err != nil {
+		return DB2Schema{}, err
+	}
+	fields := make(map[string]string, len(rows))
+	for _, row := range rows {
+		name := describeValue(row, "column_name", "Column Name")
+		fieldType := describeValue(row, "column_type", "Column Type")
+		if name != "" {
+			fields[name] = fieldType
+		}
+	}
+	return DB2Schema{Table: table, RowCount: record.RowCount, Fields: fields}, nil
+}
+
 func (s *Service) SetMaterializeFuncForTest(fn func(context.Context, RequestContext, string) error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -352,6 +399,13 @@ func (s *Service) buildDB2SQL(query DB2Query) (string, []interface{}, error) {
 		clauses = append(clauses, clause)
 		args = append(args, value)
 	}
+	if strings.TrimSpace(query.SearchQuery) != "" {
+		if !duckdb.IsSafeIdentifier(query.SearchField) {
+			return "", nil, fmt.Errorf("unsafe search field %q", query.SearchField)
+		}
+		clauses = append(clauses, fmt.Sprintf(`lower(CAST("%s" AS VARCHAR)) LIKE ?`, query.SearchField))
+		args = append(args, "%"+strings.ToLower(strings.TrimSpace(query.SearchQuery))+"%")
+	}
 	if len(clauses) > 0 {
 		builder.WriteString(" WHERE ")
 		builder.WriteString(strings.Join(clauses, " AND "))
@@ -364,18 +418,26 @@ func (s *Service) buildDB2SQL(query DB2Query) (string, []interface{}, error) {
 }
 
 func (s *Service) materializedParquetPath(rc RequestContext, table string) (string, error) {
-	db, err := s.openMetadataDB()
-	if err != nil {
-		return "", err
-	}
-	record, err := metadata.LatestMaterializedTable(db, rc.Region, rc.Product, rc.Locale, table)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", NewCapabilityError("query_engine_unavailable", "query engine")
-	}
+	record, err := s.materializedTableRecord(rc, table)
 	if err != nil {
 		return "", err
 	}
 	return strings.ReplaceAll(record.ParquetPath, `\`, `/`), nil
+}
+
+func (s *Service) materializedTableRecord(rc RequestContext, table string) (metadata.MaterializedTable, error) {
+	db, err := s.openMetadataDB()
+	if err != nil {
+		return metadata.MaterializedTable{}, err
+	}
+	record, err := metadata.LatestMaterializedTable(db, rc.Region, rc.Product, rc.Locale, table)
+	if errors.Is(err, sql.ErrNoRows) {
+		return metadata.MaterializedTable{}, NewCapabilityError("query_engine_unavailable", "query engine")
+	}
+	if err != nil {
+		return metadata.MaterializedTable{}, err
+	}
+	return record, nil
 }
 
 func (s *Service) openMetadataDB() (*sql.DB, error) {
@@ -413,6 +475,18 @@ func safeFilterClause(filter string) (string, interface{}, error) {
 		return "", nil, fmt.Errorf("filter value is required")
 	}
 	return fmt.Sprintf(`"%s" = ?`, field), value, nil
+}
+
+func describeValue(row map[string]interface{}, keys ...string) string {
+	for _, key := range keys {
+		if value, ok := row[key]; ok && value != nil {
+			text := fmt.Sprint(value)
+			if text != "<nil>" {
+				return text
+			}
+		}
+	}
+	return ""
 }
 
 func selectList(fields []string) (string, error) {
