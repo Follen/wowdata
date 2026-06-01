@@ -73,6 +73,11 @@ func (m *DB2Materializer) EnsureTable(ctx context.Context, rc RequestContext, ta
 			return err
 		}
 	}
+	if ok, err := m.reuseExisting(runtimeCtx, table); err != nil {
+		return err
+	} else if ok {
+		return nil
+	}
 	loaded, err := m.Loader.LoadDB2Table(ctx, runtimeCtx, table)
 	if err != nil {
 		return err
@@ -117,6 +122,38 @@ func (m *DB2Materializer) EnsureTable(ctx context.Context, rc RequestContext, ta
 		runtimeCtx.TablesReady[table] = true
 	}
 	return nil
+}
+
+func (m *DB2Materializer) reuseExisting(runtimeCtx *appruntime.Context, table string) (bool, error) {
+	record, err := metadata.GetMaterializedTable(m.MetadataDB, runtimeCtx.Region, runtimeCtx.Product, runtimeCtx.BuildKey, runtimeCtx.Locale, table)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if record.State != metadata.StateValid || record.MaterializerVersion != m.materializerVersion() {
+		return false, nil
+	}
+	want := cacheparquet.Metadata{
+		Region:              record.Region,
+		Product:             record.Product,
+		BuildKey:            record.BuildKey,
+		Locale:              record.Locale,
+		Table:               record.TableName,
+		DB2FileDataID:       record.DB2FileDataID,
+		DBDDefinitionHash:   record.DBDDefinitionHash,
+		DecoderVersion:      record.DecoderVersion,
+		MaterializerVersion: record.MaterializerVersion,
+	}
+	if _, err := m.validateParquet(record.ParquetPath, want); err != nil {
+		_ = metadata.MarkMaterializedTableStale(m.MetadataDB, record.Region, record.Product, record.BuildKey, record.Locale, record.TableName)
+		return false, nil
+	}
+	if runtimeCtx.TablesReady != nil {
+		runtimeCtx.TablesReady[table] = true
+	}
+	return true, nil
 }
 
 func (m *DB2Materializer) materializerVersion() string {
