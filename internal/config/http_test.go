@@ -57,6 +57,15 @@ func TestLoadHTTPConfigFromYAML(t *testing.T) {
 	if cfg.Defaults.Locale != "zhCN" {
 		t.Fatalf("default locale not retained: %#v", cfg.Defaults)
 	}
+	if len(cfg.Contexts.Pinned) != 4 {
+		t.Fatalf("default pinned contexts not retained: %#v", cfg.Contexts.Pinned)
+	}
+	if len(cfg.Prepare.DefaultTables) == 0 {
+		t.Fatal("default prepare tables not retained")
+	}
+	if !containsString(cfg.Prepare.DefaultTables, "SpellName") || !containsString(cfg.Prepare.DefaultTables, "ItemSparse") {
+		t.Fatalf("default prepare tables missing expected values: %#v", cfg.Prepare.DefaultTables)
+	}
 }
 
 func TestHTTPConfigRejectsInvalidPort(t *testing.T) {
@@ -79,4 +88,103 @@ func TestHTTPConfigRejectsMissingDefaultsAndZeroConcurrency(t *testing.T) {
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("Validate accepted zero concurrency")
 	}
+}
+
+func TestHTTPConfigRejectsRuntimeInvalidZeroAndEmptySettings(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*HTTPConfig)
+	}{
+		{
+			name: "request timeout zero",
+			mutate: func(cfg *HTTPConfig) {
+				cfg.Limits.RequestTimeoutSeconds = 0
+			},
+		},
+		{
+			name: "materialize timeout zero",
+			mutate: func(cfg *HTTPConfig) {
+				cfg.Limits.MaterializeTimeoutSeconds = 0
+			},
+		},
+		{
+			name: "refresh product check interval zero",
+			mutate: func(cfg *HTTPConfig) {
+				cfg.Refresh.ProductCheckIntervalMinutes = 0
+			},
+		},
+		{
+			name: "refresh keep builds zero",
+			mutate: func(cfg *HTTPConfig) {
+				cfg.Refresh.KeepBuildsPerProduct = 0
+			},
+		},
+		{
+			name: "refresh max cache zero",
+			mutate: func(cfg *HTTPConfig) {
+				cfg.Refresh.MaxCacheGB = 0
+			},
+		},
+		{
+			name: "artifact retention zero",
+			mutate: func(cfg *HTTPConfig) {
+				cfg.Artifacts.RetentionHours = 0
+			},
+		},
+		{
+			name: "cache root empty",
+			mutate: func(cfg *HTTPConfig) {
+				cfg.Cache.Root = ""
+			},
+		},
+		{
+			name: "cache metadata db empty",
+			mutate: func(cfg *HTTPConfig) {
+				cfg.Cache.MetadataDB = ""
+			},
+		},
+		{
+			name: "cache raw dir empty",
+			mutate: func(cfg *HTTPConfig) {
+				cfg.Cache.RawDir = ""
+			},
+		},
+		{
+			name: "cache db2 dir empty",
+			mutate: func(cfg *HTTPConfig) {
+				cfg.Cache.DB2Dir = ""
+			},
+		},
+		{
+			name: "cache duckdb path empty",
+			mutate: func(cfg *HTTPConfig) {
+				cfg.Cache.DuckDBPath = ""
+			},
+		},
+		{
+			name: "artifacts root empty",
+			mutate: func(cfg *HTTPConfig) {
+				cfg.Artifacts.Root = ""
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultHTTPConfig()
+			tt.mutate(&cfg)
+			if err := cfg.Validate(); err == nil {
+				t.Fatal("Validate accepted invalid config")
+			}
+		})
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }

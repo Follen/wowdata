@@ -139,8 +139,44 @@ func (c HTTPConfig) Validate() error {
 	if c.Contexts.MaxContexts < 1 {
 		return fmt.Errorf("contexts.max_contexts must be at least 1")
 	}
+	if c.Cache.Root == "" {
+		return fmt.Errorf("cache.root is required")
+	}
+	if c.Cache.MetadataDB == "" {
+		return fmt.Errorf("cache.metadata_db is required")
+	}
+	if c.Cache.RawDir == "" {
+		return fmt.Errorf("cache.raw_dir is required")
+	}
+	if c.Cache.DB2Dir == "" {
+		return fmt.Errorf("cache.db2_dir is required")
+	}
+	if c.Cache.DuckDBPath == "" {
+		return fmt.Errorf("cache.duckdb_path is required")
+	}
+	if c.Artifacts.Root == "" {
+		return fmt.Errorf("artifacts.root is required")
+	}
+	if c.Artifacts.RetentionHours < 1 {
+		return fmt.Errorf("artifacts.retention_hours must be at least 1")
+	}
+	if c.Refresh.ProductCheckIntervalMinutes < 1 {
+		return fmt.Errorf("refresh.product_check_interval_minutes must be at least 1")
+	}
+	if c.Refresh.KeepBuildsPerProduct < 1 {
+		return fmt.Errorf("refresh.keep_builds_per_product must be at least 1")
+	}
+	if c.Refresh.MaxCacheGB < 1 {
+		return fmt.Errorf("refresh.max_cache_gb must be at least 1")
+	}
 	if c.Limits.MaxConcurrentPrepares < 1 || c.Limits.MaxConcurrentMaterializations < 1 || c.Limits.MaxConcurrentQueries < 1 {
 		return fmt.Errorf("limits concurrency values must be at least 1")
+	}
+	if c.Limits.RequestTimeoutSeconds < 1 {
+		return fmt.Errorf("limits.request_timeout_seconds must be at least 1")
+	}
+	if c.Limits.MaterializeTimeoutSeconds < 1 {
+		return fmt.Errorf("limits.materialize_timeout_seconds must be at least 1")
 	}
 	return nil
 }
