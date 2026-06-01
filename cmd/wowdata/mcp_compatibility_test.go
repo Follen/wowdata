@@ -65,6 +65,19 @@ func TestHTTPHelpListsCodexClaudeAndCCSwitch(t *testing.T) {
 	}
 }
 
+func TestHTTPMCPBusinessToolsUseRuntimeHandlersInsteadOfCapabilityPlaceholders(t *testing.T) {
+	handlerFor := httpRuntimeCLIHandler(NewRuntime(), artifactConfig{}, httpservice.ContextDefaults{
+		Region:  "cn",
+		Product: "wow",
+		Locale:  "zhCN",
+	})
+	for _, name := range []string{"wow_item", "wow_spell", "wow_file", "wow_icon", "wow_creature", "wow_encounter", "wow_decor", "wow_video"} {
+		if handlerFor(name) == nil {
+			t.Fatalf("%s is not wired to an HTTP runtime handler", name)
+		}
+	}
+}
+
 func TestHTTPHealthReportsConfiguredCacheRoot(t *testing.T) {
 	rt := NewRuntime()
 	rt.CacheRoot = filepath.Join(t.TempDir(), "runtime-cache")
@@ -149,7 +162,7 @@ func TestMCPCommandHasStdioAndHTTPSubcommands(t *testing.T) {
 
 func TestHTTPMCPToolNamesExcludeWarmupAndIncludeStatusBuilds(t *testing.T) {
 	svc := httpservice.NewService(config.DefaultHTTPConfig(), nil)
-	server := newMCPHTTPServerForService(svc, artifactConfig{})
+	server := newMCPHTTPServerForService(svc, NewRuntime(), artifactConfig{})
 	var stdin, stdout bytes.Buffer
 	writeMCPFrameForTest(&stdin, []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
 

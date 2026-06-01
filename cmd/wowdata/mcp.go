@@ -50,10 +50,12 @@ func newMCPServerForRuntimeWithArtifacts(rt *Runtime, artifacts artifactConfig) 
 	return mcpserver.NewServer("wowdata", mcpToolsForRuntimeWithArtifacts(rt, artifacts))
 }
 
-func newMCPHTTPServerForService(svc *httpservice.Service, artifacts artifactConfig) *mcpserver.Server {
+func newMCPHTTPServerForService(svc *httpservice.Service, rt *Runtime, artifacts artifactConfig) *mcpserver.Server {
+	defaults := svc.Builds().Default
 	return mcpserver.NewServer("wowdata", mcpadapter.HTTPTools(svc, mcpadapter.HTTPToolOptions{
 		ExposeAdmin: svc.ToolPolicy().ExposeAdminTools,
 		Artifacts:   newMCPArtifactReserver(artifacts),
+		Handler:     httpRuntimeCLIHandler(rt, artifacts, defaults),
 	}))
 }
 
@@ -254,6 +256,114 @@ func stdioCLIHandler(rt *Runtime, name string, artifacts artifactConfig) mcpadap
 			return nil, fmt.Errorf("unknown stdio MCP tool: %s", name)
 		}
 	}
+}
+
+func httpRuntimeCLIHandler(rt *Runtime, artifacts artifactConfig, defaults httpservice.ContextDefaults) func(string) mcpadapter.ToolHandler {
+	return func(name string) mcpadapter.ToolHandler {
+		switch name {
+		case "wow_item", "wow_spell", "wow_file", "wow_icon", "wow_creature", "wow_encounter", "wow_decor", "wow_video":
+			return func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
+				args := ensureHTTPRuntimeArgs(raw, defaults)
+				if err := prepareHTTPRuntimeForTool(rt, name, args, defaults); err != nil {
+					return map[string]interface{}{
+						"ok":       false,
+						"command":  strings.TrimPrefix(name, "wow_"),
+						"data":     map[string]interface{}{},
+						"warnings": []interface{}{},
+						"error": map[string]interface{}{
+							"code":    "prepare_failed",
+							"message": err.Error(),
+						},
+					}, nil
+				}
+				return stdioCLIHandler(rt, name, artifacts)(ctx, args)
+			}
+		default:
+			return nil
+		}
+	}
+}
+
+func prepareHTTPRuntimeForTool(rt *Runtime, name string, raw json.RawMessage, defaults httpservice.ContextDefaults) error {
+	if rt == nil {
+		return fmt.Errorf("runtime is required")
+	}
+	var args map[string]interface{}
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &args); err != nil {
+			return err
+		}
+	}
+	if args == nil {
+		args = map[string]interface{}{}
+	}
+	opts := warmupOptions{
+		Source:          stringArg(args, "source", "remote"),
+		Region:          stringArg(args, "region", defaults.Region),
+		Product:         stringArg(args, "product", defaults.Product),
+		Locale:          stringArg(args, "locale", defaults.Locale),
+		CacheRoot:       rt.CacheRoot,
+		WarmDBDManifest: true,
+		Tables:          httpRuntimeTablesForTool(name),
+		WarmListfile:    httpRuntimeNeedsListfile(name),
+	}
+	_, err := rt.initialize(opts)
+	return err
+}
+
+func httpRuntimeNeedsListfile(name string) bool {
+	switch name {
+	case "wow_file", "wow_icon":
+		return true
+	default:
+		return false
+	}
+}
+
+func httpRuntimeTablesForTool(name string) []string {
+	switch name {
+	case "wow_spell":
+		return []string{"SpellName", "Spell", "SpellEffect", "SpellMisc", "SpellCastTimes", "SpellDuration", "SpellRange"}
+	case "wow_encounter":
+		return []string{"JournalEncounterSection", "SpellName"}
+	case "wow_item":
+		return []string{"Item", "ItemSparse", "ItemEffect", "ItemModifiedAppearance", "ItemAppearance", "ItemDisplayInfo", "ItemDisplayInfoMaterialRes", "ModelFileData", "TextureFileData", "ComponentModelFileData", "HelmetGeosetData"}
+	case "wow_creature":
+		return []string{"CreatureDisplayInfo", "CreatureModelData", "CreatureDisplayInfoGeosetData"}
+	case "wow_decor":
+		return []string{"HouseDecor"}
+	default:
+		return nil
+	}
+}
+
+func ensureHTTPRuntimeArgs(raw json.RawMessage, defaults httpservice.ContextDefaults) json.RawMessage {
+	var args map[string]interface{}
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &args); err != nil {
+			return raw
+		}
+	}
+	if args == nil {
+		args = map[string]interface{}{}
+	}
+	if _, ok := args["source"]; !ok {
+		args["source"] = "remote"
+	}
+	if _, ok := args["region"]; !ok {
+		args["region"] = defaults.Region
+	}
+	if _, ok := args["product"]; !ok {
+		args["product"] = defaults.Product
+	}
+	if _, ok := args["locale"]; !ok {
+		args["locale"] = defaults.Locale
+	}
+	data, err := json.Marshal(args)
+	if err != nil {
+		return raw
+	}
+	return data
 }
 
 func cliTool(rt *Runtime, name, description string, base []string, mapper func(map[string]interface{}) ([]string, error), artifacts artifactConfig) mcpTool {

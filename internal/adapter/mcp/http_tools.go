@@ -78,6 +78,7 @@ type ArtifactReserver interface {
 type HTTPToolOptions struct {
 	ExposeAdmin bool
 	Artifacts   ArtifactReserver
+	Handler     func(string) ToolHandler
 }
 
 func HTTPToolNames(exposeAdmin bool) []string {
@@ -93,14 +94,14 @@ func HTTPTools(svc HTTPService, opts HTTPToolOptions) []mcpserver.Tool {
 		httpBuildsTool(svc),
 		httpStatusTool(svc),
 		httpDB2Tool(svc),
-		httpCapabilityTool(svc, "wow_item", "Query item metadata and assets.", "item", "item_query"),
-		httpCapabilityTool(svc, "wow_spell", "Inspect spell relationships.", "spell", "spell_query"),
-		httpCapabilityTool(svc, "wow_file", "Query and export CASC files.", "file", "file_query"),
-		httpIconTool(svc, opts.Artifacts),
-		httpCapabilityTool(svc, "wow_creature", "Query creature displays and models.", "creature", "creature_query"),
-		httpCapabilityTool(svc, "wow_encounter", "Query JournalEncounter data.", "encounter", "encounter_query"),
-		httpCapabilityTool(svc, "wow_decor", "Query decor data.", "decor", "decor_query"),
-		httpCapabilityTool(svc, "wow_video", "Process video container data.", "video", "video_query"),
+		httpRuntimeTool(svc, opts.Handler, "wow_item", "Query item metadata and assets.", "item", "item_query"),
+		httpRuntimeTool(svc, opts.Handler, "wow_spell", "Inspect spell relationships.", "spell", "spell_query"),
+		httpRuntimeTool(svc, opts.Handler, "wow_file", "Query and export CASC files.", "file", "file_query"),
+		httpIconTool(svc, opts.Artifacts, opts.Handler),
+		httpRuntimeTool(svc, opts.Handler, "wow_creature", "Query creature displays and models.", "creature", "creature_query"),
+		httpRuntimeTool(svc, opts.Handler, "wow_encounter", "Query JournalEncounter data.", "encounter", "encounter_query"),
+		httpRuntimeTool(svc, opts.Handler, "wow_decor", "Query decor data.", "decor", "decor_query"),
+		httpRuntimeTool(svc, opts.Handler, "wow_video", "Process video container data.", "video", "video_query"),
 	}
 	if opts.ExposeAdmin {
 		tools = append(tools,
@@ -176,7 +177,7 @@ func httpDB2Tool(svc interface {
 	}
 }
 
-func httpIconTool(svc CapabilityProvider, artifacts ArtifactReserver) mcpserver.Tool {
+func httpIconTool(svc CapabilityProvider, artifacts ArtifactReserver, handlerFor func(string) ToolHandler) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_icon",
 		Description: "Export BLP icons.",
@@ -189,6 +190,11 @@ func httpIconTool(svc CapabilityProvider, artifacts ArtifactReserver) mcpserver.
 			artifactPath := stringArg(args, "path", "")
 			mimeType := stringArg(args, "mimeType", "image/png")
 			if artifactPath == "" {
+				if handlerFor != nil {
+					if handler := handlerFor("wow_icon"); handler != nil {
+						return handler(ctx, raw)
+					}
+				}
 				if err := svc.RequireCapability(ctx, requestContextFromArgs(args), "icon_export"); err != nil {
 					return errorEnvelopeFromError("icon export", "export_engine_unavailable", err), nil
 				}
@@ -206,6 +212,20 @@ func httpIconTool(svc CapabilityProvider, artifacts ArtifactReserver) mcpserver.
 			return okEnvelope("icon export", data), nil
 		},
 	}
+}
+
+func httpRuntimeTool(svc CapabilityProvider, handlerFor func(string) ToolHandler, name, description, command, capability string) mcpserver.Tool {
+	if handlerFor != nil {
+		if handler := handlerFor(name); handler != nil {
+			return mcpserver.Tool{
+				Name:        name,
+				Description: description,
+				InputSchema: objectSchema(),
+				Handler:     handler,
+			}
+		}
+	}
+	return httpCapabilityTool(svc, name, description, command, capability)
 }
 
 func httpCapabilityTool(svc CapabilityProvider, name, description, command, capability string) mcpserver.Tool {

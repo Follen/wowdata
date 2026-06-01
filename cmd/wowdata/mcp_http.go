@@ -60,7 +60,7 @@ Compatibility notes:
 			}
 			defer closeService()
 
-			server := newMCPHTTPServerForService(svc, artifactConfig{
+			server := newMCPHTTPServerForService(svc, rt, artifactConfig{
 				root:    cfg.Artifacts.Root,
 				baseURL: cfg.Artifacts.BaseURL,
 			})
