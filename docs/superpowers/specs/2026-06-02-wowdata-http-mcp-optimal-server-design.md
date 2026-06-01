@@ -42,6 +42,28 @@ cmd/wowdata-server
 
 The server Docker image uses `wowdata-server`. The local release keeps `wowdata`.
 
+## Public Naming
+
+The public query surface is named `query`, not `db2`.
+
+Required external names:
+
+```text
+CLI:
+  wowdata query schema
+  wowdata query rows
+  wowdata query search
+  wowdata query foreign-key
+  wowdata query stream
+
+MCP:
+  wow_query
+```
+
+The rename applies to CLI, stdio MCP, HTTP MCP, help text, README examples, release docs, performance docs, and tests. No legacy `wowdata db2 ...` command or `wow_db2` MCP tool is kept for compatibility.
+
+Internal packages, storage paths, and type names may still use `DB2` where they refer to the actual WoW DB2 file/table format, such as DB2 decoder code, DB2 metadata, and DB2 Parquet cache paths.
+
 ## File Architecture
 
 The codebase will be separated by runtime scenario:
@@ -204,7 +226,7 @@ SQLite stores:
 - state: preparing, valid, stale, failed
 - error text when failed
 
-HTTP DB2 tools must support:
+The HTTP `wow_query` tool must support:
 
 - schema
 - rows
@@ -212,7 +234,7 @@ HTTP DB2 tools must support:
 - foreign-key
 - stream
 
-All HTTP DB2 modes query Parquet through DuckDB after verifying SQLite metadata. They must not fall back to CLI handlers or local `MemoryDB2Store`.
+All HTTP `wow_query` modes query Parquet through DuckDB after verifying SQLite metadata. They must not fall back to CLI handlers or local `MemoryDB2Store`.
 
 ## Business Assemblers
 
@@ -409,7 +431,7 @@ HTTP MCP default tools:
 
 - `wow_status`
 - `wow_builds`
-- `wow_db2`
+- `wow_query`
 - `wow_item`
 - `wow_spell`
 - `wow_file`
@@ -469,11 +491,11 @@ Minimum required coverage:
 
 - all ready required targets
 - all required default DB2 tables per target
-- `wow_db2 schema`
-- `wow_db2 rows`
-- `wow_db2 search`
-- `wow_db2 foreign-key`
-- `wow_db2 stream`
+- `wow_query schema`
+- `wow_query rows`
+- `wow_query search`
+- `wow_query foreign-key`
+- `wow_query stream`
 - `wow_status`
 - `wow_builds`
 
