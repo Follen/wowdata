@@ -59,6 +59,9 @@ Compatibility notes:
 				return err
 			}
 			defer closeService()
+			if err := svc.PrewarmConfiguredContexts(cmd.Context()); err != nil {
+				return err
+			}
 
 			server := newMCPHTTPServerForService(svc, rt, artifactConfig{
 				root:    cfg.Artifacts.Root,

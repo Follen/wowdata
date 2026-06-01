@@ -10,6 +10,7 @@ import (
 	"wowdata/internal/cache/duckdb"
 	"wowdata/internal/cache/metadata"
 	"wowdata/internal/config"
+	appruntime "wowdata/internal/runtime"
 )
 
 func TestServiceDefaultsToCNRetail(t *testing.T) {
@@ -182,6 +183,66 @@ func TestServiceEnsureTableMapsQueryEngineUnavailable(t *testing.T) {
 	}
 }
 
+func TestServiceEnsureContextUsesPoolAndSingleflight(t *testing.T) {
+	cfg := config.DefaultHTTPConfig()
+	cfg.Contexts.MaxContexts = 2
+	resolver := &fakeRuntimeContextResolver{
+		ctx: &appruntime.Context{
+			Source:      "remote",
+			Region:      "cn",
+			Product:     "wow",
+			Locale:      "zhCN",
+			BuildKey:    "build-key",
+			CASCReady:   true,
+			DBDReady:    true,
+			TablesReady: map[string]bool{},
+		},
+	}
+	svc := NewService(cfg, nil)
+	svc.SetContextResolverForTest(resolver)
+
+	rc := RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"}
+	if err := svc.EnsureContext(context.Background(), rc); err != nil {
+		t.Fatalf("EnsureContext first: %v", err)
+	}
+	if err := svc.EnsureContext(context.Background(), rc); err != nil {
+		t.Fatalf("EnsureContext second: %v", err)
+	}
+
+	if resolver.calls != 1 {
+		t.Fatalf("resolver calls = %d, want 1", resolver.calls)
+	}
+}
+
+func TestServicePrewarmConfiguredContextsEnsuresDefaultTablesForPinnedContexts(t *testing.T) {
+	cfg := config.DefaultHTTPConfig()
+	cfg.Contexts.Pinned = []config.HTTPPinnedContext{
+		{Region: "cn", Product: "wow", Locale: "zhCN", Label: "CN Retail"},
+		{Region: "cn", Product: "wowt", Locale: "zhCN", Label: "CN PTR"},
+	}
+	cfg.Prepare.DefaultTables = []string{"SpellName", "ItemSparse"}
+	svc := NewService(cfg, nil)
+	var ensured []string
+	svc.SetMaterializeFuncForTest(func(ctx context.Context, rc RequestContext, table string) error {
+		ensured = append(ensured, rc.Region+"/"+rc.Product+"/"+rc.Locale+"/"+table)
+		return nil
+	})
+
+	if err := svc.PrewarmConfiguredContexts(context.Background()); err != nil {
+		t.Fatalf("PrewarmConfiguredContexts: %v", err)
+	}
+
+	want := []string{
+		"cn/wow/zhCN/SpellName",
+		"cn/wow/zhCN/ItemSparse",
+		"cn/wowt/zhCN/SpellName",
+		"cn/wowt/zhCN/ItemSparse",
+	}
+	if strings.Join(ensured, "|") != strings.Join(want, "|") {
+		t.Fatalf("ensured = %#v, want %#v", ensured, want)
+	}
+}
+
 func TestServiceQueryDB2MapsUnavailableEngine(t *testing.T) {
 	svc := NewService(config.DefaultHTTPConfig(), nil)
 
@@ -332,4 +393,15 @@ func (f *fakeParquetQueryEngine) QueryParquet(ctx context.Context, query string,
 	f.query = query
 	f.args = args
 	return f.rows, f.err
+}
+
+type fakeRuntimeContextResolver struct {
+	ctx   *appruntime.Context
+	err   error
+	calls int
+}
+
+func (f *fakeRuntimeContextResolver) ResolveContext(context.Context, RequestContext) (*appruntime.Context, error) {
+	f.calls++
+	return f.ctx, f.err
 }

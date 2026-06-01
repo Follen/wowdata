@@ -40,6 +40,22 @@ func TestDefaultHTTPConfigPinnedContexts(t *testing.T) {
 	}
 }
 
+func TestDefaultHTTPConfigPrewarmsAllBusinessTables(t *testing.T) {
+	cfg := DefaultHTTPConfig()
+	want := []string{
+		"SpellName", "Spell", "SpellEffect", "SpellMisc", "SpellCastTimes", "SpellDuration", "SpellRange",
+		"JournalEncounterSection",
+		"Item", "ItemSparse", "ItemEffect", "ItemModifiedAppearance", "ItemAppearance", "ItemDisplayInfo", "ItemDisplayInfoMaterialRes", "ModelFileData", "TextureFileData", "ComponentModelFileData", "HelmetGeosetData",
+		"CreatureDisplayInfo", "CreatureModelData", "CreatureDisplayInfoGeosetData",
+		"HouseDecor",
+	}
+	for _, table := range want {
+		if !containsString(cfg.Prepare.DefaultTables, table) {
+			t.Fatalf("default prepare tables missing %s: %#v", table, cfg.Prepare.DefaultTables)
+		}
+	}
+}
+
 func TestLoadHTTPConfigFromYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "http-mcp.yaml")

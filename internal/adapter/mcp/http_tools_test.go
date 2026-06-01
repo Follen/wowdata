@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"wowdata/internal/mcpserver"
+	appruntime "wowdata/internal/runtime"
 	httpservice "wowdata/internal/service/http"
 )
 
@@ -232,17 +235,81 @@ func TestHTTPIconHandlerReturnsCapabilityErrorWithoutExportPath(t *testing.T) {
 	}
 }
 
-func TestHTTPBusinessHandlersReturnStructuredCapabilityErrors(t *testing.T) {
+func TestHTTPFileGetExportsArtifactFromAssetProvider(t *testing.T) {
+	root := t.TempDir()
+	outPath := filepath.Join(root, "files", "134400.bin")
+	svc := &fakeHTTPService{}
+	assets := &fakeAssetProvider{fileStore: fakeAssetFileStore{data: []byte("asset-bytes")}}
+	linker := &fakeArtifactLinker{
+		reservePath: outPath,
+		reserveLink: ArtifactLink{
+			Path:        outPath,
+			URI:         "http://example.test/files/134400.bin",
+			DownloadURL: "http://example.test/files/134400.bin",
+			MimeType:    "application/octet-stream",
+			Name:        "134400.bin",
+		},
+	}
+	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{Assets: assets, Artifacts: linker}), "wow_file")
+
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{"mode":"get","fileDataID":134400}`))
+	if err != nil {
+		t.Fatalf("wow_file get handler: %v", err)
+	}
+	data, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("read exported artifact: %v", err)
+	}
+	if string(data) != "asset-bytes" {
+		t.Fatalf("artifact data = %q", data)
+	}
+	payload := result.(map[string]interface{})["data"].(map[string]interface{})
+	if payload["downloadUrl"] != "http://example.test/files/134400.bin" || payload["size"] != 11 {
+		t.Fatalf("file artifact payload = %#v", payload)
+	}
+}
+
+func TestHTTPBusinessHandlersEnsureTablesAndReturnStructuredMaterializerErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		wantTable string
+	}{
+		{"wow_item", "Item"},
+		{"wow_spell", "SpellName"},
+		{"wow_creature", "CreatureDisplayInfo"},
+		{"wow_encounter", "JournalEncounterSection"},
+		{"wow_decor", "HouseDecor"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &fakeHTTPService{
+				ensureErr: httpservice.CapabilityError{Code: "query_engine_unavailable", Message: "query engine unavailable"},
+			}
+			tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), tc.name)
+
+			result, err := tool.Handler(context.Background(), json.RawMessage(`{"region":"cn","product":"wow","locale":"zhCN"}`))
+			if err != nil {
+				t.Fatalf("%s handler: %v", tc.name, err)
+			}
+			if svc.ensureCalls != 1 || svc.lastTable != tc.wantTable {
+				t.Fatalf("EnsureTable calls/table = %d/%q, want 1/%q", svc.ensureCalls, svc.lastTable, tc.wantTable)
+			}
+			got := result.(map[string]interface{})
+			if got["ok"] != false {
+				t.Fatalf("%s should return structured error, got %#v", tc.name, got)
+			}
+			if code := got["error"].(map[string]interface{})["code"]; code != "query_engine_unavailable" {
+				t.Fatalf("%s error code = %#v, want query_engine_unavailable", tc.name, code)
+			}
+		})
+	}
+}
+
+func TestHTTPFileAndVideoRemainStructuredCapabilityErrors(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		capability string
 	}{
-		{"wow_item", "item_query"},
-		{"wow_spell", "spell_query"},
 		{"wow_file", "file_query"},
-		{"wow_creature", "creature_query"},
-		{"wow_encounter", "encounter_query"},
-		{"wow_decor", "decor_query"},
 		{"wow_video", "video_query"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -261,9 +328,6 @@ func TestHTTPBusinessHandlersReturnStructuredCapabilityErrors(t *testing.T) {
 			got := result.(map[string]interface{})
 			if got["ok"] != false {
 				t.Fatalf("%s should return structured error, got %#v", tc.name, got)
-			}
-			if code := got["error"].(map[string]interface{})["code"]; code != "query_engine_unavailable" {
-				t.Fatalf("%s error code = %#v, want query_engine_unavailable", tc.name, code)
 			}
 		})
 	}
@@ -318,10 +382,12 @@ func (f *fakeHTTPService) QueryDB2(ctx context.Context, query httpservice.DB2Que
 }
 
 type fakeArtifactLinker struct {
-	link      ArtifactLink
-	linkCalls int
-	path      string
-	mimeType  string
+	link        ArtifactLink
+	linkCalls   int
+	path        string
+	mimeType    string
+	reservePath string
+	reserveLink ArtifactLink
 }
 
 func (f *fakeArtifactLinker) LinkArtifact(path, mimeType string) (ArtifactLink, error) {
@@ -329,6 +395,62 @@ func (f *fakeArtifactLinker) LinkArtifact(path, mimeType string) (ArtifactLink, 
 	f.path = path
 	f.mimeType = mimeType
 	return f.link, nil
+}
+
+func (f *fakeArtifactLinker) ReserveArtifact(kind, name, mimeType string) (string, ArtifactLink, error) {
+	if err := os.MkdirAll(filepath.Dir(f.reservePath), 0755); err != nil {
+		return "", ArtifactLink{}, err
+	}
+	return f.reservePath, f.reserveLink, nil
+}
+
+type fakeAssetProvider struct {
+	fileStore appruntime.FileStore
+	iconStore appruntime.IconStore
+}
+
+func (f *fakeAssetProvider) FileStore(context.Context, httpservice.RequestContext, bool) (appruntime.FileStore, error) {
+	return f.fileStore, nil
+}
+
+func (f *fakeAssetProvider) IconStore(context.Context, httpservice.RequestContext) (appruntime.IconStore, error) {
+	return f.iconStore, nil
+}
+
+type fakeAssetFileStore struct {
+	data []byte
+}
+
+func (f fakeAssetFileStore) Lookup(fileDataID uint32) (string, bool) {
+	return "interface/icons/test.blp", true
+}
+
+func (f fakeAssetFileStore) Search(query string, limit int) []appruntime.FileEntry {
+	return []appruntime.FileEntry{{FileDataID: 134400, Filename: "interface/icons/test.blp"}}
+}
+
+func (f fakeAssetFileStore) SearchCount(query string) int { return 1 }
+
+func (f fakeAssetFileStore) Extension(extension string, limit int) []appruntime.FileEntry {
+	return []appruntime.FileEntry{{FileDataID: 134400, Filename: "interface/icons/test.blp"}}
+}
+
+func (f fakeAssetFileStore) ExtensionCount(extension string) int { return 1 }
+
+func (f fakeAssetFileStore) ExistsByID(fileDataID uint32) bool { return true }
+
+func (f fakeAssetFileStore) ExistsByName(filename string) bool { return filename != "" }
+
+func (f fakeAssetFileStore) EncodingInfo(fileDataID uint32) (interface{}, error) {
+	return map[string]interface{}{"fileDataID": fileDataID}, nil
+}
+
+func (f fakeAssetFileStore) ReadByID(fileDataID uint32) ([]byte, error) {
+	return f.data, nil
+}
+
+func (f fakeAssetFileStore) ReadByName(filename string) ([]byte, error) {
+	return f.data, nil
 }
 
 func findTool(t *testing.T, tools []mcpserver.Tool, name string) mcpserver.Tool {

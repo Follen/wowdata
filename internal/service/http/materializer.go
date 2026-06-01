@@ -41,6 +41,7 @@ type DB2Materializer struct {
 	MigrationsDescription string
 	WriteParquet          func(path string, meta cacheparquet.Metadata, loaded LoadedDB2Table) error
 	ValidateParquet       func(path string, want cacheparquet.Metadata) (cacheparquet.Metadata, error)
+	BeforeLoad            func(ctx context.Context, rc RequestContext, runtimeCtx *appruntime.Context) error
 }
 
 func (m *DB2Materializer) EnsureTable(ctx context.Context, rc RequestContext, table string) error {
@@ -66,6 +67,11 @@ func (m *DB2Materializer) EnsureTable(ctx context.Context, rc RequestContext, ta
 	}
 	if runtimeCtx == nil {
 		return fmt.Errorf("resolved context is nil")
+	}
+	if m.BeforeLoad != nil {
+		if err := m.BeforeLoad(ctx, rc, runtimeCtx); err != nil {
+			return err
+		}
 	}
 	loaded, err := m.Loader.LoadDB2Table(ctx, runtimeCtx, table)
 	if err != nil {

@@ -2,15 +2,20 @@ package mcp
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"wowdata/internal/export"
 	"wowdata/internal/mcpserver"
+	appruntime "wowdata/internal/runtime"
 	httpservice "wowdata/internal/service/http"
+	"wowdata/internal/wowdata"
 )
 
 var httpDefaultToolNames = []string{
@@ -75,10 +80,19 @@ type ArtifactReserver interface {
 	LinkArtifact(path, mimeType string) (ArtifactLink, error)
 }
 
+type ArtifactAllocator interface {
+	ReserveArtifact(kind, name, mimeType string) (string, ArtifactLink, error)
+}
+
+type RuntimeAssetProvider interface {
+	FileStore(context.Context, httpservice.RequestContext, bool) (appruntime.FileStore, error)
+	IconStore(context.Context, httpservice.RequestContext) (appruntime.IconStore, error)
+}
+
 type HTTPToolOptions struct {
 	ExposeAdmin bool
 	Artifacts   ArtifactReserver
-	Handler     func(string) ToolHandler
+	Assets      RuntimeAssetProvider
 }
 
 func HTTPToolNames(exposeAdmin bool) []string {
@@ -94,14 +108,14 @@ func HTTPTools(svc HTTPService, opts HTTPToolOptions) []mcpserver.Tool {
 		httpBuildsTool(svc),
 		httpStatusTool(svc),
 		httpDB2Tool(svc),
-		httpRuntimeTool(svc, opts.Handler, "wow_item", "Query item metadata and assets.", "item", "item_query"),
-		httpRuntimeTool(svc, opts.Handler, "wow_spell", "Inspect spell relationships.", "spell", "spell_query"),
-		httpRuntimeTool(svc, opts.Handler, "wow_file", "Query and export CASC files.", "file", "file_query"),
-		httpIconTool(svc, opts.Artifacts, opts.Handler),
-		httpRuntimeTool(svc, opts.Handler, "wow_creature", "Query creature displays and models.", "creature", "creature_query"),
-		httpRuntimeTool(svc, opts.Handler, "wow_encounter", "Query JournalEncounter data.", "encounter", "encounter_query"),
-		httpRuntimeTool(svc, opts.Handler, "wow_decor", "Query decor data.", "decor", "decor_query"),
-		httpRuntimeTool(svc, opts.Handler, "wow_video", "Process video container data.", "video", "video_query"),
+		httpItemTool(svc),
+		httpSpellTool(svc),
+		httpFileTool(svc, opts.Assets, opts.Artifacts),
+		httpIconTool(svc, opts.Assets, opts.Artifacts),
+		httpCreatureTool(svc),
+		httpEncounterTool(svc),
+		httpDecorTool(svc),
+		httpCapabilityTool(svc, "wow_video", "Process video container data.", "video", "video_query"),
 	}
 	if opts.ExposeAdmin {
 		tools = append(tools,
@@ -177,7 +191,85 @@ func httpDB2Tool(svc interface {
 	}
 }
 
-func httpIconTool(svc CapabilityProvider, artifacts ArtifactReserver, handlerFor func(string) ToolHandler) mcpserver.Tool {
+func httpFileTool(svc CapabilityProvider, assets RuntimeAssetProvider, artifacts ArtifactReserver) mcpserver.Tool {
+	return mcpserver.Tool{
+		Name:        "wow_file",
+		Description: "Query and export CASC files.",
+		InputSchema: objectSchema(),
+		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
+			args, err := parseArgs(raw)
+			if err != nil {
+				return nil, err
+			}
+			mode := stringArg(args, "mode", "lookup")
+			needsListfile := mode == "lookup" || mode == "search" || mode == "extension" || stringArg(args, "filename", "") != ""
+			if assets == nil {
+				if err := svc.RequireCapability(ctx, requestContextFromArgs(args), "file_query"); err != nil {
+					return errorEnvelopeFromError("file "+mode, "query_engine_unavailable", err), nil
+				}
+				return errorEnvelope("file "+mode, "query_engine_unavailable", "file query engine is unavailable in the HTTP service"), nil
+			}
+			store, err := assets.FileStore(ctx, requestContextFromArgs(args), needsListfile)
+			if err != nil {
+				return errorEnvelopeFromError("file "+mode, "query_engine_unavailable", err), nil
+			}
+			fileDataID := uint32Arg(args, "fileDataID", "fileDataId", "id")
+			filename := stringArg(args, "filename", "")
+			switch mode {
+			case "lookup":
+				name, found := store.Lookup(fileDataID)
+				if !found {
+					name = "unknown"
+				}
+				return okEnvelope("file lookup", map[string]interface{}{"fileDataID": fileDataID, "fileName": name}), nil
+			case "search":
+				query := stringArg(args, "query", "")
+				results := store.Search(query, intArg(args, "limit", 0))
+				return okEnvelope("file search", map[string]interface{}{"search": query, "total": store.SearchCount(query), "returned": len(results), "files": fileEntriesEnvelope(results)}), nil
+			case "extension":
+				extension := stringArg(args, "extension", "")
+				results := store.Extension(extension, intArg(args, "limit", 0))
+				return okEnvelope("file extension", map[string]interface{}{"extension": extension, "total": store.ExtensionCount(extension), "returned": len(results), "files": formattedFileEntries(results)}), nil
+			case "exists":
+				exists := false
+				if fileDataID != 0 {
+					exists = store.ExistsByID(fileDataID)
+				} else if filename != "" {
+					exists = store.ExistsByName(filename)
+				}
+				return okEnvelope("file exists", map[string]interface{}{"fileDataID": fileDataID, "filename": filename, "exists": exists}), nil
+			case "encoding":
+				info, err := store.EncodingInfo(fileDataID)
+				if err != nil {
+					return errorEnvelope("file encoding", "not_found", err.Error()), nil
+				}
+				return okEnvelope("file encoding", info), nil
+			case "get", "export":
+				data, err := readAssetFile(store, fileDataID, filename)
+				if err != nil {
+					return errorEnvelope("file "+mode, "not_found", err.Error()), nil
+				}
+				if artifacts == nil {
+					return okEnvelope("file "+mode, fileDataEnvelope(fileDataID, filename, data)), nil
+				}
+				path, link, err := reserveArtifact(artifacts, "files", fileArtifactName(fileDataID, filename), "application/octet-stream")
+				if err != nil {
+					return nil, err
+				}
+				if err := os.WriteFile(path, data, 0644); err != nil {
+					return errorEnvelope("file "+mode, "io_error", err.Error()), nil
+				}
+				payload := fileDataEnvelope(fileDataID, filename, data)
+				addArtifactLinkFields(payload, link)
+				return okEnvelope("file "+mode, payload), nil
+			default:
+				return errorEnvelope("file", "invalid_mode", "mode must be lookup, search, extension, exists, encoding, get, or export"), nil
+			}
+		},
+	}
+}
+
+func httpIconTool(svc CapabilityProvider, assets RuntimeAssetProvider, artifacts ArtifactReserver) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_icon",
 		Description: "Export BLP icons.",
@@ -190,15 +282,13 @@ func httpIconTool(svc CapabilityProvider, artifacts ArtifactReserver, handlerFor
 			artifactPath := stringArg(args, "path", "")
 			mimeType := stringArg(args, "mimeType", "image/png")
 			if artifactPath == "" {
-				if handlerFor != nil {
-					if handler := handlerFor("wow_icon"); handler != nil {
-						return handler(ctx, raw)
+				if assets == nil || artifacts == nil {
+					if err := svc.RequireCapability(ctx, requestContextFromArgs(args), "icon_export"); err != nil {
+						return errorEnvelopeFromError("icon export", "export_engine_unavailable", err), nil
 					}
+					return errorEnvelope("icon export", "export_engine_unavailable", "icon export engine is unavailable in the HTTP service"), nil
 				}
-				if err := svc.RequireCapability(ctx, requestContextFromArgs(args), "icon_export"); err != nil {
-					return errorEnvelopeFromError("icon export", "export_engine_unavailable", err), nil
-				}
-				return errorEnvelope("icon export", "export_engine_unavailable", "icon export engine is unavailable in the HTTP service"), nil
+				return exportHTTPIcon(ctx, assets, artifacts, requestContextFromArgs(args), args)
 			}
 			if artifacts == nil {
 				return errorEnvelope("icon export", "artifact_link_unavailable", "artifact manager is unavailable in the HTTP service"), nil
@@ -212,20 +302,6 @@ func httpIconTool(svc CapabilityProvider, artifacts ArtifactReserver, handlerFor
 			return okEnvelope("icon export", data), nil
 		},
 	}
-}
-
-func httpRuntimeTool(svc CapabilityProvider, handlerFor func(string) ToolHandler, name, description, command, capability string) mcpserver.Tool {
-	if handlerFor != nil {
-		if handler := handlerFor(name); handler != nil {
-			return mcpserver.Tool{
-				Name:        name,
-				Description: description,
-				InputSchema: objectSchema(),
-				Handler:     handler,
-			}
-		}
-	}
-	return httpCapabilityTool(svc, name, description, command, capability)
 }
 
 func httpCapabilityTool(svc CapabilityProvider, name, description, command, capability string) mcpserver.Tool {
@@ -244,6 +320,358 @@ func httpCapabilityTool(svc CapabilityProvider, name, description, command, capa
 			return errorEnvelope(command, "query_engine_unavailable", capability+" is unavailable in the HTTP service"), nil
 		},
 	}
+}
+
+type BusinessQuerier interface {
+	TableEnsurer
+	DB2Querier
+}
+
+func httpItemTool(svc BusinessQuerier) mcpserver.Tool {
+	return mcpserver.Tool{
+		Name:        "wow_item",
+		Description: "Query item metadata and assets.",
+		InputSchema: objectSchema(),
+		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
+			args, err := parseArgs(raw)
+			if err != nil {
+				return nil, err
+			}
+			rc := requestContextFromArgs(args)
+			if err := ensureBusinessTables(ctx, svc, rc, "Item", "ItemSparse", "ItemEffect", "ItemModifiedAppearance", "ItemAppearance", "ItemDisplayInfo", "ItemDisplayInfoMaterialRes", "ModelFileData", "TextureFileData", "ComponentModelFileData", "HelmetGeosetData"); err != nil {
+				return errorEnvelopeFromError("item "+stringArg(args, "mode", "get"), "query_engine_unavailable", err), nil
+			}
+			store := httpRowStore{ctx: ctx, rc: rc, svc: svc}
+			items := wowdata.NewItemServiceWithDB2(store)
+			mode := stringArg(args, "mode", "get")
+			itemID := uint32Arg(args, "itemID", "itemId", "id")
+			switch mode {
+			case "get":
+				item := items.GetItem(itemID)
+				if item == nil {
+					return errorEnvelope("item get", "not_found", "item not found"), nil
+				}
+				return okEnvelope("item get", item), nil
+			case "models":
+				result := items.GetItemModels(int(itemID), intArg(args, "raceID", 0), intArg(args, "gender", 0))
+				return okEnvelope("item models", map[string]interface{}{
+					"itemID":  itemID,
+					"raceID":  intArg(args, "raceID", 0),
+					"gender":  intArg(args, "gender", 0),
+					"display": itemModelDisplay(result),
+				}), nil
+			case "geosets":
+				result := items.GetItemGeosets(itemID)
+				return okEnvelope("item geosets", itemGeosetsEnvelope(itemID, result)), nil
+			case "textures":
+				result := items.GetItemTextures(itemID)
+				return okEnvelope("item textures", map[string]interface{}{"itemID": itemID, "textures": itemTexturesEnvelope(result)}), nil
+			default:
+				return errorEnvelope("item", "invalid_mode", "mode must be get, models, geosets, or textures"), nil
+			}
+		},
+	}
+}
+
+func httpSpellTool(svc BusinessQuerier) mcpserver.Tool {
+	return mcpserver.Tool{
+		Name:        "wow_spell",
+		Description: "Inspect spell relationships.",
+		InputSchema: objectSchema(),
+		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
+			args, err := parseArgs(raw)
+			if err != nil {
+				return nil, err
+			}
+			rc := requestContextFromArgs(args)
+			if err := ensureBusinessTables(ctx, svc, rc, "SpellName", "Spell", "SpellEffect", "SpellMisc", "SpellCastTimes", "SpellDuration", "SpellRange"); err != nil {
+				return errorEnvelopeFromError("spell "+stringArg(args, "mode", "info"), "query_engine_unavailable", err), nil
+			}
+			spells := wowdata.NewSpellServiceWithDB2(httpRowStore{ctx: ctx, rc: rc, svc: svc})
+			spellID := uint32Arg(args, "spellID", "spellId", "id")
+			switch mode := stringArg(args, "mode", "info"); mode {
+			case "info":
+				return okEnvelope("spell info", spells.GetSpellInfo(spellID, intArg(args, "maxDepth", 5))), nil
+			case "auras":
+				data := map[string]interface{}{"hasAura": []uint32{}, "noAura": []uint32{}}
+				if spells.DetectAuras(spellID).HasAura {
+					data["hasAura"] = []uint32{spellID}
+				} else {
+					data["noAura"] = []uint32{spellID}
+				}
+				return okEnvelope("spell auras", data), nil
+			case "summons":
+				summons := spells.DetectSummons(spellID, uint32Arg(args, "npcID", "npcId"))
+				return okEnvelope("spell summons", map[string]interface{}{"spellID": spellID, "npcID": uint32Arg(args, "npcID", "npcId"), "summons": summons, "count": len(summons)}), nil
+			default:
+				return errorEnvelope("spell", "invalid_mode", "mode must be info, auras, or summons"), nil
+			}
+		},
+	}
+}
+
+func httpEncounterTool(svc BusinessQuerier) mcpserver.Tool {
+	return mcpserver.Tool{
+		Name:        "wow_encounter",
+		Description: "Query JournalEncounter data.",
+		InputSchema: objectSchema(),
+		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
+			args, err := parseArgs(raw)
+			if err != nil {
+				return nil, err
+			}
+			rc := requestContextFromArgs(args)
+			if err := ensureBusinessTables(ctx, svc, rc, "JournalEncounterSection", "SpellName"); err != nil {
+				return errorEnvelopeFromError("encounter get", "query_engine_unavailable", err), nil
+			}
+			encounters := wowdata.NewEncounterServiceWithDB2(httpRowStore{ctx: ctx, rc: rc, svc: svc})
+			return okEnvelope("encounter get", encounters.GetEncounter(uint32Arg(args, "journalEncounterID", "journalEncounterId", "id"))), nil
+		},
+	}
+}
+
+func httpCreatureTool(svc BusinessQuerier) mcpserver.Tool {
+	return mcpserver.Tool{
+		Name:        "wow_creature",
+		Description: "Query creature displays and models.",
+		InputSchema: objectSchema(),
+		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
+			args, err := parseArgs(raw)
+			if err != nil {
+				return nil, err
+			}
+			rc := requestContextFromArgs(args)
+			if err := ensureBusinessTables(ctx, svc, rc, "CreatureDisplayInfo", "CreatureModelData", "CreatureDisplayInfoGeosetData"); err != nil {
+				return errorEnvelopeFromError("creature "+stringArg(args, "mode", "display"), "query_engine_unavailable", err), nil
+			}
+			creatures := wowdata.NewCreatureServiceWithDB2(httpRowStore{ctx: ctx, rc: rc, svc: svc})
+			displayID := uint32Arg(args, "displayID", "displayId", "id")
+			fileDataID := uint32Arg(args, "fileDataID", "fileDataId")
+			switch mode := stringArg(args, "mode", "display"); mode {
+			case "display":
+				var display *wowdata.CreatureDisplayInfo
+				if displayID != 0 {
+					display = creatures.GetDisplayByID(displayID)
+				} else {
+					display = creatures.GetDisplayByFileDataID(fileDataID)
+				}
+				if display == nil {
+					return errorEnvelope("creature display", "not_found", "creature display not found"), nil
+				}
+				return okEnvelope("creature display", display), nil
+			case "model":
+				displays := creatures.GetCreatureDisplaysByFileDataID(fileDataID)
+				return okEnvelope("creature model", creatureDisplaysEnvelope(displays)), nil
+			default:
+				return errorEnvelope("creature", "invalid_mode", "mode must be display or model"), nil
+			}
+		},
+	}
+}
+
+func httpDecorTool(svc BusinessQuerier) mcpserver.Tool {
+	return mcpserver.Tool{
+		Name:        "wow_decor",
+		Description: "Query decor data.",
+		InputSchema: objectSchema(),
+		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
+			args, err := parseArgs(raw)
+			if err != nil {
+				return nil, err
+			}
+			rc := requestContextFromArgs(args)
+			if err := ensureBusinessTables(ctx, svc, rc, "HouseDecor"); err != nil {
+				return errorEnvelopeFromError("decor "+stringArg(args, "mode", "list"), "query_engine_unavailable", err), nil
+			}
+			decor := wowdata.NewDecorServiceWithDB2(httpRowStore{ctx: ctx, rc: rc, svc: svc})
+			switch mode := stringArg(args, "mode", "list"); mode {
+			case "get":
+				item := decor.GetByID(uint32Arg(args, "id"))
+				if item == nil {
+					return errorEnvelope("decor get", "not_found", "decor item not found"), nil
+				}
+				return okEnvelope("decor get", item), nil
+			case "model":
+				item := decor.GetByModelFileDataID(uint32Arg(args, "modelFileDataID", "modelFileDataId", "fileDataID", "fileDataId"))
+				if item == nil {
+					return errorEnvelope("decor model", "not_found", "decor item not found"), nil
+				}
+				return okEnvelope("decor model", item), nil
+			case "list":
+				items := decor.ListAll()
+				if limit := intArg(args, "limit", 0); limit > 0 && limit < len(items) {
+					items = items[:limit]
+				}
+				return okEnvelope("decor list", map[string]interface{}{"items": items, "count": len(items)}), nil
+			default:
+				return errorEnvelope("decor", "invalid_mode", "mode must be list, get, or model"), nil
+			}
+		},
+	}
+}
+
+func ensureBusinessTables(ctx context.Context, svc TableEnsurer, rc httpservice.RequestContext, tables ...string) error {
+	for _, table := range tables {
+		if err := svc.EnsureTable(ctx, rc, table); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type httpRowStore struct {
+	ctx context.Context
+	rc  httpservice.RequestContext
+	svc DB2Querier
+}
+
+func (s httpRowStore) Ready() bool {
+	return s.svc != nil
+}
+
+func (s httpRowStore) Rows(table string, ids []uint32, fields []string, filter string, limit int) ([]map[string]interface{}, error) {
+	if s.svc == nil {
+		return nil, httpservice.NewCapabilityError("query_engine_unavailable", "query engine")
+	}
+	return s.svc.QueryDB2(s.ctx, httpservice.DB2Query{
+		RequestContext: s.rc,
+		Table:          table,
+		IDs:            ids,
+		Fields:         fields,
+		Filter:         filter,
+		Limit:          limit,
+	})
+}
+
+func itemModelDisplay(result *wowdata.ItemModelResult) map[string]interface{} {
+	if result == nil {
+		return map[string]interface{}{}
+	}
+	return map[string]interface{}{
+		"ID":                    result.DisplayID,
+		"models":                result.Models,
+		"textures":              result.Textures,
+		"geosetGroup":           result.GeosetGroup,
+		"attachmentGeosetGroup": []int{0, 0, 0, 0, 0, 0},
+	}
+}
+
+func itemGeosetsEnvelope(itemID uint32, result *wowdata.ItemGeosetResult) map[string]interface{} {
+	helmetHide := []int{}
+	geosets := map[string]interface{}{"geosetGroup": []int{}, "helmetGeosetVis": []int{}}
+	if result != nil {
+		helmetHide = append(helmetHide, result.HelmetHide...)
+		geosets = map[string]interface{}{"geosetGroup": result.GeosetGroup, "helmetGeosetVis": result.HelmetGeosetVis}
+	}
+	return map[string]interface{}{"itemID": itemID, "geosets": geosets, "helmetHide": helmetHide}
+}
+
+func itemTexturesEnvelope(result *wowdata.ItemTextureResult) []map[string]interface{} {
+	if result == nil {
+		return []map[string]interface{}{}
+	}
+	out := make([]map[string]interface{}, 0, len(result.Sections))
+	for _, section := range result.Sections {
+		out = append(out, map[string]interface{}{"section": section.Section, "fileDataID": section.FileDataID})
+	}
+	return out
+}
+
+func creatureDisplaysEnvelope(displays []wowdata.CreatureDisplayInfo) []map[string]interface{} {
+	out := make([]map[string]interface{}, 0, len(displays))
+	for _, display := range displays {
+		textures := display.Textures
+		if textures == nil {
+			textures = []uint32{}
+		}
+		out = append(out, map[string]interface{}{
+			"ID":       display.DisplayID,
+			"modelID":  display.ModelID,
+			"textures": textures,
+		})
+	}
+	return out
+}
+
+func exportHTTPIcon(ctx context.Context, assets RuntimeAssetProvider, artifacts ArtifactReserver, rc httpservice.RequestContext, args map[string]interface{}) (interface{}, error) {
+	store, err := assets.IconStore(ctx, rc)
+	if err != nil {
+		return errorEnvelopeFromError("icon export", "export_engine_unavailable", err), nil
+	}
+	fileDataID := uint32Arg(args, "fileDataID", "fileDataId", "id")
+	format := strings.ToLower(strings.TrimSpace(stringArg(args, "format", "png")))
+	if format == "" {
+		format = "png"
+	}
+	if format != "png" && format != "webp" {
+		return errorEnvelope("icon export", "unsupported_format", "format must be png or webp"), nil
+	}
+	mimeType := "image/" + format
+	path, link, err := reserveArtifact(artifacts, "icons", fmt.Sprintf("%d.%s", fileDataID, format), mimeType)
+	if err != nil {
+		return nil, err
+	}
+	data, err := store.ReadByID(fileDataID)
+	if err != nil {
+		return errorEnvelope("icon export", "not_found", err.Error()), nil
+	}
+	result, err := export.ExportIconWithOptions(data, path, format, intArg(args, "mipmap", 0), intArg(args, "mask", 0))
+	if err != nil {
+		return errorEnvelope("icon export", "export_error", err.Error()), nil
+	}
+	payload := map[string]interface{}{"fileDataID": fileDataID, "format": format, "result": result}
+	addArtifactLinkFields(payload, link)
+	return okEnvelope("icon export", payload), nil
+}
+
+func reserveArtifact(artifacts ArtifactReserver, kind, name, mimeType string) (string, ArtifactLink, error) {
+	if allocator, ok := artifacts.(ArtifactAllocator); ok {
+		return allocator.ReserveArtifact(kind, name, mimeType)
+	}
+	return "", ArtifactLink{}, fmt.Errorf("artifact reserve is unavailable in the HTTP service")
+}
+
+func readAssetFile(store appruntime.FileStore, fileDataID uint32, filename string) ([]byte, error) {
+	if fileDataID != 0 {
+		return store.ReadByID(fileDataID)
+	}
+	return store.ReadByName(filename)
+}
+
+func fileDataEnvelope(fileDataID uint32, filename string, data []byte) map[string]interface{} {
+	sum := sha256.Sum256(data)
+	return map[string]interface{}{
+		"fileDataID": fileDataID,
+		"filename":   filename,
+		"size":       len(data),
+		"sha256":     fmt.Sprintf("%x", sum[:]),
+	}
+}
+
+func fileArtifactName(fileDataID uint32, filename string) string {
+	if filename != "" {
+		return filepath.Base(filepath.ToSlash(filename))
+	}
+	if fileDataID != 0 {
+		return fmt.Sprintf("%d.bin", fileDataID)
+	}
+	return "file.bin"
+}
+
+func fileEntriesEnvelope(entries []appruntime.FileEntry) []map[string]interface{} {
+	files := make([]map[string]interface{}, 0, len(entries))
+	for _, entry := range entries {
+		files = append(files, map[string]interface{}{"fileDataID": entry.FileDataID, "fileName": entry.Filename})
+	}
+	return files
+}
+
+func formattedFileEntries(entries []appruntime.FileEntry) []string {
+	files := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		files = append(files, fmt.Sprintf("%s [%d]", entry.Filename, entry.FileDataID))
+	}
+	return files
 }
 
 func objectSchema() map[string]interface{} {
@@ -363,6 +791,32 @@ func intArg(args map[string]interface{}, key string, fallback int) int {
 	default:
 		return fallback
 	}
+}
+
+func uint32Arg(args map[string]interface{}, keys ...string) uint32 {
+	for _, key := range keys {
+		value, ok := args[key]
+		if !ok {
+			continue
+		}
+		switch v := value.(type) {
+		case float64:
+			if v >= 0 {
+				return uint32(v)
+			}
+		case string:
+			parsed, err := strconv.ParseUint(strings.TrimSpace(v), 10, 32)
+			if err == nil {
+				return uint32(parsed)
+			}
+		default:
+			parsed, err := strconv.ParseUint(strings.TrimSpace(fmt.Sprint(v)), 10, 32)
+			if err == nil {
+				return uint32(parsed)
+			}
+		}
+	}
+	return 0
 }
 
 func stringListArg(args map[string]interface{}, key string) []string {

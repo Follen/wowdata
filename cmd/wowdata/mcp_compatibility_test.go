@@ -65,38 +65,21 @@ func TestHTTPHelpListsCodexClaudeAndCCSwitch(t *testing.T) {
 	}
 }
 
-func TestHTTPMCPBusinessToolsUseRuntimeHandlersInsteadOfCapabilityPlaceholders(t *testing.T) {
-	handlerFor := httpRuntimeCLIHandler(NewRuntime(), artifactConfig{}, httpservice.ContextDefaults{
-		Region:  "cn",
-		Product: "wow",
-		Locale:  "zhCN",
-	})
-	for _, name := range []string{"wow_item", "wow_spell", "wow_file", "wow_icon", "wow_creature", "wow_encounter", "wow_decor", "wow_video"} {
-		if handlerFor(name) == nil {
-			t.Fatalf("%s is not wired to an HTTP runtime handler", name)
-		}
-	}
-}
+func TestHTTPMCPBusinessToolsDoNotUseCLIRuntimeHandlers(t *testing.T) {
+	svc := httpservice.NewService(config.DefaultHTTPConfig(), nil)
+	server := newMCPHTTPServerForService(svc, NewRuntime(), artifactConfig{})
+	var stdin, stdout bytes.Buffer
+	writeMCPFrameForTest(&stdin, []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_item","arguments":{"mode":"get","itemID":250256}}}`))
 
-func TestHTTPFileAndIconPrepareAvoidsListfileWhenFileDataIDIsEnough(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		raw  json.RawMessage
-		want bool
-	}{
-		{name: "wow_icon", raw: json.RawMessage(`{"fileDataID":134400}`), want: false},
-		{name: "wow_file", raw: json.RawMessage(`{"mode":"exists","fileDataID":134400}`), want: false},
-		{name: "wow_file", raw: json.RawMessage(`{"mode":"encoding","fileDataID":134400}`), want: false},
-		{name: "wow_file", raw: json.RawMessage(`{"mode":"get","fileDataID":134400}`), want: false},
-		{name: "wow_file", raw: json.RawMessage(`{"mode":"export","fileDataID":134400}`), want: false},
-		{name: "wow_file", raw: json.RawMessage(`{"mode":"lookup","fileDataID":134400}`), want: true},
-		{name: "wow_file", raw: json.RawMessage(`{"mode":"search","query":"interface/icons"}`), want: true},
-		{name: "wow_file", raw: json.RawMessage(`{"mode":"extension","extension":"blp"}`), want: true},
-		{name: "wow_file", raw: json.RawMessage(`{"mode":"get","filename":"interface/icons/inv_misc_questionmark.blp"}`), want: true},
-	} {
-		if got := httpRuntimeNeedsListfile(tc.name, tc.raw); got != tc.want {
-			t.Fatalf("%s %s listfile = %v, want %v", tc.name, tc.raw, got, tc.want)
-		}
+	if err := server.Serve(context.Background(), &stdin, &stdout); err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+	out := stdout.String()
+	if strings.Contains(out, "prepare_failed") || strings.Contains(out, "CASC") || strings.Contains(out, "warmup") {
+		t.Fatalf("HTTP business tool should fail through service capability path, not CLI prepare/warmup path:\n%s", out)
+	}
+	if !strings.Contains(out, "query_engine_unavailable") {
+		t.Fatalf("HTTP business tool should return structured service capability error while service backend is missing:\n%s", out)
 	}
 }
 

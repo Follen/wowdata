@@ -12,6 +12,7 @@ import (
 	"wowdata/internal/cache/duckdb"
 	"wowdata/internal/cache/metadata"
 	"wowdata/internal/config"
+	appruntime "wowdata/internal/runtime"
 )
 
 type RequestContext struct {
@@ -29,6 +30,8 @@ type ToolPolicy struct {
 type Service struct {
 	cfg          config.HTTPConfig
 	materializer Materializer
+	resolver     ContextResolver
+	contextPool  *ContextPool
 	queryEngine  parquetQueryEngine
 	metadataDB   *sql.DB
 	flights      *Singleflight
@@ -40,13 +43,25 @@ type Service struct {
 }
 
 func NewService(cfg config.HTTPConfig, materializer Materializer) *Service {
-	return &Service{
+	svc := &Service{
 		cfg:             cfg,
 		materializer:    materializer,
+		contextPool:     NewContextPool(cfg.Contexts.MaxContexts),
 		flights:         NewSingleflight(),
 		ensuredTables:   make(map[string]struct{}),
 		materializeFunc: nil,
 	}
+	if db2Materializer, ok := materializer.(*DB2Materializer); ok {
+		svc.resolver = db2Materializer.Resolver
+	}
+	for _, pinned := range cfg.Contexts.Pinned {
+		svc.contextPool.Pin(contextKey(svc.ResolveRequestContext(RequestContext{
+			Region:  pinned.Region,
+			Product: pinned.Product,
+			Locale:  pinned.Locale,
+		})))
+	}
+	return svc
 }
 
 type DB2Query struct {
@@ -104,12 +119,80 @@ func (s *Service) Builds() BuildCatalog {
 	}
 }
 
-func (s *Service) EnsureContext(context.Context, RequestContext) error {
-	return nil
+func (s *Service) EnsureContext(ctx context.Context, rc RequestContext) error {
+	_, err := s.ResolveContext(ctx, rc)
+	return err
+}
+
+func (s *Service) ResolveContext(ctx context.Context, rc RequestContext) (*appruntime.Context, error) {
+	rc = s.ResolveRequestContext(rc)
+	key := contextKey(rc)
+	if runtimeCtx, ok := s.contextPool.Get(key); ok {
+		return runtimeCtx, nil
+	}
+	value, err := s.flights.Do("context:"+key, func() (interface{}, error) {
+		if runtimeCtx, ok := s.contextPool.Get(key); ok {
+			return runtimeCtx, nil
+		}
+		resolver := s.resolver
+		if resolver == nil {
+			if db2Materializer, ok := s.materializer.(*DB2Materializer); ok {
+				resolver = db2Materializer.Resolver
+			}
+		}
+		if resolver == nil {
+			return nil, NewCapabilityError("context_unavailable", "runtime context")
+		}
+		runtimeCtx, err := resolver.ResolveContext(ctx, rc)
+		if err != nil {
+			return nil, err
+		}
+		if runtimeCtx == nil {
+			return nil, fmt.Errorf("resolved context is nil")
+		}
+		s.contextPool.Put(key, runtimeCtx)
+		return runtimeCtx, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	runtimeCtx, ok := value.(*appruntime.Context)
+	if !ok || runtimeCtx == nil {
+		return nil, fmt.Errorf("resolved context is nil")
+	}
+	return runtimeCtx, nil
 }
 
 func (s *Service) RequireCapability(ctx context.Context, rc RequestContext, capability string) error {
 	return NewCapabilityError(capabilityErrorCode(capability), capability)
+}
+
+func (s *Service) PrewarmConfiguredContexts(ctx context.Context) error {
+	if !s.cfg.Prepare.PrewarmOnStart {
+		return nil
+	}
+	tables := s.cfg.Prepare.DefaultTables
+	if len(tables) == 0 {
+		return nil
+	}
+	contexts := s.cfg.Contexts.Pinned
+	if len(contexts) == 0 {
+		contexts = []config.HTTPPinnedContext{{
+			Region:  s.cfg.Defaults.Region,
+			Product: s.cfg.Defaults.Product,
+			Locale:  s.cfg.Defaults.Locale,
+			Label:   "default",
+		}}
+	}
+	for _, pinned := range contexts {
+		rc := s.ResolveRequestContext(RequestContext{Region: pinned.Region, Product: pinned.Product, Locale: pinned.Locale})
+		for _, table := range tables {
+			if err := s.EnsureTable(ctx, rc, table); err != nil {
+				return fmt.Errorf("prewarm %s/%s/%s %s: %w", rc.Region, rc.Product, rc.Locale, table, err)
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Service) Status() Status {
@@ -199,6 +282,12 @@ func (s *Service) SetQueryEngineForTest(engine parquetQueryEngine) {
 
 func (s *Service) SetMetadataDBForTest(db *sql.DB) {
 	s.SetMetadataDB(db)
+}
+
+func (s *Service) SetContextResolverForTest(resolver ContextResolver) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.resolver = resolver
 }
 
 func (s *Service) SetMetadataDB(db *sql.DB) {
@@ -362,6 +451,15 @@ func (s *Service) materialize(ctx context.Context, rc RequestContext, table stri
 
 func tableKey(rc RequestContext, table string) string {
 	return rc.Region + "/" + rc.Product + "/" + rc.Locale + "/" + table
+}
+
+func contextKey(rc RequestContext) string {
+	return appruntime.RemoteContextKey{
+		Region:    rc.Region,
+		Product:   rc.Product,
+		Locale:    rc.Locale,
+		CacheRoot: "",
+	}.String()
 }
 
 func capabilityErrorCode(capability string) string {

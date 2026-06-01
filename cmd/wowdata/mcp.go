@@ -15,7 +15,9 @@ import (
 
 	mcpadapter "wowdata/internal/adapter/mcp"
 	"wowdata/internal/artifact"
+	"wowdata/internal/config"
 	"wowdata/internal/mcpserver"
+	appruntime "wowdata/internal/runtime"
 	httpservice "wowdata/internal/service/http"
 
 	"github.com/spf13/cobra"
@@ -51,11 +53,10 @@ func newMCPServerForRuntimeWithArtifacts(rt *Runtime, artifacts artifactConfig) 
 }
 
 func newMCPHTTPServerForService(svc *httpservice.Service, rt *Runtime, artifacts artifactConfig) *mcpserver.Server {
-	defaults := svc.Builds().Default
 	return mcpserver.NewServer("wowdata", mcpadapter.HTTPTools(svc, mcpadapter.HTTPToolOptions{
 		ExposeAdmin: svc.ToolPolicy().ExposeAdminTools,
 		Artifacts:   newMCPArtifactReserver(artifacts),
-		Handler:     httpRuntimeCLIHandler(rt, artifacts, defaults),
+		Assets:      httpRuntimeAssets{rt: rt, svc: svc},
 	}))
 }
 
@@ -200,6 +201,49 @@ type mcpArtifactReserver struct {
 	manager *artifact.Manager
 }
 
+type httpRuntimeAssets struct {
+	rt  *Runtime
+	svc *httpservice.Service
+}
+
+func (a httpRuntimeAssets) FileStore(ctx context.Context, rc httpservice.RequestContext, needListfile bool) (appruntime.FileStore, error) {
+	if err := a.prepare(ctx, rc, needListfile); err != nil {
+		return nil, err
+	}
+	a.rt.mu.Lock()
+	lf := a.rt.LF
+	a.rt.mu.Unlock()
+	return appruntime.NewCASCFileStore(lf, nil, a.rt), nil
+}
+
+func (a httpRuntimeAssets) IconStore(ctx context.Context, rc httpservice.RequestContext) (appruntime.IconStore, error) {
+	if err := a.prepare(ctx, rc, false); err != nil {
+		return nil, err
+	}
+	return appruntime.NewCASCFileStore(nil, nil, a.rt), nil
+}
+
+func (a httpRuntimeAssets) prepare(ctx context.Context, rc httpservice.RequestContext, needListfile bool) error {
+	if a.rt == nil {
+		return fmt.Errorf("runtime is required")
+	}
+	if a.svc != nil {
+		rc = a.svc.ResolveRequestContext(rc)
+	} else {
+		rc = httpservice.NewService(config.DefaultHTTPConfig(), nil).ResolveRequestContext(rc)
+	}
+	_, err := a.rt.initialize(warmupOptions{
+		Source:          "remote",
+		Region:          rc.Region,
+		Product:         rc.Product,
+		Locale:          rc.Locale,
+		CacheRoot:       a.rt.CacheRoot,
+		WarmDBDManifest: false,
+		WarmListfile:    needListfile,
+	})
+	return err
+}
+
 func newMCPArtifactReserver(cfg artifactConfig) *mcpArtifactReserver {
 	if cfg.root == "" {
 		return nil
@@ -213,6 +257,22 @@ func (r *mcpArtifactReserver) LinkArtifact(path, mimeType string) (mcpadapter.Ar
 		return mcpadapter.ArtifactLink{}, err
 	}
 	return mcpadapter.ArtifactLink{
+		Path:        link.Path,
+		URI:         link.URI,
+		DownloadURL: link.DownloadURL,
+		MimeType:    link.MimeType,
+		Name:        link.Name,
+		Size:        link.Size,
+		SHA256:      link.SHA256,
+	}, nil
+}
+
+func (r *mcpArtifactReserver) ReserveArtifact(kind, name, mimeType string) (string, mcpadapter.ArtifactLink, error) {
+	outputPath, link, err := r.manager.Reserve(kind, name, mimeType)
+	if err != nil {
+		return "", mcpadapter.ArtifactLink{}, err
+	}
+	return outputPath, mcpadapter.ArtifactLink{
 		Path:        link.Path,
 		URI:         link.URI,
 		DownloadURL: link.DownloadURL,
@@ -256,129 +316,6 @@ func stdioCLIHandler(rt *Runtime, name string, artifacts artifactConfig) mcpadap
 			return nil, fmt.Errorf("unknown stdio MCP tool: %s", name)
 		}
 	}
-}
-
-func httpRuntimeCLIHandler(rt *Runtime, artifacts artifactConfig, defaults httpservice.ContextDefaults) func(string) mcpadapter.ToolHandler {
-	return func(name string) mcpadapter.ToolHandler {
-		switch name {
-		case "wow_item", "wow_spell", "wow_file", "wow_icon", "wow_creature", "wow_encounter", "wow_decor", "wow_video":
-			return func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
-				args := ensureHTTPRuntimeArgs(raw, defaults)
-				if err := prepareHTTPRuntimeForTool(rt, name, args, defaults); err != nil {
-					return map[string]interface{}{
-						"ok":       false,
-						"command":  strings.TrimPrefix(name, "wow_"),
-						"data":     map[string]interface{}{},
-						"warnings": []interface{}{},
-						"error": map[string]interface{}{
-							"code":    "prepare_failed",
-							"message": err.Error(),
-						},
-					}, nil
-				}
-				return stdioCLIHandler(rt, name, artifacts)(ctx, args)
-			}
-		default:
-			return nil
-		}
-	}
-}
-
-func prepareHTTPRuntimeForTool(rt *Runtime, name string, raw json.RawMessage, defaults httpservice.ContextDefaults) error {
-	if rt == nil {
-		return fmt.Errorf("runtime is required")
-	}
-	var args map[string]interface{}
-	if len(raw) > 0 {
-		if err := json.Unmarshal(raw, &args); err != nil {
-			return err
-		}
-	}
-	if args == nil {
-		args = map[string]interface{}{}
-	}
-	opts := warmupOptions{
-		Source:          stringArg(args, "source", "remote"),
-		Region:          stringArg(args, "region", defaults.Region),
-		Product:         stringArg(args, "product", defaults.Product),
-		Locale:          stringArg(args, "locale", defaults.Locale),
-		CacheRoot:       rt.CacheRoot,
-		WarmDBDManifest: true,
-		Tables:          httpRuntimeTablesForTool(name),
-		WarmListfile:    httpRuntimeNeedsListfile(name, raw),
-	}
-	_, err := rt.initialize(opts)
-	return err
-}
-
-func httpRuntimeNeedsListfile(name string, raw json.RawMessage) bool {
-	switch name {
-	case "wow_icon":
-		return false
-	case "wow_file":
-		var args map[string]interface{}
-		if len(raw) > 0 {
-			_ = json.Unmarshal(raw, &args)
-		}
-		mode := stringArg(args, "mode", "lookup")
-		if stringArg(args, "filename", "") != "" {
-			return true
-		}
-		switch mode {
-		case "search", "extension", "lookup":
-			return true
-		default:
-			return false
-		}
-	default:
-		return false
-	}
-}
-
-func httpRuntimeTablesForTool(name string) []string {
-	switch name {
-	case "wow_spell":
-		return []string{"SpellName", "Spell", "SpellEffect", "SpellMisc", "SpellCastTimes", "SpellDuration", "SpellRange"}
-	case "wow_encounter":
-		return []string{"JournalEncounterSection", "SpellName"}
-	case "wow_item":
-		return []string{"Item", "ItemSparse", "ItemEffect", "ItemModifiedAppearance", "ItemAppearance", "ItemDisplayInfo", "ItemDisplayInfoMaterialRes", "ModelFileData", "TextureFileData", "ComponentModelFileData", "HelmetGeosetData"}
-	case "wow_creature":
-		return []string{"CreatureDisplayInfo", "CreatureModelData", "CreatureDisplayInfoGeosetData"}
-	case "wow_decor":
-		return []string{"HouseDecor"}
-	default:
-		return nil
-	}
-}
-
-func ensureHTTPRuntimeArgs(raw json.RawMessage, defaults httpservice.ContextDefaults) json.RawMessage {
-	var args map[string]interface{}
-	if len(raw) > 0 {
-		if err := json.Unmarshal(raw, &args); err != nil {
-			return raw
-		}
-	}
-	if args == nil {
-		args = map[string]interface{}{}
-	}
-	if _, ok := args["source"]; !ok {
-		args["source"] = "remote"
-	}
-	if _, ok := args["region"]; !ok {
-		args["region"] = defaults.Region
-	}
-	if _, ok := args["product"]; !ok {
-		args["product"] = defaults.Product
-	}
-	if _, ok := args["locale"]; !ok {
-		args["locale"] = defaults.Locale
-	}
-	data, err := json.Marshal(args)
-	if err != nil {
-		return raw
-	}
-	return data
 }
 
 func cliTool(rt *Runtime, name, description string, base []string, mapper func(map[string]interface{}) ([]string, error), artifacts artifactConfig) mcpTool {
