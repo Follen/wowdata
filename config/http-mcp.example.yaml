@@ -10,26 +10,6 @@ defaults:
 
 contexts:
   max_contexts: 4
-  pinned:
-    - region: cn
-      product: wow
-      locale: zhCN
-      label: CN Retail
-    - region: cn
-      product: wowt
-      locale: zhCN
-      label: CN PTR
-    - region: cn
-      product: wow_classic
-      locale: zhCN
-      label: CN Classic
-    - region: cn
-      product: wow_classic_titan
-      locale: zhCN
-      label: CN Titan
-
-# Default pinned contexts are CN Retail, CN PTR, CN Classic, and CN Titan.
-# CN Classic Era is intentionally not pinned by default; lazy prepare serves it on demand.
 
 cache:
   root: /opt/wowdata/cache
@@ -48,6 +28,99 @@ prepare:
   prewarm_on_start: true
   dbd_manifest: true
   listfile: false
+  targets:
+    - label: CN Retail
+      region: cn
+      product: wow
+      locale: zhCN
+    - label: US Retail
+      region: us
+      product: wow
+      locale: enUS
+    - label: EU Retail
+      region: eu
+      product: wow
+      locale: enUS
+    - label: KR Retail
+      region: kr
+      product: wow
+      locale: koKR
+    - label: TW Retail
+      region: tw
+      product: wow
+      locale: zhTW
+    - label: CN PTR
+      region: cn
+      product: wowt
+      locale: zhCN
+    - label: US PTR
+      region: us
+      product: wowt
+      locale: enUS
+    - label: EU PTR
+      region: eu
+      product: wowt
+      locale: enUS
+    - label: CN Classic
+      region: cn
+      product: wow_classic
+      locale: zhCN
+    - label: US Classic
+      region: us
+      product: wow_classic
+      locale: enUS
+    - label: EU Classic
+      region: eu
+      product: wow_classic
+      locale: enUS
+    - label: KR Classic
+      region: kr
+      product: wow_classic
+      locale: koKR
+    - label: TW Classic
+      region: tw
+      product: wow_classic
+      locale: zhTW
+    - label: CN Classic Era
+      region: cn
+      product: wow_classic_era
+      locale: zhCN
+    - label: US Classic Era
+      region: us
+      product: wow_classic_era
+      locale: enUS
+    - label: EU Classic Era
+      region: eu
+      product: wow_classic_era
+      locale: enUS
+    - label: KR Classic Era
+      region: kr
+      product: wow_classic_era
+      locale: koKR
+    - label: TW Classic Era
+      region: tw
+      product: wow_classic_era
+      locale: zhTW
+    - label: CN Classic Titan
+      region: cn
+      product: wow_classic_titan
+      locale: zhCN
+    - label: US Classic Titan
+      region: us
+      product: wow_classic_titan
+      locale: enUS
+    - label: EU Classic Titan
+      region: eu
+      product: wow_classic_titan
+      locale: enUS
+    - label: KR Classic Titan
+      region: kr
+      product: wow_classic_titan
+      locale: koKR
+    - label: TW Classic Titan
+      region: tw
+      product: wow_classic_titan
+      locale: zhTW
   default_tables:
     - SpellName
     - Spell
@@ -73,9 +146,12 @@ refresh:
   max_cache_gb: 80
 
 limits:
-  max_concurrent_prepares: 1
-  max_concurrent_materializations: 2
-  max_concurrent_queries: 8
+  max_parallel_context_prepares: 2
+  max_parallel_table_materializations: 2
+  max_parallel_downloads: 16
+  max_parallel_queries: 16
+  memory_soft_limit_mb: 4096
+  memory_hard_limit_mb: 8192
   request_timeout_seconds: 120
   materialize_timeout_seconds: 600
 
