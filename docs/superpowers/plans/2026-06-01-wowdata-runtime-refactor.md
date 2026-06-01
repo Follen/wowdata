@@ -2461,7 +2461,7 @@ Do not add `.local/wowdata/deploy-http-docker.ps1`.
 - Create: `docs/performance.md`
 - Create: `.local/wowdata/bench-http.ps1`
 
-- [ ] **Step 1: Verify remote Docker**
+- [x] **Step 1: Verify remote Docker**
 
 Run:
 
@@ -2472,12 +2472,12 @@ ssh -p 11224 211.154.18.253 "docker version --format '{{.Server.Version}}'"
 Expected:
 
 ```text
-20.10.24
+29.5.2
 ```
 
 If SSH user/key must be loaded, read `.local/wowdata/deploy-release.ps1` and use its variables in PowerShell. Do not print private key contents.
 
-- [ ] **Step 2: Deploy HTTP container**
+- [x] **Step 2: Deploy HTTP container**
 
 Run:
 
@@ -2492,13 +2492,13 @@ HTTP health check returns a JSON object with ok true
 existing container is replaced only after next container health passes
 ```
 
-- [ ] **Step 3: Verify public HTTP endpoints**
+- [x] **Step 3: Verify public HTTP endpoints**
 
 Run:
 
 ```powershell
-curl.exe -fsS http://211.154.18.253:11224/health
-curl.exe -fsS http://211.154.18.253:11224/help
+curl.exe -fsS http://211.154.18.253:11223/health
+curl.exe -fsS http://211.154.18.253:11223/help
 ```
 
 Expected:
@@ -2508,11 +2508,11 @@ Expected:
 /help contains Codex, Claude Code, cc-switch, wow_builds, wow_status, wow_db2, wow_icon
 ```
 
-- [ ] **Step 4: Verify MCP HTTP tools list**
+- [x] **Step 4: Verify MCP HTTP tools list**
 
 Run an MCP JSON-RPC `tools/list` request against `/mcp` using the existing local MCP smoke pattern in `cmd/wowdata/mcp_test.go`. Expected tool list includes HTTP tools and excludes `wow_warmup` when admin tools are disabled.
 
-- [ ] **Step 5: Create benchmark script**
+- [x] **Step 5: Create benchmark script**
 
 Create `.local/wowdata/bench-http.ps1` that records:
 
@@ -2526,11 +2526,11 @@ CLI auto-warmup wowdata db2 rows SpellName --id 1
 
 Write outputs to `.local/wowdata/bench-$(Get-Date -Format yyyyMMdd-HHmmss).json`.
 
-- [ ] **Step 6: Write performance docs**
+- [x] **Step 6: Write performance docs**
 
 Create `docs/performance.md` explaining benchmark categories, expected relative ordering, and where private benchmark results are stored.
 
-- [ ] **Step 7: Commit docs only**
+- [x] **Step 7: Commit docs only**
 
 Run:
 
