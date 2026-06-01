@@ -1,4 +1,4 @@
-//go:build cgo
+//go:build wowdata_duckdb && cgo
 
 package duckdb
 

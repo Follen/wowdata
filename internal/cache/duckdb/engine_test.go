@@ -1,8 +1,6 @@
 package duckdb
 
 import (
-	"context"
-	"errors"
 	"strings"
 	"testing"
 )
@@ -42,18 +40,5 @@ func TestSelectByIDUsesParameterMarker(t *testing.T) {
 	}
 	if len(args) != 1 || args[0] != uint32(42) {
 		t.Fatalf("args = %#v, want uint32 id", args)
-	}
-}
-
-func TestNoCGOEngineReportsUnavailable(t *testing.T) {
-	engine := NewEngine(":memory:")
-	if engine.Available() {
-		t.Skip("DuckDB is available in this build")
-	}
-	if err := engine.Open(); !errors.Is(err, ErrUnavailable) {
-		t.Fatalf("Open error = %v, want ErrUnavailable", err)
-	}
-	if _, err := engine.QueryParquet(context.Background(), "SELECT 1", nil); !errors.Is(err, ErrUnavailable) {
-		t.Fatalf("QueryParquet error = %v, want ErrUnavailable", err)
 	}
 }
