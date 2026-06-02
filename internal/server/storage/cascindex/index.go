@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 )
 
 const (
@@ -40,7 +41,18 @@ type ArchiveSpan struct {
 	Size        int64
 }
 
+type SourceKey struct {
+	Region   string
+	Product  string
+	Locale   string
+	BuildKey string
+}
+
 func ReplaceIndex(ctx context.Context, db *sql.DB, sourceVersion string, roots []RootMapping, encodings []EncodingMapping, archives []ArchiveMapping) error {
+	return ReplaceIndexForSource(ctx, db, SourceKey{}, sourceVersion, roots, encodings, archives)
+}
+
+func ReplaceIndexForSource(ctx context.Context, db *sql.DB, source SourceKey, sourceVersion string, roots []RootMapping, encodings []EncodingMapping, archives []ArchiveMapping) error {
 	if db == nil {
 		return errors.New("casc index: nil db")
 	}
@@ -57,11 +69,11 @@ func ReplaceIndex(ctx context.Context, db *sql.DB, sourceVersion string, roots [
 		return err
 	}
 	for _, statement := range []string{
-		`DELETE FROM server_casc_archive_entries`,
-		`DELETE FROM server_casc_encoding_entries`,
-		`DELETE FROM server_casc_root_entries`,
+		`DELETE FROM server_casc_archive_entries WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		`DELETE FROM server_casc_encoding_entries WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
+		`DELETE FROM server_casc_root_entries WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 	} {
-		if _, err := tx.ExecContext(ctx, statement); err != nil {
+		if _, err := tx.ExecContext(ctx, statement, source.Region, source.Product, source.Locale, source.BuildKey); err != nil {
 			return err
 		}
 	}
@@ -76,7 +88,7 @@ func ReplaceIndex(ctx context.Context, db *sql.DB, sourceVersion string, roots [
 		return err
 	}
 
-	rootStmt, err := tx.PrepareContext(ctx, `INSERT INTO server_casc_root_entries(file_data_id, content_key, source_version) VALUES (?, ?, ?)`)
+	rootStmt, err := tx.PrepareContext(ctx, `INSERT INTO server_casc_root_entries(region, product, locale, build_key, file_data_id, content_key, source_version) VALUES (?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -84,12 +96,12 @@ func ReplaceIndex(ctx context.Context, db *sql.DB, sourceVersion string, roots [
 		_ = rootStmt.Close()
 	}()
 	for _, mapping := range roots {
-		if _, err := rootStmt.ExecContext(ctx, mapping.FileDataID, mapping.ContentKey, sourceVersion); err != nil {
+		if _, err := rootStmt.ExecContext(ctx, source.Region, source.Product, source.Locale, source.BuildKey, mapping.FileDataID, mapping.ContentKey, sourceVersion); err != nil {
 			return err
 		}
 	}
 
-	encodingStmt, err := tx.PrepareContext(ctx, `INSERT INTO server_casc_encoding_entries(content_key, encoding_key, size, source_version) VALUES (?, ?, ?, ?)`)
+	encodingStmt, err := tx.PrepareContext(ctx, `INSERT INTO server_casc_encoding_entries(region, product, locale, build_key, content_key, encoding_key, size, source_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -97,12 +109,12 @@ func ReplaceIndex(ctx context.Context, db *sql.DB, sourceVersion string, roots [
 		_ = encodingStmt.Close()
 	}()
 	for _, mapping := range encodings {
-		if _, err := encodingStmt.ExecContext(ctx, mapping.ContentKey, mapping.EncodingKey, mapping.Size, sourceVersion); err != nil {
+		if _, err := encodingStmt.ExecContext(ctx, source.Region, source.Product, source.Locale, source.BuildKey, mapping.ContentKey, mapping.EncodingKey, mapping.Size, sourceVersion); err != nil {
 			return err
 		}
 	}
 
-	archiveStmt, err := tx.PrepareContext(ctx, `INSERT INTO server_casc_archive_entries(encoding_key, archive_key, offset, size, source_version) VALUES (?, ?, ?, ?, ?)`)
+	archiveStmt, err := tx.PrepareContext(ctx, `INSERT INTO server_casc_archive_entries(region, product, locale, build_key, encoding_key, archive_key, offset, size, source_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -110,7 +122,7 @@ func ReplaceIndex(ctx context.Context, db *sql.DB, sourceVersion string, roots [
 		_ = archiveStmt.Close()
 	}()
 	for _, mapping := range archives {
-		if _, err := archiveStmt.ExecContext(ctx, mapping.EncodingKey, mapping.ArchiveKey, mapping.Offset, mapping.Size, sourceVersion); err != nil {
+		if _, err := archiveStmt.ExecContext(ctx, source.Region, source.Product, source.Locale, source.BuildKey, mapping.EncodingKey, mapping.ArchiveKey, mapping.Offset, mapping.Size, sourceVersion); err != nil {
 			return err
 		}
 	}
@@ -119,7 +131,11 @@ func ReplaceIndex(ctx context.Context, db *sql.DB, sourceVersion string, roots [
 }
 
 func ResolveFileDataID(ctx context.Context, db *sql.DB, fileDataID uint32) (ArchiveSpan, error) {
-	spans, err := ResolveFileDataIDSpans(ctx, db, fileDataID)
+	return ResolveFileDataIDForSource(ctx, db, SourceKey{}, fileDataID)
+}
+
+func ResolveFileDataIDForSource(ctx context.Context, db *sql.DB, source SourceKey, fileDataID uint32) (ArchiveSpan, error) {
+	spans, err := ResolveFileDataIDSpansForSource(ctx, db, source, fileDataID)
 	if err != nil {
 		return ArchiveSpan{}, err
 	}
@@ -127,6 +143,10 @@ func ResolveFileDataID(ctx context.Context, db *sql.DB, fileDataID uint32) (Arch
 }
 
 func ResolveFileDataIDSpans(ctx context.Context, db *sql.DB, fileDataID uint32) ([]ArchiveSpan, error) {
+	return ResolveFileDataIDSpansForSource(ctx, db, SourceKey{}, fileDataID)
+}
+
+func ResolveFileDataIDSpansForSource(ctx context.Context, db *sql.DB, source SourceKey, fileDataID uint32) ([]ArchiveSpan, error) {
 	if db == nil {
 		return nil, errors.New("casc index: nil db")
 	}
@@ -137,11 +157,16 @@ func ResolveFileDataIDSpans(ctx context.Context, db *sql.DB, fileDataID uint32) 
 	rows, err := db.QueryContext(ctx, `
 		SELECT r.file_data_id, r.content_key, e.encoding_key, a.archive_key, a.offset, a.size
 		  FROM server_casc_root_entries r
-		  JOIN server_casc_encoding_entries e ON e.content_key = r.content_key
-		  JOIN server_casc_archive_entries a ON a.encoding_key = e.encoding_key
-		 WHERE r.file_data_id = ?
+		  JOIN server_casc_encoding_entries e
+		    ON e.region = r.region AND e.product = r.product AND e.locale = r.locale AND e.build_key = r.build_key
+		   AND e.source_version = r.source_version AND e.content_key = r.content_key
+		  JOIN server_casc_archive_entries a
+		    ON a.region = e.region AND a.product = e.product AND a.locale = e.locale AND a.build_key = e.build_key
+		   AND a.source_version = e.source_version AND a.encoding_key = e.encoding_key
+		 WHERE r.region = ? AND r.product = ? AND r.locale = ? AND r.build_key = ?
+		   AND r.file_data_id = ?
 		 ORDER BY r.content_key ASC, e.encoding_key ASC, a.archive_key ASC, a.offset ASC, a.size ASC`,
-		fileDataID,
+		source.Region, source.Product, source.Locale, source.BuildKey, fileDataID,
 	)
 	if err != nil {
 		return nil, err
@@ -234,12 +259,20 @@ func ensureSchema(ctx context.Context, db schemaExec) error {
 		)`,
 		`CREATE TABLE IF NOT EXISTS server_casc_root_entries (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			region TEXT NOT NULL DEFAULT '',
+			product TEXT NOT NULL DEFAULT '',
+			locale TEXT NOT NULL DEFAULT '',
+			build_key TEXT NOT NULL DEFAULT '',
 			file_data_id INTEGER NOT NULL,
 			content_key TEXT NOT NULL,
 			source_version TEXT NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS server_casc_encoding_entries (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			region TEXT NOT NULL DEFAULT '',
+			product TEXT NOT NULL DEFAULT '',
+			locale TEXT NOT NULL DEFAULT '',
+			build_key TEXT NOT NULL DEFAULT '',
 			content_key TEXT NOT NULL,
 			encoding_key TEXT NOT NULL,
 			size INTEGER NOT NULL,
@@ -247,6 +280,10 @@ func ensureSchema(ctx context.Context, db schemaExec) error {
 		)`,
 		`CREATE TABLE IF NOT EXISTS server_casc_archive_entries (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			region TEXT NOT NULL DEFAULT '',
+			product TEXT NOT NULL DEFAULT '',
+			locale TEXT NOT NULL DEFAULT '',
+			build_key TEXT NOT NULL DEFAULT '',
 			encoding_key TEXT NOT NULL,
 			archive_key TEXT NOT NULL,
 			offset INTEGER NOT NULL,
@@ -266,5 +303,32 @@ func ensureSchema(ctx context.Context, db schemaExec) error {
 			return err
 		}
 	}
+	for _, table := range []string{"server_casc_root_entries", "server_casc_encoding_entries", "server_casc_archive_entries"} {
+		for _, column := range []string{"region", "product", "locale", "build_key"} {
+			if err := addTextColumnIfMissing(ctx, db, table, column); err != nil {
+				return err
+			}
+		}
+	}
+	for _, statement := range []string{
+		`CREATE INDEX IF NOT EXISTS idx_server_casc_root_source_file_data_id ON server_casc_root_entries(region, product, locale, build_key, file_data_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_server_casc_encoding_source_content_key ON server_casc_encoding_entries(region, product, locale, build_key, source_version, content_key)`,
+		`CREATE INDEX IF NOT EXISTS idx_server_casc_archive_source_encoding_key ON server_casc_archive_entries(region, product, locale, build_key, source_version, encoding_key)`,
+	} {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func addTextColumnIfMissing(ctx context.Context, db schemaExec, table string, column string) error {
+	_, err := db.ExecContext(ctx, `ALTER TABLE `+table+` ADD COLUMN `+column+` TEXT NOT NULL DEFAULT ''`)
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(err.Error(), "duplicate column name") {
+		return nil
+	}
+	return err
 }

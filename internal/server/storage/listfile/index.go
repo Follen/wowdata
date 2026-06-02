@@ -62,6 +62,20 @@ func ReplaceSource(ctx context.Context, db *sql.DB, sourceHash string, entries [
 	return nil
 }
 
+func SourceHash(ctx context.Context, db *sql.DB) (string, error) {
+	if db == nil {
+		return "", errors.New("listfile index: nil db")
+	}
+	if err := ensureSchema(ctx, db); err != nil {
+		return "", err
+	}
+	var hash string
+	if err := db.QueryRowContext(ctx, `SELECT source_hash FROM server_listfile_source WHERE id = 1`).Scan(&hash); err != nil {
+		return "", err
+	}
+	return hash, nil
+}
+
 func LookupByFileDataID(ctx context.Context, db *sql.DB, id uint32) (Entry, error) {
 	if db == nil {
 		return Entry{}, errors.New("listfile index: nil db")

@@ -31,6 +31,22 @@ func TestIndexLookupByFileDataID(t *testing.T) {
 	}
 }
 
+func TestSourceHashReturnsCurrentHash(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t)
+	if err := ReplaceSource(ctx, db, "hash-1", []Entry{{FileDataID: 12, Path: `World\Maps\Azeroth\Azeroth_33_44.adt`}}); err != nil {
+		t.Fatalf("ReplaceSource: %v", err)
+	}
+
+	got, err := SourceHash(ctx, db)
+	if err != nil {
+		t.Fatalf("SourceHash: %v", err)
+	}
+	if got != "hash-1" {
+		t.Fatalf("SourceHash = %q, want hash-1", got)
+	}
+}
+
 func TestIndexLookupByFilename(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)

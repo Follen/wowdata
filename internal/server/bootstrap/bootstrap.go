@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -21,7 +22,10 @@ import (
 	"time"
 
 	cacheparquet "wowdata/internal/cache/parquet"
+	sharedlistfile "wowdata/internal/listfile"
 	"wowdata/internal/server/config"
+	"wowdata/internal/server/storage/cascindex"
+	serverlistfile "wowdata/internal/server/storage/listfile"
 	"wowdata/internal/server/storage/metadata"
 	serverparquet "wowdata/internal/server/storage/parquet"
 	"wowdata/internal/shared/casc"
@@ -38,6 +42,7 @@ const (
 )
 
 var lastTableMemoryReleaseUnixNano int64
+var listfileIndexMu sync.Mutex
 
 type Config = config.Config
 
@@ -50,6 +55,17 @@ type DiscoveredBuild struct {
 	Error            string
 	FileReader       fileDataReader
 	PrepareResources func(context.Context) (DiscoveredBuild, error)
+	ResourceIndexes  ResourceIndexes
+}
+
+type ResourceIndexes struct {
+	ListfileSourceHash string
+	ListfileEntries    []serverlistfile.Entry
+	CASCSource         cascindex.SourceKey
+	CASCSourceVersion  string
+	CASCRoots          []cascindex.RootMapping
+	CASCEncodings      []cascindex.EncodingMapping
+	CASCArchives       []cascindex.ArchiveMapping
 }
 
 type Discoverer interface {
@@ -262,6 +278,15 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 			prepared.BuildName = build.BuildName
 		}
 		build = prepared
+		if err := persistResourceIndexes(ctx, r.DB, build.ResourceIndexes); err != nil {
+			if sameActiveValid {
+				_ = restoreValidTables(ctx, r.DB, restoreTables)
+				_ = metadata.MarkBuildReady(ctx, r.DB, buildKey)
+				return err
+			}
+			_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
+			return err
+		}
 	}
 	if !sameActiveValid {
 		if err := metadata.UpsertDiscoveredBuild(ctx, r.DB, metadata.Build{
@@ -662,15 +687,226 @@ func (d ProductionDiscoverer) DiscoverBuild(_ context.Context, target config.Pre
 			if err := remote.Preload(buildIndex); err != nil {
 				return DiscoveredBuild{}, err
 			}
-			return DiscoveredBuild{
+			prepared := DiscoveredBuild{
 				BuildKey:        remote.GetBuildKey(),
 				BuildName:       remote.GetBuildName(),
 				CASCBuildConfig: remote.Build.BuildConfig,
 				CASCCDNConfig:   remote.Build.CDNConfig,
 				FileReader:      remote,
-			}, nil
+			}
+			indexes, err := buildProductionResourceIndexes(d.CacheRoot, target, prepared, remote.CASCSource)
+			if err != nil {
+				return DiscoveredBuild{}, err
+			}
+			prepared.ResourceIndexes = indexes
+			return prepared, nil
 		},
 	}, nil
+}
+
+func persistResourceIndexes(ctx context.Context, db *sql.DB, indexes ResourceIndexes) error {
+	if db == nil {
+		return errors.New("metadata db is required")
+	}
+	if len(indexes.ListfileEntries) > 0 {
+		if err := persistListfileIndex(ctx, db, indexes.ListfileSourceHash, indexes.ListfileEntries); err != nil {
+			return err
+		}
+	}
+	if len(indexes.CASCRoots) > 0 || len(indexes.CASCEncodings) > 0 || len(indexes.CASCArchives) > 0 {
+		if err := cascindex.ReplaceIndexForSource(ctx, db, indexes.CASCSource, indexes.CASCSourceVersion, indexes.CASCRoots, indexes.CASCEncodings, indexes.CASCArchives); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func persistListfileIndex(ctx context.Context, db *sql.DB, sourceHash string, entries []serverlistfile.Entry) error {
+	listfileIndexMu.Lock()
+	defer listfileIndexMu.Unlock()
+	currentHash, err := serverlistfile.SourceHash(ctx, db)
+	if err == nil && currentHash == sourceHash {
+		return nil
+	}
+	return serverlistfile.ReplaceSource(ctx, db, sourceHash, entries)
+}
+
+func buildProductionResourceIndexes(cacheRoot string, target config.PrepareTarget, build DiscoveredBuild, source *casc.CASCSource) (ResourceIndexes, error) {
+	lf, err := loadServerListfile(filepath.Join(cacheRoot, "listfile"))
+	if err != nil {
+		return ResourceIndexes{}, err
+	}
+	entries := serverListfileEntries(lf.GetAll())
+	roots := cascRootMappings(source)
+	encodings := cascEncodingMappings(source)
+	archives := cascArchiveMappings(source)
+	return ResourceIndexes{
+		ListfileSourceHash: hashListfileEntries(entries),
+		ListfileEntries:    entries,
+		CASCSource: cascindex.SourceKey{
+			Region:   target.Region,
+			Product:  target.Product,
+			Locale:   target.Locale,
+			BuildKey: build.BuildKey,
+		},
+		CASCSourceVersion: hashCASCResourceMappings(roots, encodings, archives),
+		CASCRoots:         roots,
+		CASCEncodings:     encodings,
+		CASCArchives:      archives,
+	}, nil
+}
+
+func loadServerListfile(cacheDir string) (*sharedlistfile.Listfile, error) {
+	lf := sharedlistfile.New()
+	if err := lf.LoadBinaryDir(cacheDir); err == nil {
+		return lf, nil
+	}
+	cachePath := filepath.Join(cacheDir, "community-listfile.csv")
+	if body, err := os.ReadFile(cachePath); err == nil && len(body) > 0 {
+		return parseServerListfile(body)
+	}
+	var lastErr error
+	for _, url := range []string{
+		"https://github.com/wowdev/wow-listfile/releases/latest/download/community-listfile.csv",
+		"https://www.kruithne.net/wow.export/data/listfile/master",
+	} {
+		body, err := downloadServerListfile(url)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		lf, err := parseServerListfile(body)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
+			return nil, err
+		}
+		_ = os.WriteFile(cachePath, body, 0644)
+		return lf, nil
+	}
+	if lastErr == nil {
+		lastErr = errors.New("no listfile URLs configured")
+	}
+	return nil, lastErr
+}
+
+func parseServerListfile(body []byte) (*sharedlistfile.Listfile, error) {
+	lf := sharedlistfile.New()
+	if err := lf.Load(bytes.NewReader(body)); err != nil {
+		return nil, err
+	}
+	return lf, nil
+}
+
+func downloadServerListfile(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("download listfile %s: HTTP %d", url, resp.StatusCode)
+	}
+	return io.ReadAll(resp.Body)
+}
+
+func serverListfileEntries(values map[uint32]string) []serverlistfile.Entry {
+	ids := make([]int, 0, len(values))
+	for id := range values {
+		ids = append(ids, int(id))
+	}
+	sort.Ints(ids)
+	entries := make([]serverlistfile.Entry, 0, len(ids))
+	for _, id := range ids {
+		entries = append(entries, serverlistfile.Entry{FileDataID: uint32(id), Path: values[uint32(id)]})
+	}
+	return entries
+}
+
+func hashListfileEntries(entries []serverlistfile.Entry) string {
+	hash := sha256.New()
+	for _, entry := range entries {
+		_, _ = fmt.Fprintf(hash, "%d\x00%s\x00", entry.FileDataID, entry.Path)
+	}
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
+func hashCASCResourceMappings(roots []cascindex.RootMapping, encodings []cascindex.EncodingMapping, archives []cascindex.ArchiveMapping) string {
+	hash := sha256.New()
+	for _, mapping := range roots {
+		_, _ = fmt.Fprintf(hash, "r:%d:%s\x00", mapping.FileDataID, mapping.ContentKey)
+	}
+	for _, mapping := range encodings {
+		_, _ = fmt.Fprintf(hash, "e:%s:%s:%d\x00", mapping.ContentKey, mapping.EncodingKey, mapping.Size)
+	}
+	for _, mapping := range archives {
+		_, _ = fmt.Fprintf(hash, "a:%s:%s:%d:%d\x00", mapping.EncodingKey, mapping.ArchiveKey, mapping.Offset, mapping.Size)
+	}
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
+func cascRootMappings(source *casc.CASCSource) []cascindex.RootMapping {
+	if source == nil {
+		return nil
+	}
+	ids := source.GetValidRootEntries()
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	mappings := make([]cascindex.RootMapping, 0, len(ids))
+	for _, id := range ids {
+		contentKey, _, err := source.ResolveFileKeys(id)
+		if err != nil || contentKey == "" {
+			continue
+		}
+		mappings = append(mappings, cascindex.RootMapping{FileDataID: id, ContentKey: contentKey})
+	}
+	return mappings
+}
+
+func cascEncodingMappings(source *casc.CASCSource) []cascindex.EncodingMapping {
+	if source == nil {
+		return nil
+	}
+	keys := make([]string, 0, len(source.EncodingEntries))
+	for contentKey := range source.EncodingEntries {
+		keys = append(keys, contentKey)
+	}
+	sort.Strings(keys)
+	mappings := make([]cascindex.EncodingMapping, 0, len(keys))
+	for _, contentKey := range keys {
+		entry := source.EncodingEntries[contentKey]
+		mappings = append(mappings, cascindex.EncodingMapping{
+			ContentKey:  contentKey,
+			EncodingKey: entry.Key,
+			Size:        entry.Size,
+		})
+	}
+	return mappings
+}
+
+func cascArchiveMappings(source *casc.CASCSource) []cascindex.ArchiveMapping {
+	if source == nil {
+		return nil
+	}
+	keys := make([]string, 0, len(source.Archives))
+	for encodingKey := range source.Archives {
+		keys = append(keys, encodingKey)
+	}
+	sort.Strings(keys)
+	mappings := make([]cascindex.ArchiveMapping, 0, len(keys))
+	for _, encodingKey := range keys {
+		archive := source.Archives[encodingKey]
+		mappings = append(mappings, cascindex.ArchiveMapping{
+			EncodingKey: encodingKey,
+			ArchiveKey:  archive.Key,
+			Offset:      int64(archive.Offset),
+			Size:        int64(archive.Size),
+		})
+	}
+	return mappings
 }
 
 type manifestSource interface {

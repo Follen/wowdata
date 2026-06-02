@@ -41,6 +41,40 @@ func TestResolveFileDataIDToArchiveSpan(t *testing.T) {
 	}
 }
 
+func TestReplaceIndexIsScopedByBuild(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t)
+	us := SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-us"}
+	cn := SourceKey{Region: "cn", Product: "wow", Locale: "zhCN", BuildKey: "build-cn"}
+
+	if err := ReplaceIndexForSource(ctx, db, us, "source-us",
+		[]RootMapping{{FileDataID: 1, ContentKey: "content-us"}},
+		[]EncodingMapping{{ContentKey: "content-us", EncodingKey: "encoding-us", Size: 10}},
+		[]ArchiveMapping{{EncodingKey: "encoding-us", ArchiveKey: "archive-us", Offset: 20, Size: 10}},
+	); err != nil {
+		t.Fatalf("replace us index: %v", err)
+	}
+	if err := ReplaceIndexForSource(ctx, db, cn, "source-cn",
+		[]RootMapping{{FileDataID: 1, ContentKey: "content-cn"}},
+		[]EncodingMapping{{ContentKey: "content-cn", EncodingKey: "encoding-cn", Size: 11}},
+		[]ArchiveMapping{{EncodingKey: "encoding-cn", ArchiveKey: "archive-cn", Offset: 21, Size: 11}},
+	); err != nil {
+		t.Fatalf("replace cn index: %v", err)
+	}
+
+	gotUS, err := ResolveFileDataIDForSource(ctx, db, us, 1)
+	if err != nil {
+		t.Fatalf("resolve us: %v", err)
+	}
+	gotCN, err := ResolveFileDataIDForSource(ctx, db, cn, 1)
+	if err != nil {
+		t.Fatalf("resolve cn: %v", err)
+	}
+	if gotUS.EncodingKey != "encoding-us" || gotCN.EncodingKey != "encoding-cn" {
+		t.Fatalf("scoped indexes overwritten: us=%#v cn=%#v", gotUS, gotCN)
+	}
+}
+
 func TestSourceVersionChangeMarksIndexStale(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)

@@ -35,7 +35,7 @@ func TestServerFileLookupUsesSQLiteListfileIndex(t *testing.T) {
 func TestServerFileExistsUsesCASCIndexWithoutListfileWhenFileDataIDProvided(t *testing.T) {
 	ctx := context.Background()
 	db := openMetadataQueryTestDB(t)
-	if err := cascindex.ReplaceIndex(ctx, db, "casc-a",
+	if err := cascindex.ReplaceIndexForSource(ctx, db, cascindex.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "active-build"}, "casc-a",
 		[]cascindex.RootMapping{{FileDataID: 200, ContentKey: "content"}},
 		[]cascindex.EncodingMapping{{ContentKey: "content", EncodingKey: strings.Repeat("a", 64), Size: 4}},
 		[]cascindex.ArchiveMapping{{EncodingKey: strings.Repeat("a", 64), ArchiveKey: "archive", Offset: 0, Size: 4}},
@@ -43,7 +43,10 @@ func TestServerFileExistsUsesCASCIndexWithoutListfileWhenFileDataIDProvided(t *t
 		t.Fatalf("seed casc index: %v", err)
 	}
 
-	exists, err := NewAssetServiceForTest(db, nil, nil, nil).FileExists(ctx, FileExistsRequest{FileDataID: 200})
+	exists, err := NewAssetServiceForTest(db, nil, nil, nil).FileExists(ctx, FileExistsRequest{
+		Context:    RequestContext{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "active-build"},
+		FileDataID: 200,
+	})
 	if err != nil {
 		t.Fatalf("FileExists: %v", err)
 	}
@@ -60,7 +63,7 @@ func TestServerFileExportReadsRawCacheAndStoresArtifact(t *testing.T) {
 	if err := listfile.ReplaceSource(ctx, db, "source-a", []listfile.Entry{{FileDataID: 300, Path: "Files/Test.bin"}}); err != nil {
 		t.Fatalf("seed listfile: %v", err)
 	}
-	if err := cascindex.ReplaceIndex(ctx, db, "casc-a",
+	if err := cascindex.ReplaceIndexForSource(ctx, db, cascindex.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "active-build"}, "casc-a",
 		[]cascindex.RootMapping{{FileDataID: 300, ContentKey: "content"}},
 		[]cascindex.EncodingMapping{{ContentKey: "content", EncodingKey: hash, Size: int64(len(body))}},
 		[]cascindex.ArchiveMapping{{EncodingKey: hash, ArchiveKey: "archive", Offset: 0, Size: int64(len(body))}},
@@ -90,6 +93,56 @@ func TestServerFileExportReadsRawCacheAndStoresArtifact(t *testing.T) {
 	}
 }
 
+func TestServerFileExportResolvesCASCIndexForRequestBuild(t *testing.T) {
+	ctx := context.Background()
+	db := openMetadataQueryTestDB(t)
+	bodyUS := []byte("us file")
+	bodyCN := []byte("cn file")
+	hashUS := sha256HexForAssetTest(bodyUS)
+	hashCN := sha256HexForAssetTest(bodyCN)
+	us := cascindex.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-us"}
+	cn := cascindex.SourceKey{Region: "cn", Product: "wow", Locale: "zhCN", BuildKey: "build-cn"}
+	if err := listfile.ReplaceSource(ctx, db, "source-a", []listfile.Entry{{FileDataID: 302, Path: "Files/Scoped.bin"}}); err != nil {
+		t.Fatalf("seed listfile: %v", err)
+	}
+	if err := cascindex.ReplaceIndexForSource(ctx, db, us, "source-us",
+		[]cascindex.RootMapping{{FileDataID: 302, ContentKey: "content-us"}},
+		[]cascindex.EncodingMapping{{ContentKey: "content-us", EncodingKey: hashUS, Size: int64(len(bodyUS))}},
+		[]cascindex.ArchiveMapping{{EncodingKey: hashUS, ArchiveKey: "archive-us", Offset: 0, Size: int64(len(bodyUS))}},
+	); err != nil {
+		t.Fatalf("seed us casc index: %v", err)
+	}
+	if err := cascindex.ReplaceIndexForSource(ctx, db, cn, "source-cn",
+		[]cascindex.RootMapping{{FileDataID: 302, ContentKey: "content-cn"}},
+		[]cascindex.EncodingMapping{{ContentKey: "content-cn", EncodingKey: hashCN, Size: int64(len(bodyCN))}},
+		[]cascindex.ArchiveMapping{{EncodingKey: hashCN, ArchiveKey: "archive-cn", Offset: 0, Size: int64(len(bodyCN))}},
+	); err != nil {
+		t.Fatalf("seed cn casc index: %v", err)
+	}
+	fetches := map[string][]byte{hashUS: bodyUS, hashCN: bodyCN}
+	svc := NewAssetServiceForTest(db, rawcache.New(t.TempDir()), artifacts.NewStore(artifacts.Config{
+		Root:    t.TempDir(),
+		BaseURL: "http://example.test/files",
+	}, db), func(ctx context.Context, encodingKey string) ([]byte, error) {
+		body, ok := fetches[encodingKey]
+		if !ok {
+			return nil, fmt.Errorf("unexpected encoding key %s", encodingKey)
+		}
+		return body, nil
+	})
+
+	got, err := svc.FileExport(ctx, FileExportRequest{
+		Context:    RequestContext{Region: "cn", Product: "wow", Locale: "zhCN", BuildKey: "build-cn"},
+		FileDataID: 302,
+	})
+	if err != nil {
+		t.Fatalf("FileExport: %v", err)
+	}
+	if got.SHA256 != hashCN || got.Size != int64(len(bodyCN)) {
+		t.Fatalf("export = %#v, want CN blob", got)
+	}
+}
+
 func TestServerFileExportUsesCachedRawBlobWithoutFetcher(t *testing.T) {
 	ctx := context.Background()
 	db := openMetadataQueryTestDB(t)
@@ -98,7 +151,7 @@ func TestServerFileExportUsesCachedRawBlobWithoutFetcher(t *testing.T) {
 	if err := listfile.ReplaceSource(ctx, db, "source-a", []listfile.Entry{{FileDataID: 301, Path: "Files/Cached.bin"}}); err != nil {
 		t.Fatalf("seed listfile: %v", err)
 	}
-	if err := cascindex.ReplaceIndex(ctx, db, "casc-a",
+	if err := cascindex.ReplaceIndexForSource(ctx, db, cascindex.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "active-build"}, "casc-a",
 		[]cascindex.RootMapping{{FileDataID: 301, ContentKey: "content"}},
 		[]cascindex.EncodingMapping{{ContentKey: "content", EncodingKey: hash, Size: int64(len(body))}},
 		[]cascindex.ArchiveMapping{{EncodingKey: hash, ArchiveKey: "archive", Offset: 0, Size: int64(len(body))}},
@@ -138,7 +191,7 @@ func TestServerIconExportConvertsBLPAndStoresDownloadableArtifact(t *testing.T) 
 	db := openMetadataQueryTestDB(t)
 	body := buildAssetTestBLP(4, 4)
 	hash := sha256HexForAssetTest(body)
-	if err := cascindex.ReplaceIndex(ctx, db, "casc-a",
+	if err := cascindex.ReplaceIndexForSource(ctx, db, cascindex.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "active-build"}, "casc-a",
 		[]cascindex.RootMapping{{FileDataID: 400, ContentKey: "content"}},
 		[]cascindex.EncodingMapping{{ContentKey: "content", EncodingKey: hash, Size: int64(len(body))}},
 		[]cascindex.ArchiveMapping{{EncodingKey: hash, ArchiveKey: "archive", Offset: 0, Size: int64(len(body))}},

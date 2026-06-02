@@ -890,7 +890,7 @@ func TestServerMCPFileExportReturnsDownloadableResourceLink(t *testing.T) {
 		_ = db.Close()
 		t.Fatalf("seed listfile: %v", err)
 	}
-	if err := cascindex.ReplaceIndex(context.Background(), db, "casc-a",
+	if err := cascindex.ReplaceIndexForSource(context.Background(), db, cascindex.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "active-build"}, "casc-a",
 		[]cascindex.RootMapping{{FileDataID: 322, ContentKey: "content"}},
 		[]cascindex.EncodingMapping{{ContentKey: "content", EncodingKey: hash, Size: int64(len(body))}},
 		[]cascindex.ArchiveMapping{{EncodingKey: hash, ArchiveKey: "archive", Offset: 0, Size: int64(len(body))}},

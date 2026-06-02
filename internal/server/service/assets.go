@@ -31,6 +31,7 @@ type FileLookupRequest struct {
 }
 
 type FileExistsRequest struct {
+	Context    RequestContext
 	FileDataID uint32
 	Filename   string
 }
@@ -100,7 +101,7 @@ func (s *ServerAssetService) FileExists(ctx context.Context, req FileExistsReque
 	if fileDataID == 0 {
 		return FileExistsResult{Filename: filename, Exists: false}, nil
 	}
-	_, err := cascindex.ResolveFileDataID(ctx, s.db, fileDataID)
+	_, err := cascindex.ResolveFileDataIDForSource(ctx, s.db, cascSourceKey(req.Context), fileDataID)
 	return FileExistsResult{FileDataID: fileDataID, Filename: filename, Exists: err == nil}, nil
 }
 
@@ -179,12 +180,21 @@ func (s *ServerAssetService) readRawFile(ctx context.Context, reqCtx RequestCont
 	if s == nil || s.db == nil || s.rawCache == nil {
 		return nil, fmt.Errorf("server asset storage is unavailable")
 	}
-	span, err := cascindex.ResolveFileDataID(ctx, s.db, fileDataID)
+	span, err := cascindex.ResolveFileDataIDForSource(ctx, s.db, cascSourceKey(reqCtx), fileDataID)
 	if err != nil {
 		return nil, err
 	}
 	expectedSHA256 := strings.ToLower(span.EncodingKey)
 	return s.rawCache.Get(ctx, reqCtx.Region, reqCtx.Product, reqCtx.BuildKey, span.EncodingKey, expectedSHA256, s.fetch)
+}
+
+func cascSourceKey(reqCtx RequestContext) cascindex.SourceKey {
+	return cascindex.SourceKey{
+		Region:   reqCtx.Region,
+		Product:  reqCtx.Product,
+		Locale:   reqCtx.Locale,
+		BuildKey: reqCtx.BuildKey,
+	}
 }
 
 func assetRecordFromArtifact(fileDataID uint32, filename string, record artifacts.Record) AssetRecord {

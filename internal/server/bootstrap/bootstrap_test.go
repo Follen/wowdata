@@ -14,6 +14,8 @@ import (
 	cacheparquet "wowdata/internal/cache/parquet"
 	"wowdata/internal/server/config"
 	"wowdata/internal/server/health"
+	"wowdata/internal/server/storage/cascindex"
+	serverlistfile "wowdata/internal/server/storage/listfile"
 	"wowdata/internal/server/storage/metadata"
 	"wowdata/internal/shared/db2"
 )
@@ -216,6 +218,120 @@ func TestPrepareReleasesMemoryAfterEachTableAttempt(t *testing.T) {
 
 	if got := atomic.LoadInt32(&releases); got != 3 {
 		t.Fatalf("memory releases = %d, want one per table attempt", got)
+	}
+}
+
+func TestPreparePersistsResourceIndexesForAssets(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {
+			BuildKey:  "build-2",
+			BuildName: "12.0.5.67823",
+			PrepareResources: func(context.Context) (DiscoveredBuild, error) {
+				return DiscoveredBuild{
+					BuildKey:  "build-2",
+					BuildName: "12.0.5.67823",
+					ResourceIndexes: ResourceIndexes{
+						ListfileSourceHash: "listfile-hash",
+						ListfileEntries: []serverlistfile.Entry{
+							{FileDataID: 321, Path: "Interface/Icons/Server_Test.blp"},
+						},
+						CASCSource:        cascindex.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2"},
+						CASCSourceVersion: "casc-version",
+						CASCRoots: []cascindex.RootMapping{
+							{FileDataID: 321, ContentKey: "content-key"},
+						},
+						CASCEncodings: []cascindex.EncodingMapping{
+							{ContentKey: "content-key", EncodingKey: "encoding-key", Size: 12},
+						},
+						CASCArchives: []cascindex.ArchiveMapping{
+							{EncodingKey: "encoding-key", ArchiveKey: "archive-key", Offset: 34, Size: 12},
+						},
+					},
+				}, nil
+			},
+		},
+	}}
+	materializer := &fakeMaterializer{
+		db:              db,
+		availableTables: []string{"Item"},
+	}
+
+	if err := (Runner{
+		Config:       cfg,
+		DB:           db,
+		Discoverer:   discoverer,
+		Materializer: materializer,
+	}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	entry, err := serverlistfile.LookupByFileDataID(ctx, db, 321)
+	if err != nil {
+		t.Fatalf("listfile lookup: %v", err)
+	}
+	if entry.Path != "interface/icons/server_test.blp" {
+		t.Fatalf("listfile path = %q, want normalized asset path", entry.Path)
+	}
+	span, err := cascindex.ResolveFileDataIDForSource(ctx, db, cascindex.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2"}, 321)
+	if err != nil {
+		t.Fatalf("casc resolve: %v", err)
+	}
+	if span.EncodingKey != "encoding-key" || span.ArchiveKey != "archive-key" {
+		t.Fatalf("casc span = %#v, want persisted encoding/archive mapping", span)
+	}
+}
+
+func TestPrepareSkipsUnchangedListfileIndex(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	if err := serverlistfile.ReplaceSource(ctx, db, "same-listfile-hash", []serverlistfile.Entry{
+		{FileDataID: 321, Path: "Interface/Icons/Existing.blp"},
+	}); err != nil {
+		t.Fatalf("seed listfile: %v", err)
+	}
+	cfg := testConfig(metadataPath, []string{"Item"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {
+			BuildKey:  "build-2",
+			BuildName: "12.0.5.67823",
+			PrepareResources: func(context.Context) (DiscoveredBuild, error) {
+				return DiscoveredBuild{
+					BuildKey:  "build-2",
+					BuildName: "12.0.5.67823",
+					ResourceIndexes: ResourceIndexes{
+						ListfileSourceHash: "same-listfile-hash",
+						ListfileEntries: []serverlistfile.Entry{
+							{FileDataID: 999, Path: "Interface/Icons/Should_Not_Rewrite.blp"},
+						},
+					},
+				}, nil
+			},
+		},
+	}}
+
+	if err := (Runner{
+		Config:       cfg,
+		DB:           db,
+		Discoverer:   discoverer,
+		Materializer: &fakeMaterializer{db: db, availableTables: []string{"Item"}},
+	}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	entry, err := serverlistfile.LookupByFileDataID(ctx, db, 321)
+	if err != nil {
+		t.Fatalf("existing listfile lookup: %v", err)
+	}
+	if entry.Path != "interface/icons/existing.blp" {
+		t.Fatalf("existing listfile path = %q, want unchanged entry", entry.Path)
+	}
+	if _, err := serverlistfile.LookupByFileDataID(ctx, db, 999); err == nil {
+		t.Fatal("unchanged listfile hash rewrote entries")
 	}
 }
 

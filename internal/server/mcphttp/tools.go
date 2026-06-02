@@ -73,7 +73,11 @@ func fileTool(assetService service.AssetService) mcpserver.Tool {
 				}
 				return okEnvelope("file lookup", map[string]interface{}{"result": assetRecordMap(record)}), nil
 			case "exists":
-				result, err := assetService.FileExists(ctx, service.FileExistsRequest{FileDataID: fileDataID, Filename: filename})
+				result, err := assetService.FileExists(ctx, service.FileExistsRequest{
+					Context:    requestContextFromArgs(args),
+					FileDataID: fileDataID,
+					Filename:   filename,
+				})
 				if err != nil {
 					return errorEnvelopeFromError("file exists", "asset_unavailable", err), nil
 				}
