@@ -730,34 +730,65 @@ func (serverparquetRowWriter) WriteRowSource(path string, meta cacheparquet.Meta
 }
 
 type wdcRowSource struct {
-	reader *db2.WDCReader
-	ids    []uint32
-	index  int
+	rows chan wdcRowResult
+	stop chan struct{}
+	done chan struct{}
+	once sync.Once
+}
+
+type wdcRowResult struct {
+	row map[string]interface{}
+	err error
 }
 
 func newWDCRowSource(reader *db2.WDCReader) (*wdcRowSource, error) {
-	ids := make([]uint32, 0, reader.Size())
-	if err := reader.ForEachRow(func(id uint32, _ map[string]interface{}) error {
-		ids = append(ids, id)
-		return nil
-	}); err != nil {
-		return nil, err
+	source := &wdcRowSource{
+		rows: make(chan wdcRowResult, 1),
+		stop: make(chan struct{}),
+		done: make(chan struct{}),
 	}
-	return &wdcRowSource{reader: reader, ids: ids}, nil
+	go source.streamRows(reader)
+	return source, nil
+}
+
+var errWDCRowSourceClosed = errors.New("WDC row source closed")
+
+func (s *wdcRowSource) streamRows(reader *db2.WDCReader) {
+	defer close(s.done)
+	defer close(s.rows)
+	err := reader.ForEachRow(func(_ uint32, row map[string]interface{}) error {
+		select {
+		case <-s.stop:
+			return errWDCRowSourceClosed
+		case s.rows <- wdcRowResult{row: row}:
+			return nil
+		}
+	})
+	if err == nil || errors.Is(err, errWDCRowSourceClosed) {
+		return
+	}
+	select {
+	case <-s.stop:
+	case s.rows <- wdcRowResult{err: err}:
+	}
 }
 
 func (s *wdcRowSource) NextRow() (map[string]interface{}, bool, error) {
-	if s.index >= len(s.ids) {
+	result, ok := <-s.rows
+	if !ok {
 		return nil, false, nil
 	}
-	id := s.ids[s.index]
-	s.index++
-	return s.reader.GetRow(id), true, nil
+	if result.err != nil {
+		return nil, false, result.err
+	}
+	return result.row, true, nil
 }
 
 func (s *wdcRowSource) Close() error {
-	s.reader = nil
-	s.ids = nil
+	s.once.Do(func() {
+		close(s.stop)
+		<-s.done
+	})
 	return nil
 }
 

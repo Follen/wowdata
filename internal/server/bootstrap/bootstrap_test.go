@@ -14,6 +14,7 @@ import (
 	"wowdata/internal/server/config"
 	"wowdata/internal/server/health"
 	"wowdata/internal/server/storage/metadata"
+	"wowdata/internal/shared/db2"
 )
 
 func TestPrepareActivatesBuildOnlyAfterEveryRequiredTableMaterializes(t *testing.T) {
@@ -181,6 +182,34 @@ func TestPrepareLimitsParallelTableMaterializationsAcrossTargets(t *testing.T) {
 	close(release)
 	if err := <-done; err != nil {
 		t.Fatalf("Prepare: %v", err)
+	}
+}
+
+func TestWDCRowSourceStreamsRowsAndEOF(t *testing.T) {
+	reader, err := db2.NewWDCReaderFromBytes("TestTable", db2.BuildMinimalWDC2ForTest(), []db2.SchemaField{
+		{Name: "ID", Type: db2.FieldUInt32},
+		{Name: "Value", Type: db2.FieldUInt32},
+	})
+	if err != nil {
+		t.Fatalf("NewWDCReaderFromBytes: %v", err)
+	}
+	source, err := newWDCRowSource(reader)
+	if err != nil {
+		t.Fatalf("newWDCRowSource: %v", err)
+	}
+	defer source.Close()
+
+	first, ok, err := source.NextRow()
+	if err != nil || !ok || first["Value"] != uint32(100) {
+		t.Fatalf("first row = %#v ok=%v err=%v, want Value 100", first, ok, err)
+	}
+	second, ok, err := source.NextRow()
+	if err != nil || !ok || second["Value"] != uint32(200) {
+		t.Fatalf("second row = %#v ok=%v err=%v, want Value 200", second, ok, err)
+	}
+	_, ok, err = source.NextRow()
+	if err != nil || ok {
+		t.Fatalf("after rows ok=%v err=%v, want EOF", ok, err)
 	}
 }
 
