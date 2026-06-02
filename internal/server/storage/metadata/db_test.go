@@ -266,6 +266,16 @@ func TestOpenWithMigrationsConvertsLegacyFailedNoBuildRows(t *testing.T) {
 	if latest.State != StateNoBuild {
 		t.Fatalf("latest converted state after reopen = %q, want %q", latest.State, StateNoBuild)
 	}
+	latest, err = LatestBuildForTarget(ctx, db, "kr", "wow_classic_titan", "enUS")
+	if err != nil {
+		t.Fatalf("latest converted no-build-key row after reopen: %v", err)
+	}
+	if latest.State != StateNoBuild {
+		t.Fatalf("latest converted no-build-key state after reopen = %q, want %q", latest.State, StateNoBuild)
+	}
+	if latest.Error != "no build key found for kr/wow_classic_titan" {
+		t.Fatalf("latest converted no-build-key error = %q, want no-build-key error", latest.Error)
+	}
 }
 
 func TestOpenWithMigrationsSkipsNoBuildMigrationWhenLegacyBuildTableMissing(t *testing.T) {
@@ -864,7 +874,9 @@ ON server_builds(region, product, locale)
 WHERE active = 1;
 
 INSERT INTO server_builds(region, product, locale, build_key, build_name, state, active, error)
-VALUES ('tw', 'wow_classic_titan', 'enUS', '', '', 'failed', 0, 'no build found for tw/wow_classic_titan');
+VALUES
+  ('tw', 'wow_classic_titan', 'enUS', '', '', 'failed', 0, 'no build found for tw/wow_classic_titan'),
+  ('kr', 'wow_classic_titan', 'enUS', '', '', 'failed', 0, 'no build key found for kr/wow_classic_titan');
 `); err != nil {
 		t.Fatalf("create legacy failed no-build schema: %v", err)
 	}
