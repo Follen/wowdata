@@ -19,6 +19,7 @@ const defaultStreamLimit = 5000
 type Options struct {
 	HealthProvider health.Provider
 	QueryService   service.QueryService
+	AssetService   service.AssetService
 }
 
 func HTTPTools(opts Options) []mcpserver.Tool {
@@ -33,13 +34,135 @@ func HTTPTools(opts Options) []mcpserver.Tool {
 		queryTool(queryService),
 		itemTool(queryService),
 		spellTool(queryService),
-		capabilityTool("wow_file", "Query and export CASC files.", "file"),
-		capabilityTool("wow_icon", "Export BLP icons.", "icon"),
+		fileTool(opts.AssetService),
+		iconTool(opts.AssetService),
 		creatureTool(queryService),
 		encounterTool(queryService),
 		decorTool(queryService),
 		capabilityTool("wow_video", "Process video container data.", "video"),
 	}
+}
+
+func fileTool(assetService service.AssetService) mcpserver.Tool {
+	return mcpserver.Tool{
+		Name:        "wow_file",
+		Description: "Query and export CASC files.",
+		InputSchema: objectSchema(),
+		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
+			args, err := parseArgs(raw)
+			if err != nil {
+				return nil, err
+			}
+			if assetService == nil {
+				return errorEnvelope("file", "capability_unavailable", "file is unavailable in the HTTP service"), nil
+			}
+			fileDataID, hasFileDataID, err := optionalUint32Arg(args, "fileDataID")
+			if err != nil {
+				return errorEnvelope("file", "invalid_request", err.Error()), nil
+			}
+			filename := stringArg(args, "filename", "")
+			if !hasFileDataID && filename == "" {
+				return errorEnvelope("file", "invalid_request", "fileDataID or filename is required"), nil
+			}
+
+			switch mode := stringArg(args, "mode", "lookup"); mode {
+			case "", "lookup":
+				record, err := assetService.FileLookup(ctx, service.FileLookupRequest{FileDataID: fileDataID, Filename: filename})
+				if err != nil {
+					return errorEnvelopeFromError("file lookup", "asset_unavailable", err), nil
+				}
+				return okEnvelope("file lookup", map[string]interface{}{"result": assetRecordMap(record)}), nil
+			case "exists":
+				result, err := assetService.FileExists(ctx, service.FileExistsRequest{FileDataID: fileDataID, Filename: filename})
+				if err != nil {
+					return errorEnvelopeFromError("file exists", "asset_unavailable", err), nil
+				}
+				return okEnvelope("file exists", map[string]interface{}{"result": result}), nil
+			case "get", "export":
+				record, err := assetService.FileExport(ctx, service.FileExportRequest{
+					Context:    requestContextFromArgs(args),
+					FileDataID: fileDataID,
+					Filename:   filename,
+					MIMEType:   stringArg(args, "mimeType", ""),
+				})
+				if err != nil {
+					return errorEnvelopeFromError("file export", "asset_unavailable", err), nil
+				}
+				return okEnvelope("file export", map[string]interface{}{"result": assetRecordMap(record)}), nil
+			default:
+				return errorEnvelope("file", "invalid_request", "mode must be lookup, exists, get, or export"), nil
+			}
+		},
+	}
+}
+
+func iconTool(assetService service.AssetService) mcpserver.Tool {
+	return mcpserver.Tool{
+		Name:        "wow_icon",
+		Description: "Export BLP icons.",
+		InputSchema: objectSchema(),
+		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
+			args, err := parseArgs(raw)
+			if err != nil {
+				return nil, err
+			}
+			if assetService == nil {
+				return errorEnvelope("icon", "capability_unavailable", "icon is unavailable in the HTTP service"), nil
+			}
+			fileDataID, err := requiredUint32Arg(args, "fileDataID")
+			if err != nil {
+				return errorEnvelope("icon export", "invalid_request", err.Error()), nil
+			}
+			mipmap, err := nonNegativeIntArg(args, "mipmap", 0)
+			if err != nil {
+				return errorEnvelope("icon export", "invalid_request", err.Error()), nil
+			}
+			mask, err := nonNegativeIntArg(args, "mask", 0)
+			if err != nil {
+				return errorEnvelope("icon export", "invalid_request", err.Error()), nil
+			}
+			record, err := assetService.IconExport(ctx, service.IconExportRequest{
+				Context:    requestContextFromArgs(args),
+				FileDataID: fileDataID,
+				Format:     stringArg(args, "format", "png"),
+				Mipmap:     mipmap,
+				Mask:       mask,
+			})
+			if err != nil {
+				return errorEnvelopeFromError("icon export", "asset_unavailable", err), nil
+			}
+			return okEnvelope("icon export", map[string]interface{}{"result": assetRecordMap(record)}), nil
+		},
+	}
+}
+
+func assetRecordMap(record service.AssetRecord) map[string]interface{} {
+	out := map[string]interface{}{}
+	if record.FileDataID != 0 {
+		out["fileDataID"] = record.FileDataID
+	}
+	if record.Filename != "" {
+		out["filename"] = record.Filename
+	}
+	if record.Path != "" {
+		out["path"] = record.Path
+	}
+	if record.URI != "" {
+		out["uri"] = record.URI
+	}
+	if record.DownloadURL != "" {
+		out["downloadUrl"] = record.DownloadURL
+	}
+	if record.MIMEType != "" {
+		out["mimeType"] = record.MIMEType
+	}
+	if record.Size != 0 {
+		out["size"] = record.Size
+	}
+	if record.SHA256 != "" {
+		out["sha256"] = record.SHA256
+	}
+	return out
 }
 
 func buildsTool(provider health.Provider) mcpserver.Tool {

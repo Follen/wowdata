@@ -37,9 +37,6 @@ func (c *Cache) Get(ctx context.Context, region, product, buildKey, encodingKey,
 	if c == nil {
 		return nil, errors.New("raw cache: nil cache")
 	}
-	if fetch == nil {
-		return nil, errors.New("raw cache: nil fetch")
-	}
 	if expectedSHA256 == "" {
 		return nil, errors.New("raw cache: empty expected sha256")
 	}
@@ -53,6 +50,9 @@ func (c *Cache) Get(ctx context.Context, region, product, buildKey, encodingKey,
 	}
 	if body, ok := readValid(path, expectedSHA256); ok {
 		return body, nil
+	}
+	if fetch == nil {
+		return nil, errors.New("raw cache: nil fetch")
 	}
 
 	key := region + "\x00" + product + "\x00" + buildKey + "\x00" + encodingKey

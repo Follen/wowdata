@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	serverbootstrap "wowdata/internal/server/bootstrap"
@@ -18,6 +19,7 @@ import (
 	"wowdata/internal/server/service"
 	"wowdata/internal/server/storage/artifacts"
 	"wowdata/internal/server/storage/metadata"
+	"wowdata/internal/server/storage/rawcache"
 	"wowdata/internal/shared/mcpserver"
 
 	"github.com/spf13/cobra"
@@ -206,6 +208,7 @@ func newHTTPHandlerStrict(opts httpOptions, healthProvider health.Provider) (htt
 		writeJSON(w, http.StatusOK, snapshot)
 	})
 	queryService := opts.QueryService
+	var assetService service.AssetService
 	if queryService == nil {
 		if metadataProvider, ok := healthProvider.(health.MetadataProvider); ok {
 			queryService = service.NewMetadataQueryServiceWithDBAndRuntime(metadataProvider.DB(), cfg.Cache.DuckDBPath, cfg.Cache.Root)
@@ -217,9 +220,22 @@ func newHTTPHandlerStrict(opts httpOptions, healthProvider health.Provider) (htt
 			queryService = service.NewMetadataQueryServiceWithRuntime(metadataDBPath, cfg.Cache.DuckDBPath, cfg.Cache.Root)
 		}
 	}
+	if metadataProvider, ok := healthProvider.(health.MetadataProvider); ok {
+		artifactRoot := opts.ArtifactRoot
+		if artifactRoot == "" {
+			artifactRoot = cfg.Artifacts.Root
+		}
+		assetService = service.NewAssetService(
+			metadataProvider.DB(),
+			rawcache.New(cfg.Cache.RawDir),
+			artifacts.NewStore(artifacts.Config{Root: artifactRoot, BaseURL: artifactBaseURL(cfg, opts.BaseURL)}, metadataProvider.DB()),
+			nil,
+		)
+	}
 	mcpServer := mcpserver.NewServer("wowdata", mcphttp.HTTPTools(mcphttp.Options{
 		HealthProvider: healthProvider,
 		QueryService:   queryService,
+		AssetService:   assetService,
 	}))
 	mux.Handle("/mcp", mcpServer)
 	mux.Handle("/mcp/", mcpServer)
@@ -234,6 +250,21 @@ func newHTTPHandlerStrict(opts httpOptions, healthProvider health.Provider) (htt
 		return closeableHandler{Handler: mux, close: sharedMetadataDB.Close}, nil
 	}
 	return mux, nil
+}
+
+func filesBaseURL(baseURL string) string {
+	baseURL = strings.TrimRight(baseURL, "/")
+	if baseURL == "" {
+		return ""
+	}
+	return baseURL + "/files"
+}
+
+func artifactBaseURL(cfg config.Config, serverBaseURL string) string {
+	if cfg.Artifacts.BaseURL != "" {
+		return cfg.Artifacts.BaseURL
+	}
+	return filesBaseURL(serverBaseURL)
 }
 
 type closeableHandler struct {

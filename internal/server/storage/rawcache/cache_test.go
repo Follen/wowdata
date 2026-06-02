@@ -47,6 +47,33 @@ func TestValidBlobHitAvoidsRemoteFetch(t *testing.T) {
 	}
 }
 
+func TestValidBlobHitAllowsNilRemoteFetch(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	key := "encoding-a"
+	body := []byte("cached body")
+	sum := testSHA256Hex(body)
+
+	cachePath, err := Path(root, "us", "wow", "build-a", key)
+	if err != nil {
+		t.Fatalf("Path: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(cachePath, body, 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	got, err := New(root).Get(ctx, "us", "wow", "build-a", key, sum, nil)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if !bytes.Equal(got, body) {
+		t.Fatalf("Get() = %q, want %q", got, body)
+	}
+}
+
 func TestCorruptBlobRefetches(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()

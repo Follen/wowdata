@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -335,6 +336,50 @@ func TestHTTPBusinessToolsReportQueryErrorsTruthfully(t *testing.T) {
 	}
 }
 
+func TestWowFileAndIconUseServerAssetService(t *testing.T) {
+	assets := &fakeAssetService{
+		lookup: service.AssetRecord{FileDataID: 10, Filename: "interface/icons/test.blp"},
+		exists: service.FileExistsResult{FileDataID: 10, Exists: true},
+		fileExport: service.AssetRecord{
+			FileDataID: 10, Filename: "interface/icons/test.blp", Path: "files/test.blp", DownloadURL: "http://example.test/files/test.blp", MIMEType: "application/octet-stream", Size: 4, SHA256: "hash",
+		},
+		iconExport: service.AssetRecord{
+			FileDataID: 10, Path: "icons/10.png", DownloadURL: "http://example.test/files/icons/10.png", MIMEType: "image/png", Size: 8, SHA256: "iconhash",
+		},
+	}
+	tools := HTTPTools(Options{QueryService: service.UnavailableQueryService{}, AssetService: assets})
+
+	for _, tt := range []struct {
+		name    string
+		tool    string
+		raw     json.RawMessage
+		command string
+	}{
+		{name: "file lookup", tool: "wow_file", raw: json.RawMessage(`{"mode":"lookup","fileDataID":10}`), command: "file lookup"},
+		{name: "file exists", tool: "wow_file", raw: json.RawMessage(`{"mode":"exists","fileDataID":10}`), command: "file exists"},
+		{name: "file export", tool: "wow_file", raw: json.RawMessage(`{"mode":"export","fileDataID":10}`), command: "file export"},
+		{name: "icon export", tool: "wow_icon", raw: json.RawMessage(`{"fileDataID":10,"format":"png"}`), command: "icon export"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			tool := findTool(t, tools, tt.tool)
+			result, err := tool.Handler(context.Background(), tt.raw)
+			if err != nil {
+				t.Fatalf("%s handler: %v", tt.tool, err)
+			}
+			envelope := resultEnvelope(t, result)
+			if envelope["ok"] != true {
+				t.Fatalf("result = %#v, want ok true", envelope)
+			}
+			if envelope["command"] != tt.command {
+				t.Fatalf("command = %v, want %q", envelope["command"], tt.command)
+			}
+			if strings.Contains(fmt.Sprint(envelope), "capability_unavailable") {
+				t.Fatalf("asset tool returned unavailable stub: %#v", envelope)
+			}
+		})
+	}
+}
+
 func TestHTTPBusinessToolsRejectMissingLookupArguments(t *testing.T) {
 	tests := []struct {
 		name string
@@ -639,6 +684,29 @@ func (f *errorBusinessQueryService) ForeignKey(context.Context, service.ForeignK
 
 func (f *errorBusinessQueryService) Stream(context.Context, service.StreamRequest) ([]map[string]interface{}, error) {
 	return nil, f.err
+}
+
+type fakeAssetService struct {
+	lookup     service.AssetRecord
+	exists     service.FileExistsResult
+	fileExport service.AssetRecord
+	iconExport service.AssetRecord
+}
+
+func (f *fakeAssetService) FileLookup(context.Context, service.FileLookupRequest) (service.AssetRecord, error) {
+	return f.lookup, nil
+}
+
+func (f *fakeAssetService) FileExists(context.Context, service.FileExistsRequest) (service.FileExistsResult, error) {
+	return f.exists, nil
+}
+
+func (f *fakeAssetService) FileExport(context.Context, service.FileExportRequest) (service.AssetRecord, error) {
+	return f.fileExport, nil
+}
+
+func (f *fakeAssetService) IconExport(context.Context, service.IconExportRequest) (service.AssetRecord, error) {
+	return f.iconExport, nil
 }
 
 func toolNames(tools []mcpserver.Tool) []string {

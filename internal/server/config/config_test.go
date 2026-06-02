@@ -153,7 +153,8 @@ func TestConfigStructsHaveSnakeCaseYAMLTags(t *testing.T) {
 		"DuckDBPath": "duckdb_path",
 	})
 	assertYAMLTags(t, reflect.TypeOf(ArtifactsConfig{}), map[string]string{
-		"Root": "root",
+		"Root":    "root",
+		"BaseURL": "base_url",
 	})
 	assertYAMLTags(t, reflect.TypeOf(PrepareConfig{}), map[string]string{
 		"Targets":       "targets",

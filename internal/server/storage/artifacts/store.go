@@ -96,6 +96,33 @@ func (s *Store) StoreBytes(ctx context.Context, rc RequestContext, category, fil
 	return record, nil
 }
 
+func (s *Store) RecordExisting(ctx context.Context, rc RequestContext, path, mimeType string) (Record, error) {
+	if s == nil || s.manager == nil {
+		return Record{}, fmt.Errorf("artifact store is required")
+	}
+	link, err := s.manager.LinkForPath(path, mimeType)
+	if err != nil {
+		return Record{}, err
+	}
+	record := recordFromLink(link)
+	if s.db != nil {
+		if err := metadata.UpsertArtifact(ctx, s.db, metadata.Artifact{
+			Region:      rc.Region,
+			Product:     rc.Product,
+			Locale:      rc.Locale,
+			BuildKey:    rc.BuildKey,
+			Path:        filepath.ToSlash(record.Path),
+			DownloadURL: record.DownloadURL,
+			MIMEType:    record.MIMEType,
+			Size:        record.Size,
+			SHA256:      record.SHA256,
+		}); err != nil {
+			return Record{}, fmt.Errorf("upsert artifact metadata: %w", err)
+		}
+	}
+	return record, nil
+}
+
 func FileHandler(root string) http.Handler {
 	root = cleanRoot(root)
 	if root == "" {

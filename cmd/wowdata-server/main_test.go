@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,7 +20,10 @@ import (
 
 	serverbootstrap "wowdata/internal/server/bootstrap"
 	"wowdata/internal/server/health"
+	"wowdata/internal/server/storage/cascindex"
+	"wowdata/internal/server/storage/listfile"
 	"wowdata/internal/server/storage/metadata"
+	"wowdata/internal/server/storage/rawcache"
 )
 
 func TestServerHTTPHelpExposesHTTPCommand(t *testing.T) {
@@ -766,6 +771,130 @@ func TestServerFileRouteUsesConfigArtifactRoot(t *testing.T) {
 	}
 }
 
+func TestServerMCPFileLookupUsesMetadataAssetService(t *testing.T) {
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	configPath := writeHealthConfig(t, metadataPath, "US Retail", "us", "wow", "enUS")
+	db, err := metadata.Open(metadataPath)
+	if err != nil {
+		t.Fatalf("open metadata DB: %v", err)
+	}
+	if err := listfile.ReplaceSource(context.Background(), db, "source-a", []listfile.Entry{
+		{FileDataID: 321, Path: "Interface/Icons/Server_Test.blp"},
+	}); err != nil {
+		_ = db.Close()
+		t.Fatalf("seed listfile: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close metadata DB: %v", err)
+	}
+	handler := newHTTPHandler(httpOptions{
+		ServiceName: "wowdata-server",
+		ConfigPath:  configPath,
+	}, newTestMetadataHealthProvider(t, configPath, metadataPath))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_file","arguments":{"mode":"lookup","fileDataID":321}}}`))
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, "capability_unavailable") {
+		t.Fatalf("wow_file lookup returned unavailable stub: %s", body)
+	}
+	if !strings.Contains(body, `"command":"file lookup"`) || !strings.Contains(body, `"filename":"interface/icons/server_test.blp"`) {
+		t.Fatalf("wow_file lookup did not return metadata asset record: %s", body)
+	}
+}
+
+func TestServerMCPFileExportReturnsDownloadableResourceLink(t *testing.T) {
+	root := t.TempDir()
+	rawRoot := filepath.Join(root, "raw")
+	artifactRoot := filepath.Join(root, "artifacts")
+	metadataPath := filepath.Join(root, "metadata.sqlite")
+	configPath := filepath.Join(root, "http-mcp.yaml")
+	configBody := strings.Join([]string{
+		"server:",
+		"  base_url: http://example.test",
+		"cache:",
+		"  metadata_db: " + filepath.ToSlash(metadataPath),
+		"  raw_dir: " + filepath.ToSlash(rawRoot),
+		"artifacts:",
+		"  root: " + filepath.ToSlash(artifactRoot),
+		"",
+	}, "\n")
+	if err := os.WriteFile(configPath, []byte(configBody), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := os.MkdirAll(artifactRoot, 0755); err != nil {
+		t.Fatalf("mkdir artifact root: %v", err)
+	}
+	db, err := metadata.Open(metadataPath)
+	if err != nil {
+		t.Fatalf("open metadata DB: %v", err)
+	}
+	body := []byte("downloadable server artifact")
+	hash := serverTestSHA256Hex(body)
+	if err := listfile.ReplaceSource(context.Background(), db, "source-a", []listfile.Entry{
+		{FileDataID: 322, Path: "Files/Export.bin"},
+	}); err != nil {
+		_ = db.Close()
+		t.Fatalf("seed listfile: %v", err)
+	}
+	if err := cascindex.ReplaceIndex(context.Background(), db, "casc-a",
+		[]cascindex.RootMapping{{FileDataID: 322, ContentKey: "content"}},
+		[]cascindex.EncodingMapping{{ContentKey: "content", EncodingKey: hash, Size: int64(len(body))}},
+		[]cascindex.ArchiveMapping{{EncodingKey: hash, ArchiveKey: "archive", Offset: 0, Size: int64(len(body))}},
+	); err != nil {
+		_ = db.Close()
+		t.Fatalf("seed casc index: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close metadata DB: %v", err)
+	}
+	cachePath, err := rawcache.Path(rawRoot, "us", "wow", "active-build", hash)
+	if err != nil {
+		t.Fatalf("raw cache path: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
+		t.Fatalf("mkdir raw cache: %v", err)
+	}
+	if err := os.WriteFile(cachePath, body, 0644); err != nil {
+		t.Fatalf("write raw cache: %v", err)
+	}
+	handler := newHTTPHandler(httpOptions{
+		ServiceName: "wowdata-server",
+		ConfigPath:  configPath,
+		BaseURL:     "http://example.test",
+	}, newTestMetadataHealthProvider(t, configPath, metadataPath))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_file","arguments":{"mode":"export","region":"us","product":"wow","locale":"enUS","buildKey":"active-build","fileDataID":322}}}`))
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	respBody := rec.Body.String()
+	if !strings.Contains(respBody, `"type":"resource_link"`) || !strings.Contains(respBody, `"uri":"http://example.test/files/`) {
+		t.Fatalf("export response missing resource_link: %s", respBody)
+	}
+	if strings.Contains(respBody, "capability_unavailable") {
+		t.Fatalf("export returned unavailable stub: %s", respBody)
+	}
+
+	download := httptest.NewRecorder()
+	downloadReq := httptest.NewRequest(http.MethodGet, "/files/files/export.bin", nil)
+	handler.ServeHTTP(download, downloadReq)
+	if download.Code != http.StatusOK {
+		t.Fatalf("download status = %d, want 200: %s", download.Code, download.Body.String())
+	}
+	if !bytes.Equal(download.Body.Bytes(), body) {
+		t.Fatalf("download body = %q, want %q", download.Body.Bytes(), body)
+	}
+}
+
 type testHealthProvider struct {
 	snapshot health.Snapshot
 	calls    int
@@ -792,6 +921,11 @@ func newTestMetadataHealthProvider(t *testing.T, configPath, metadataPath string
 		}
 	})
 	return provider
+}
+
+func serverTestSHA256Hex(body []byte) string {
+	sum := sha256.Sum256(body)
+	return fmt.Sprintf("%x", sum[:])
 }
 
 func seedActiveMaterializedTable(t *testing.T, metadataPath string, buildKey metadata.BuildKey, tableName string) {

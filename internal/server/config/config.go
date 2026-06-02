@@ -23,7 +23,8 @@ type CacheConfig struct {
 }
 
 type ArtifactsConfig struct {
-	Root string `yaml:"root"`
+	Root    string `yaml:"root"`
+	BaseURL string `yaml:"base_url"`
 }
 
 type PrepareConfig struct {
