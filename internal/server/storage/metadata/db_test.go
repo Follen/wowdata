@@ -459,6 +459,35 @@ WHERE region = 'us' AND product = 'wow' AND locale = 'enUS' AND table_name = 'Sp
 	}
 }
 
+func TestOpenWithMigrationsNormalizesLegacySchemaMigrationsNameColumn(t *testing.T) {
+	migrationsDir := filepath.Join(t.TempDir(), "migrations", "server")
+	copyServerMigrations(t, migrationsDir)
+	path := filepath.Join(t.TempDir(), "legacy-metadata.sqlite")
+	seedLegacySchemaMigrationsNameDB(t, path)
+
+	db, err := OpenWithMigrations(path, migrationsDir)
+	if err != nil {
+		t.Fatalf("open legacy schema_migrations metadata DB: %v", err)
+	}
+	assertServerBuildsExists(t, db)
+	assertSchemaMigrationVersionExists(t, db, "0001_init.sql")
+	assertLegacySchemaMigrationNamePreserved(t, db, "0001_init.sql")
+	assertLegacyTablePreserved(t, db)
+	if err := db.Close(); err != nil {
+		t.Fatalf("close legacy metadata DB: %v", err)
+	}
+
+	db, err = OpenWithMigrations(path, migrationsDir)
+	if err != nil {
+		t.Fatalf("reopen normalized legacy schema_migrations metadata DB: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	assertServerBuildsExists(t, db)
+	assertSchemaMigrationVersionExists(t, db, "0001_init.sql")
+	assertLegacySchemaMigrationNamePreserved(t, db, "0001_init.sql")
+	assertLegacyTablePreserved(t, db)
+}
+
 func TestOpenWithMigrationsBackfillsLegacyMaterializedRowOrder(t *testing.T) {
 	ctx := context.Background()
 	migrationsDir := filepath.Join(t.TempDir(), "migrations", "server")
@@ -695,6 +724,76 @@ ON server_materialized_tables(region, product, locale, table_name, state, update
 		if _, err := db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES (?, CURRENT_TIMESTAMP)`, version); err != nil {
 			t.Fatalf("record legacy migration %s: %v", version, err)
 		}
+	}
+}
+
+func seedLegacySchemaMigrationsNameDB(t *testing.T, path string) {
+	t.Helper()
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open legacy schema_migrations DB for seed: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`
+CREATE TABLE schema_migrations (
+  name TEXT PRIMARY KEY,
+  applied_at TEXT NOT NULL
+);
+
+CREATE TABLE legacy_cache_marker (
+  id INTEGER PRIMARY KEY,
+  marker TEXT NOT NULL
+);
+
+INSERT INTO schema_migrations(name, applied_at)
+VALUES ('0001_init.sql', '2026-06-01 00:00:00');
+
+INSERT INTO legacy_cache_marker(id, marker)
+VALUES (1, 'preserved');
+`); err != nil {
+		t.Fatalf("create legacy schema_migrations DB: %v", err)
+	}
+}
+
+func assertServerBuildsExists(t *testing.T, db *sql.DB) {
+	t.Helper()
+	var name string
+	if err := db.QueryRow(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'server_builds'`).Scan(&name); err != nil {
+		t.Fatalf("server_builds missing: %v", err)
+	}
+}
+
+func assertSchemaMigrationVersionExists(t *testing.T, db *sql.DB, version string) {
+	t.Helper()
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE version = ?`, version).Scan(&count); err != nil {
+		t.Fatalf("schema_migrations version query failed: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("schema_migrations version %q count = %d, want 1", version, count)
+	}
+}
+
+func assertLegacySchemaMigrationNamePreserved(t *testing.T, db *sql.DB, name string) {
+	t.Helper()
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations_legacy_name WHERE name = ?`, name).Scan(&count); err != nil {
+		t.Fatalf("legacy schema_migrations name query failed: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("legacy schema_migrations name %q count = %d, want 1", name, count)
+	}
+}
+
+func assertLegacyTablePreserved(t *testing.T, db *sql.DB) {
+	t.Helper()
+	var marker string
+	if err := db.QueryRow(`SELECT marker FROM legacy_cache_marker WHERE id = 1`).Scan(&marker); err != nil {
+		t.Fatalf("legacy table marker missing: %v", err)
+	}
+	if marker != "preserved" {
+		t.Fatalf("legacy marker = %q, want preserved", marker)
 	}
 }
 

@@ -55,7 +55,7 @@ func OpenWithMigrations(path string, migrationsDir string) (*sql.DB, error) {
 }
 
 func migrate(db *sql.DB, dir string) error {
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)`); err != nil {
+	if err := ensureSchemaMigrations(db); err != nil {
 		return err
 	}
 
@@ -102,6 +102,66 @@ func migrate(db *sql.DB, dir string) error {
 		}
 	}
 	return nil
+}
+
+func ensureSchemaMigrations(db *sql.DB) error {
+	columns, err := tableColumns(db, "schema_migrations")
+	if err != nil {
+		return err
+	}
+	if len(columns) == 0 {
+		_, err := db.Exec(`CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)`)
+		return err
+	}
+	if columns["version"] {
+		return nil
+	}
+	if !columns["name"] {
+		return errors.New("schema_migrations table has no version or name column")
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+	if _, err = tx.Exec(`ALTER TABLE schema_migrations RENAME TO schema_migrations_legacy_name`); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(`CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)`); err != nil {
+		return err
+	}
+	err = tx.Commit()
+	return err
+}
+
+func tableColumns(db *sql.DB, table string) (map[string]bool, error) {
+	rows, err := db.Query(`PRAGMA table_info(` + table + `)`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	columns := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notNull int
+		var defaultValue interface{}
+		var pk int
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultValue, &pk); err != nil {
+			return nil, err
+		}
+		columns[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return columns, nil
 }
 
 func migrationsDir() (string, error) {
