@@ -41,18 +41,20 @@ func (p MetadataProvider) HealthSnapshot(ctx context.Context) (Snapshot, error) 
 		active, err := metadata.ActiveBuild(ctx, db, target.Region, target.Product, target.Locale)
 		if err == nil {
 			input.ActiveBuild = active.Key.BuildKey
-			tables, err := metadata.ListValidMaterializedTables(ctx, db, metadata.TableCatalogLookup{
-				Region:   target.Region,
-				Product:  target.Product,
-				Locale:   target.Locale,
-				BuildKey: active.Key.BuildKey,
-			})
-			if err != nil {
-				return Snapshot{}, err
-			}
-			if len(tables) > 0 {
-				input.State = StateReady
-				input.DB2Ready = true
+			if active.State == metadata.StateValid {
+				tables, err := metadata.ListValidMaterializedTables(ctx, db, metadata.TableCatalogLookup{
+					Region:   target.Region,
+					Product:  target.Product,
+					Locale:   target.Locale,
+					BuildKey: active.Key.BuildKey,
+				})
+				if err != nil {
+					return Snapshot{}, err
+				}
+				if len(tables) > 0 {
+					input.State = StateReady
+					input.DB2Ready = true
+				}
 			}
 		} else if !errors.Is(err, sql.ErrNoRows) {
 			return Snapshot{}, err

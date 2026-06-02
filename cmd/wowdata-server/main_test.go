@@ -207,6 +207,79 @@ func TestServerWowStatusReportsConfiguredTargetPreparingWithoutActiveMetadata(t 
 	}
 }
 
+func TestServerHealthKeepsActiveNonValidBuildPreparingDespiteValidTable(t *testing.T) {
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	buildKey := metadata.BuildKey{
+		Region:   "us",
+		Product:  "wow",
+		Locale:   "enUS",
+		BuildKey: "failed-build",
+	}
+	db, err := metadata.Open(metadataPath)
+	if err != nil {
+		t.Fatalf("open metadata DB: %v", err)
+	}
+	ctx := context.Background()
+	if err := metadata.UpsertDiscoveredBuild(ctx, db, metadata.Build{
+		Key:       buildKey,
+		BuildName: buildKey.BuildKey,
+		State:     metadata.StateFailed,
+		Active:    true,
+	}); err != nil {
+		t.Fatalf("upsert active failed build: %v", err)
+	}
+	if err := metadata.UpsertMaterializedTable(ctx, db, metadata.MaterializedTable{
+		Key: metadata.TableKey{
+			Region:    buildKey.Region,
+			Product:   buildKey.Product,
+			Locale:    buildKey.Locale,
+			BuildKey:  buildKey.BuildKey,
+			TableName: "Item",
+		},
+		DB2FileDataID:       1,
+		DBDHash:             "dbd-a",
+		DecoderVersion:      "decoder-1",
+		MaterializerVersion: "materializer-1",
+		ParquetPath:         "cache/db2/item.parquet",
+		RowCount:            1,
+		State:               metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert materialized table: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close metadata DB: %v", err)
+	}
+	configPath := writeHealthConfig(t, metadataPath, "US Retail", "us", "wow", "enUS")
+	handler := newHTTPHandler(httpOptions{
+		ServiceName: "wowdata-server",
+		ConfigPath:  configPath,
+	}, nil)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	var got health.Snapshot
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode health: %v\n%s", err, rec.Body.String())
+	}
+	if got.Readiness.OK || got.Readiness.RequiredTargetsReady != 0 || got.Readiness.RequiredTargetsTotal != 1 {
+		t.Fatalf("readiness = %#v, want 0/1 not ready", got.Readiness)
+	}
+	if got.Matrix.Ready != 0 || got.Matrix.Preparing != 1 {
+		t.Fatalf("matrix = %#v, want one preparing target", got.Matrix)
+	}
+	if len(got.Contexts) != 1 || got.Contexts[0].State != health.StatePreparing || got.Contexts[0].DB2Ready {
+		t.Fatalf("contexts = %#v, want preparing target without DB2Ready", got.Contexts)
+	}
+	if got.Contexts[0].ActiveBuild != "failed-build" {
+		t.Fatalf("activeBuild = %q, want failed-build", got.Contexts[0].ActiveBuild)
+	}
+}
+
 func TestServerMCPRouteListsTools(t *testing.T) {
 	handler := newHTTPHandler(httpOptions{ServiceName: "wowdata-server"}, &testHealthProvider{})
 
