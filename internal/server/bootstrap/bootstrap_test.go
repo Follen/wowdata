@@ -188,6 +188,37 @@ func TestPrepareConfiguredTableFailsEvenAfterWildcardMarkedTableUnreadable(t *te
 	}
 }
 
+func TestPrepareReleasesMemoryAfterEachTableAttempt(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"*"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "build-2", BuildName: "12.0.5.67823"},
+	}}
+	materializer := &fakeMaterializer{
+		db:              db,
+		availableTables: []string{"Achievement", "ModelSound", "Spell"},
+		failTable:       "ModelSound",
+		err:             errors.New("no DBD structure for build 12.0.5.67823"),
+	}
+	var releases int32
+
+	if err := (Runner{
+		Config:                  cfg,
+		DB:                      db,
+		Discoverer:              discoverer,
+		Materializer:            materializer,
+		AfterTableMemoryRelease: func() { atomic.AddInt32(&releases, 1) },
+	}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	if got := atomic.LoadInt32(&releases); got != 3 {
+		t.Fatalf("memory releases = %d, want one per table attempt", got)
+	}
+}
+
 func TestPrepareManifestDefaultTablesSkipsInvalidDBDDefinitions(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")

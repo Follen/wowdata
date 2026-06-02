@@ -12,9 +12,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	cacheparquet "wowdata/internal/cache/parquet"
@@ -33,6 +36,8 @@ const (
 	defaultRetryAttempts          = 3
 	defaultRetryDelay             = 500 * time.Millisecond
 )
+
+var lastTableMemoryReleaseUnixNano int64
 
 type Config = config.Config
 
@@ -60,13 +65,14 @@ type TableCatalogMaterializer interface {
 }
 
 type Runner struct {
-	Config                config.Config
-	DB                    *sql.DB
-	Discoverer            Discoverer
-	Materializer          TableMaterializer
-	DiscoverRetryAttempts int
-	DiscoverRetryDelay    time.Duration
-	RetrySleeper          func(context.Context, time.Duration) error
+	Config                  config.Config
+	DB                      *sql.DB
+	Discoverer              Discoverer
+	Materializer            TableMaterializer
+	DiscoverRetryAttempts   int
+	DiscoverRetryDelay      time.Duration
+	RetrySleeper            func(context.Context, time.Duration) error
+	AfterTableMemoryRelease func()
 }
 
 type discoveredTarget struct {
@@ -368,6 +374,7 @@ func (r Runner) materializeOneTable(ctx context.Context, target config.PrepareTa
 	if markBuildProgress {
 		_ = metadata.MarkBuildPreparingMessage(ctx, r.DB, buildKey, "materializing "+tableName)
 	}
+	defer r.releaseTableMemory()
 	fmt.Fprintf(os.Stderr, "wowdata-server prepare materializing table: %s %s/%s/%s build=%s table=%s\n", target.Label, target.Region, target.Product, target.Locale, build.BuildKey, tableName)
 	err := materializer.MaterializeTable(ctx, target, build, tableName)
 	if err != nil && skipUnavailableBuildStructure && isManifestUnreadableTableError(err) {
@@ -389,6 +396,28 @@ func (r Runner) materializeOneTable(ctx context.Context, target config.PrepareTa
 		return nil
 	}
 	return err
+}
+
+func (r Runner) releaseTableMemory() {
+	release := r.AfterTableMemoryRelease
+	if release == nil {
+		release = releaseTableMemory
+	}
+	release()
+}
+
+func releaseTableMemory() {
+	const minInterval = 2 * time.Second
+	now := time.Now()
+	last := atomic.LoadInt64(&lastTableMemoryReleaseUnixNano)
+	if last != 0 && now.Sub(time.Unix(0, last)) < minInterval {
+		return
+	}
+	if !atomic.CompareAndSwapInt64(&lastTableMemoryReleaseUnixNano, last, now.UnixNano()) {
+		return
+	}
+	runtime.GC()
+	debug.FreeOSMemory()
 }
 
 func knownManifestUnreadableTables(ctx context.Context, db *sql.DB, buildKey metadata.BuildKey) ([]metadata.MaterializedTable, error) {
