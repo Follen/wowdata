@@ -3,6 +3,7 @@ package mcphttp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -196,6 +197,162 @@ func TestWowQueryInvalidModeMentionsTables(t *testing.T) {
 	}
 }
 
+func TestHTTPBusinessToolsDispatchToBoundedServerAssemblers(t *testing.T) {
+	tests := []struct {
+		name      string
+		tool      string
+		args      map[string]interface{}
+		command   string
+		wantCalls []businessToolCall
+	}{
+		{
+			name:    "item",
+			tool:    "wow_item",
+			args:    map[string]interface{}{"itemID": float64(19019)},
+			command: "item",
+			wantCalls: []businessToolCall{
+				{table: "Item", idField: "ID"},
+				{table: "ItemSparse", idField: "ID"},
+			},
+		},
+		{
+			name:    "spell",
+			tool:    "wow_spell",
+			args:    map[string]interface{}{"spellID": float64(100), "maxDepth": float64(1)},
+			command: "spell",
+			wantCalls: []businessToolCall{
+				{table: "SpellEffect", idField: "SpellID"},
+				{table: "Spell", idField: "ID"},
+				{table: "SpellName", idField: "ID"},
+				{table: "SpellMisc", idField: "SpellID"},
+			},
+		},
+		{
+			name:    "creature",
+			tool:    "wow_creature",
+			args:    map[string]interface{}{"displayID": float64(100)},
+			command: "creature",
+			wantCalls: []businessToolCall{
+				{table: "CreatureDisplayInfo", idField: "ID"},
+				{table: "CreatureDisplayInfoGeosetData", idField: "CreatureDisplayInfoID"},
+				{table: "CreatureModelData", idField: "ID"},
+			},
+		},
+		{
+			name:    "encounter",
+			tool:    "wow_encounter",
+			args:    map[string]interface{}{"journalEncounterID": float64(900)},
+			command: "encounter",
+			wantCalls: []businessToolCall{
+				{table: "JournalEncounterSection", idField: "JournalEncounterID"},
+			},
+		},
+		{
+			name:    "decor",
+			tool:    "wow_decor",
+			args:    map[string]interface{}{"id": float64(77)},
+			command: "decor",
+			wantCalls: []businessToolCall{
+				{table: "HouseDecor", idField: "ID"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := newFakeBusinessQueryService()
+			tool := findTool(t, HTTPTools(Options{QueryService: fake}), tt.tool)
+			raw, err := json.Marshal(tt.args)
+			if err != nil {
+				t.Fatalf("marshal args: %v", err)
+			}
+
+			result, err := tool.Handler(context.Background(), raw)
+			if err != nil {
+				t.Fatalf("%s handler: %v", tt.tool, err)
+			}
+			envelope := resultEnvelope(t, result)
+			if envelope["ok"] != true {
+				t.Fatalf("ok = %v, want true; result=%#v", envelope["ok"], envelope)
+			}
+			if envelope["command"] != tt.command {
+				t.Fatalf("command = %v, want %q", envelope["command"], tt.command)
+			}
+			if _, ok := envelope["data"].(map[string]interface{}); !ok {
+				t.Fatalf("data = %T, want map", envelope["data"])
+			}
+			for _, want := range tt.wantCalls {
+				if !fake.sawBoundedCall(want.table, want.idField) {
+					t.Fatalf("%s did not issue bounded %s.%s query; calls=%#v", tt.tool, want.table, want.idField, fake.calls)
+				}
+			}
+		})
+	}
+}
+
+func TestHTTPBusinessToolsReportQueryErrorsTruthfully(t *testing.T) {
+	fake := &errorBusinessQueryService{err: errors.New("table Item is not ready")}
+	tool := findTool(t, HTTPTools(Options{QueryService: fake}), "wow_item")
+
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{"itemID":19019}`))
+	if err != nil {
+		t.Fatalf("wow_item handler: %v", err)
+	}
+	envelope := resultEnvelope(t, result)
+	if envelope["ok"] != false {
+		t.Fatalf("ok = %v, want false; result=%#v", envelope["ok"], envelope)
+	}
+	errInfo, ok := envelope["error"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("error = %T, want map", envelope["error"])
+	}
+	if errInfo["code"] == "invalid_request" {
+		t.Fatalf("query service failure was reported as invalid_request: %#v", envelope)
+	}
+	if errInfo["code"] != "query_engine_unavailable" {
+		t.Fatalf("error code = %v, want query_engine_unavailable; result=%#v", errInfo["code"], envelope)
+	}
+}
+
+func TestHTTPBusinessToolsRejectMissingLookupArguments(t *testing.T) {
+	tests := []struct {
+		name string
+		tool string
+		raw  json.RawMessage
+	}{
+		{name: "item", tool: "wow_item", raw: json.RawMessage(`{}`)},
+		{name: "spell", tool: "wow_spell", raw: json.RawMessage(`{}`)},
+		{name: "creature", tool: "wow_creature", raw: json.RawMessage(`{}`)},
+		{name: "encounter", tool: "wow_encounter", raw: json.RawMessage(`{}`)},
+		{name: "decor", tool: "wow_decor", raw: json.RawMessage(`{}`)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := newFakeBusinessQueryService()
+			tool := findTool(t, HTTPTools(Options{QueryService: fake}), tt.tool)
+
+			result, err := tool.Handler(context.Background(), tt.raw)
+			if err != nil {
+				t.Fatalf("%s handler: %v", tt.tool, err)
+			}
+			envelope := resultEnvelope(t, result)
+			if envelope["ok"] != false {
+				t.Fatalf("ok = %v, want false; result=%#v", envelope["ok"], envelope)
+			}
+			errInfo, ok := envelope["error"].(map[string]interface{})
+			if !ok {
+				t.Fatalf("error = %T, want map", envelope["error"])
+			}
+			if errInfo["code"] != "invalid_request" {
+				t.Fatalf("error code = %v, want invalid_request; result=%#v", errInfo["code"], envelope)
+			}
+			if len(fake.calls) != 0 {
+				t.Fatalf("service calls = %#v, want no calls for missing lookup args", fake.calls)
+			}
+		})
+	}
+}
+
 func TestWowBuildsReturnsHealthSnapshotContexts(t *testing.T) {
 	provider := &fakeHealthProvider{
 		snapshot: health.Snapshot{
@@ -345,6 +502,122 @@ func (f *fakeQueryService) Stream(ctx context.Context, req service.StreamRequest
 	f.called = "stream"
 	f.lastRequest = req
 	return []map[string]interface{}{{"ID": float64(10)}}, nil
+}
+
+type businessToolCall struct {
+	table   string
+	idField string
+}
+
+type fakeBusinessQueryService struct {
+	rows  map[string][]map[string]interface{}
+	calls []businessToolCall
+}
+
+func newFakeBusinessQueryService() *fakeBusinessQueryService {
+	return &fakeBusinessQueryService{rows: map[string][]map[string]interface{}{
+		"Item":                          {{"ID": uint32(19019), "ClassID": int32(2), "SubclassID": int32(7)}},
+		"ItemSparse":                    {{"ID": uint32(19019), "Display_lang": "Thunderfury", "InventoryType": int32(21), "OverallQualityID": int32(5)}},
+		"SpellEffect":                   {{"SpellID": uint32(100), "EffectTriggerSpell": uint32(200), "EffectIndex": int32(0)}},
+		"Spell":                         {{"ID": uint32(100), "Description_lang": "Seed"}, {"ID": uint32(200), "Description_lang": "Child"}},
+		"SpellName":                     {{"ID": uint32(100), "Name_lang": "Seed Spell"}, {"ID": uint32(200), "Name_lang": "Child Spell"}},
+		"SpellMisc":                     {{"SpellID": uint32(100)}, {"SpellID": uint32(200)}},
+		"CreatureDisplayInfo":           {{"ID": uint32(100), "ModelID": uint32(10), "TextureVariationFileDataID": []uint32{6000}}},
+		"CreatureDisplayInfoGeosetData": {{"CreatureDisplayInfoID": uint32(100), "GeosetIndex": uint32(1), "GeosetValue": uint32(2)}},
+		"CreatureModelData":             {{"ID": uint32(10), "FileDataID": uint32(5000)}},
+		"JournalEncounterSection":       {{"ID": uint32(10), "JournalEncounterID": uint32(900), "Title_lang": "Boss", "SpellID": uint32(100)}},
+		"HouseDecor":                    {{"ID": uint32(77), "Name_lang": "Banner", "ModelFileDataID": uint32(888)}},
+	}}
+}
+
+func (f *fakeBusinessQueryService) Schema(context.Context, service.SchemaRequest) (service.Schema, error) {
+	return service.Schema{}, nil
+}
+
+func (f *fakeBusinessQueryService) Tables(context.Context, service.TablesRequest) (service.TableCatalog, error) {
+	return service.TableCatalog{}, nil
+}
+
+func (f *fakeBusinessQueryService) Rows(_ context.Context, req service.QueryRowsRequest) ([]map[string]interface{}, error) {
+	f.calls = append(f.calls, businessToolCall{table: req.Table, idField: req.IDField})
+	if len(req.IDs) == 0 {
+		return nil, nil
+	}
+	idSet := map[uint32]bool{}
+	for _, id := range req.IDs {
+		idSet[uint32(id)] = true
+	}
+	out := []map[string]interface{}{}
+	for _, row := range f.rows[req.Table] {
+		if idSet[rowTestUint32(row[req.IDField])] {
+			out = append(out, row)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeBusinessQueryService) Search(context.Context, service.SearchRequest) ([]map[string]interface{}, error) {
+	return nil, nil
+}
+
+func (f *fakeBusinessQueryService) ForeignKey(context.Context, service.ForeignKeyRequest) ([]map[string]interface{}, error) {
+	return nil, nil
+}
+
+func (f *fakeBusinessQueryService) Stream(context.Context, service.StreamRequest) ([]map[string]interface{}, error) {
+	return nil, nil
+}
+
+func (f *fakeBusinessQueryService) sawBoundedCall(table, idField string) bool {
+	for _, call := range f.calls {
+		if call.table == table && call.idField == idField {
+			return true
+		}
+	}
+	return false
+}
+
+func rowTestUint32(value interface{}) uint32 {
+	switch v := value.(type) {
+	case uint32:
+		return v
+	case int32:
+		return uint32(v)
+	case int:
+		return uint32(v)
+	case float64:
+		return uint32(v)
+	default:
+		return 0
+	}
+}
+
+type errorBusinessQueryService struct {
+	err error
+}
+
+func (f *errorBusinessQueryService) Schema(context.Context, service.SchemaRequest) (service.Schema, error) {
+	return service.Schema{}, f.err
+}
+
+func (f *errorBusinessQueryService) Tables(context.Context, service.TablesRequest) (service.TableCatalog, error) {
+	return service.TableCatalog{}, f.err
+}
+
+func (f *errorBusinessQueryService) Rows(context.Context, service.QueryRowsRequest) ([]map[string]interface{}, error) {
+	return nil, f.err
+}
+
+func (f *errorBusinessQueryService) Search(context.Context, service.SearchRequest) ([]map[string]interface{}, error) {
+	return nil, f.err
+}
+
+func (f *errorBusinessQueryService) ForeignKey(context.Context, service.ForeignKeyRequest) ([]map[string]interface{}, error) {
+	return nil, f.err
+}
+
+func (f *errorBusinessQueryService) Stream(context.Context, service.StreamRequest) ([]map[string]interface{}, error) {
+	return nil, f.err
 }
 
 func toolNames(tools []mcpserver.Tool) []string {

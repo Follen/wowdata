@@ -29,13 +29,13 @@ func HTTPTools(opts Options) []mcpserver.Tool {
 		statusTool(opts.HealthProvider),
 		buildsTool(opts.HealthProvider),
 		queryTool(queryService),
-		capabilityTool("wow_item", "Query item metadata and assets.", "item"),
-		capabilityTool("wow_spell", "Inspect spell relationships.", "spell"),
+		itemTool(queryService),
+		spellTool(queryService),
 		capabilityTool("wow_file", "Query and export CASC files.", "file"),
 		capabilityTool("wow_icon", "Export BLP icons.", "icon"),
-		capabilityTool("wow_creature", "Query creature displays and models.", "creature"),
-		capabilityTool("wow_encounter", "Query JournalEncounter data.", "encounter"),
-		capabilityTool("wow_decor", "Query decor data.", "decor"),
+		creatureTool(queryService),
+		encounterTool(queryService),
+		decorTool(queryService),
 		capabilityTool("wow_video", "Process video container data.", "video"),
 	}
 }
@@ -216,6 +216,134 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 			}
 		},
 	}
+}
+
+func itemTool(queryService service.QueryService) mcpserver.Tool {
+	return businessTool("wow_item", "Query item metadata and assets.", "item", func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+		itemID, err := requiredUint32Arg(args, "itemID", "id")
+		if err != nil {
+			return nil, err
+		}
+		return service.ItemInfo(ctx, queryService, service.ItemInfoRequest{
+			Context: requestContextFromArgs(args),
+			ItemID:  itemID,
+		})
+	})
+}
+
+func spellTool(queryService service.QueryService) mcpserver.Tool {
+	return businessTool("wow_spell", "Inspect spell relationships.", "spell", func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+		spellIDs, err := requiredUint32ListArg(args, "spellID", "spellIDs")
+		if err != nil {
+			return nil, err
+		}
+		maxDepth, err := nonNegativeIntArg(args, "maxDepth", 5)
+		if err != nil {
+			return nil, invalidRequest(err)
+		}
+		return service.SpellInfo(ctx, queryService, service.SpellInfoRequest{
+			Context:  requestContextFromArgs(args),
+			SpellIDs: spellIDs,
+			MaxDepth: maxDepth,
+		})
+	})
+}
+
+func creatureTool(queryService service.QueryService) mcpserver.Tool {
+	return businessTool("wow_creature", "Query creature displays and models.", "creature", func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+		displayID, hasDisplayID, err := optionalUint32Arg(args, "displayID")
+		if err != nil {
+			return nil, err
+		}
+		fileDataID, hasFileDataID, err := optionalUint32Arg(args, "fileDataID")
+		if err != nil {
+			return nil, err
+		}
+		if !hasDisplayID && !hasFileDataID {
+			return nil, invalidRequest(fmt.Errorf("displayID or fileDataID is required"))
+		}
+		return service.CreatureDisplay(ctx, queryService, service.CreatureDisplayRequest{
+			Context:    requestContextFromArgs(args),
+			DisplayID:  displayID,
+			FileDataID: fileDataID,
+		})
+	})
+}
+
+func encounterTool(queryService service.QueryService) mcpserver.Tool {
+	return businessTool("wow_encounter", "Query JournalEncounter data.", "encounter", func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+		encounterID, err := requiredUint32Arg(args, "journalEncounterID", "encounterID")
+		if err != nil {
+			return nil, err
+		}
+		return service.EncounterInfo(ctx, queryService, service.EncounterInfoRequest{
+			Context:            requestContextFromArgs(args),
+			JournalEncounterID: encounterID,
+		})
+	})
+}
+
+func decorTool(queryService service.QueryService) mcpserver.Tool {
+	return businessTool("wow_decor", "Query decor data.", "decor", func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+		id, hasID, err := optionalUint32Arg(args, "id")
+		if err != nil {
+			return nil, err
+		}
+		modelFileDataID, hasModelFileDataID, err := optionalUint32Arg(args, "modelFileDataID")
+		if err != nil {
+			return nil, err
+		}
+		if !hasID && !hasModelFileDataID {
+			return nil, invalidRequest(fmt.Errorf("id or modelFileDataID is required"))
+		}
+		return service.DecorItem(ctx, queryService, service.DecorItemRequest{
+			Context:         requestContextFromArgs(args),
+			ID:              id,
+			ModelFileDataID: modelFileDataID,
+		})
+	})
+}
+
+func businessTool(name, description, command string, run func(context.Context, map[string]interface{}) (interface{}, error)) mcpserver.Tool {
+	return mcpserver.Tool{
+		Name:        name,
+		Description: description,
+		InputSchema: objectSchema(),
+		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
+			args, err := parseArgs(raw)
+			if err != nil {
+				return nil, err
+			}
+			result, err := run(ctx, args)
+			if err != nil {
+				var invalid invalidRequestError
+				if errors.As(err, &invalid) {
+					return errorEnvelope(command, "invalid_request", invalid.Error()), nil
+				}
+				return errorEnvelopeFromError(command, "query_engine_unavailable", err), nil
+			}
+			return okEnvelope(command, map[string]interface{}{"result": result}), nil
+		},
+	}
+}
+
+type invalidRequestError struct {
+	err error
+}
+
+func (e invalidRequestError) Error() string {
+	return e.err.Error()
+}
+
+func (e invalidRequestError) Unwrap() error {
+	return e.err
+}
+
+func invalidRequest(err error) error {
+	if err == nil {
+		return nil
+	}
+	return invalidRequestError{err: err}
 }
 
 func capabilityTool(name, description, command string) mcpserver.Tool {
@@ -416,6 +544,61 @@ func uint64ListArg(args map[string]interface{}, keys ...string) ([]uint64, error
 		}
 	}
 	return out, nil
+}
+
+func optionalUint32Arg(args map[string]interface{}, key string) (uint32, bool, error) {
+	value, ok := args[key]
+	if !ok {
+		return 0, false, nil
+	}
+	parsed, err := parseUint64Value(value, key)
+	if err != nil {
+		return 0, true, invalidRequest(err)
+	}
+	if parsed > math.MaxUint32 {
+		return 0, true, invalidRequest(fmt.Errorf("%s must fit uint32", key))
+	}
+	return uint32(parsed), true, nil
+}
+
+func requiredUint32Arg(args map[string]interface{}, keys ...string) (uint32, error) {
+	for _, key := range keys {
+		parsed, ok, err := optionalUint32Arg(args, key)
+		if err != nil {
+			return 0, err
+		}
+		if !ok {
+			continue
+		}
+		return parsed, nil
+	}
+	return 0, invalidRequest(fmt.Errorf("%s is required", strings.Join(keys, " or ")))
+}
+
+func uint32ListArg(args map[string]interface{}, keys ...string) ([]uint32, error) {
+	values, err := uint64ListArg(args, keys...)
+	if err != nil {
+		return nil, invalidRequest(err)
+	}
+	out := make([]uint32, 0, len(values))
+	for _, value := range values {
+		if value > math.MaxUint32 {
+			return nil, invalidRequest(fmt.Errorf("%s must fit uint32", strings.Join(keys, "/")))
+		}
+		out = append(out, uint32(value))
+	}
+	return out, nil
+}
+
+func requiredUint32ListArg(args map[string]interface{}, keys ...string) ([]uint32, error) {
+	values, err := uint32ListArg(args, keys...)
+	if err != nil {
+		return nil, err
+	}
+	if len(values) == 0 {
+		return nil, invalidRequest(fmt.Errorf("%s is required", strings.Join(keys, " or ")))
+	}
+	return values, nil
 }
 
 func parseUint64Value(value interface{}, key string) (uint64, error) {
