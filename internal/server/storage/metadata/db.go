@@ -4,10 +4,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -40,11 +42,15 @@ func OpenWithMigrations(path string, migrationsDir string) (*sql.DB, error) {
 		}
 	}
 
-	db, err := sql.Open("sqlite", path)
+	db, err := sql.Open("sqlite", sqliteOpenDSN(path))
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(1)
+	if path == ":memory:" {
+		db.SetMaxOpenConns(1)
+	} else {
+		db.SetMaxOpenConns(4)
+	}
 	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -58,6 +64,20 @@ func OpenWithMigrations(path string, migrationsDir string) (*sql.DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+func sqliteOpenDSN(path string) string {
+	q := url.Values{}
+	q.Add("_pragma", "busy_timeout=5000")
+	q.Add("_pragma", "foreign_keys=ON")
+	if path != ":memory:" {
+		q.Add("_pragma", "journal_mode=WAL")
+	}
+	separator := "?"
+	if strings.Contains(path, "?") {
+		separator = "&"
+	}
+	return path + separator + q.Encode()
 }
 
 func migrate(db *sql.DB, dir string) error {

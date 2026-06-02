@@ -6,7 +6,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestOpenWithMigrationsUsesExplicitRuntimePath(t *testing.T) {
@@ -26,6 +28,69 @@ func TestOpenWithMigrationsUsesExplicitRuntimePath(t *testing.T) {
 	}
 	if name != "server_builds" {
 		t.Fatalf("table name = %q, want server_builds", name)
+	}
+}
+
+func TestOpenAllowsReadDuringHeldWriteTransaction(t *testing.T) {
+	dir, err := migrationsDir()
+	if err != nil {
+		t.Fatalf("migrations dir: %v", err)
+	}
+	db, err := OpenWithMigrations(filepath.Join(t.TempDir(), "metadata.sqlite"), dir)
+	if err != nil {
+		t.Fatalf("open metadata DB: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatalf("begin write transaction: %v", err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback() })
+	if _, err := tx.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES ('held-write-test', CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatalf("hold write transaction: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	var count int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
+		t.Fatalf("read during held write transaction: %v", err)
+	}
+}
+
+func TestOpenInMemoryDatabaseUsesSingleConnection(t *testing.T) {
+	dir, err := migrationsDir()
+	if err != nil {
+		t.Fatalf("migrations dir: %v", err)
+	}
+	db, err := OpenWithMigrations(":memory:", dir)
+	if err != nil {
+		t.Fatalf("open in-memory metadata DB: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	if got := db.Stats().MaxOpenConnections; got != 1 {
+		t.Fatalf("in-memory max open connections = %d, want 1", got)
+	}
+
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM server_builds`).Scan(&count); err != nil {
+		t.Fatalf("query in-memory schema: %v", err)
+	}
+}
+
+func TestSQLiteOpenDSNAppendsPragmasToExistingQuery(t *testing.T) {
+	dsn := sqliteOpenDSN("file:metadata.sqlite?cache=shared")
+
+	if strings.Count(dsn, "?") != 1 {
+		t.Fatalf("dsn = %q, want a single query separator", dsn)
+	}
+	if !strings.Contains(dsn, "cache=shared") {
+		t.Fatalf("dsn = %q, want existing query preserved", dsn)
+	}
+	if !strings.Contains(dsn, "_pragma=busy_timeout%3D5000") {
+		t.Fatalf("dsn = %q, want busy_timeout pragma appended", dsn)
 	}
 }
 
