@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"sync"
 
-	appruntime "wowdata/internal/runtime"
+	appruntime "wowdata/internal/local/runtime"
 )
 
 type ContextPool struct {

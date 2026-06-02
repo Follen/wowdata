@@ -25,6 +25,17 @@ func TestServerDoesNotImportLocalPackages(t *testing.T) {
 	}
 }
 
+func TestRuntimePackageRootsMatchServerArchitecture(t *testing.T) {
+	cmd := exec.Command("go", "list", "./internal/shared/...", "./internal/local/runtime", "./internal/server/runtime")
+	cmd.Dir = "../.."
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("go list required runtime package roots: %v\n%s", err, out.String())
+	}
+}
+
 func TestServerBootstrapDoesNotUseFullTableDB2RowMaterialization(t *testing.T) {
 	source, err := os.ReadFile(filepath.Join("..", "server", "bootstrap", "bootstrap.go"))
 	if err != nil {

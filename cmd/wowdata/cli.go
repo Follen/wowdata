@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"wowdata/internal/app"
-	appruntime "wowdata/internal/runtime"
+	appruntime "wowdata/internal/local/runtime"
 	"wowdata/internal/wowdata"
 
 	"github.com/spf13/cobra"

@@ -13,7 +13,7 @@ import (
 	"wowdata/internal/dbd"
 	"wowdata/internal/diagnostics"
 	"wowdata/internal/listfile"
-	appruntime "wowdata/internal/runtime"
+	appruntime "wowdata/internal/local/runtime"
 	"wowdata/internal/tact"
 	"wowdata/internal/wowdata"
 

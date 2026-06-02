@@ -10,7 +10,7 @@ import (
 	"wowdata/internal/cache/duckdb"
 	"wowdata/internal/cache/metadata"
 	"wowdata/internal/config"
-	appruntime "wowdata/internal/runtime"
+	appruntime "wowdata/internal/local/runtime"
 )
 
 func TestServiceDefaultsToCNRetail(t *testing.T) {

@@ -17,8 +17,8 @@ import (
 	"wowdata/internal/artifact"
 	"wowdata/internal/config"
 	"wowdata/internal/listfile"
+	appruntime "wowdata/internal/local/runtime"
 	"wowdata/internal/mcpserver"
-	appruntime "wowdata/internal/runtime"
 	httpservice "wowdata/internal/service/http"
 
 	"github.com/spf13/cobra"

@@ -8,7 +8,7 @@ import (
 
 	"wowdata/internal/cache/metadata"
 	cacheparquet "wowdata/internal/cache/parquet"
-	appruntime "wowdata/internal/runtime"
+	appruntime "wowdata/internal/local/runtime"
 )
 
 type Materializer interface {

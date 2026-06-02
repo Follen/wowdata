@@ -3,7 +3,7 @@ package http
 import (
 	"testing"
 
-	appruntime "wowdata/internal/runtime"
+	appruntime "wowdata/internal/local/runtime"
 )
 
 func TestContextPoolKeepsPinnedDuringEviction(t *testing.T) {

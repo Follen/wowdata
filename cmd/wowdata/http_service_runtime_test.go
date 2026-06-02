@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	appruntime "wowdata/internal/runtime"
+	appruntime "wowdata/internal/local/runtime"
 )
 
 func TestParquetFieldsPreservesRuntimeSchemaVocabularyAndArrayLen(t *testing.T) {

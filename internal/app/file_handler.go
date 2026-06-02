@@ -8,7 +8,7 @@ import (
 	"wowdata/internal/casc"
 	"wowdata/internal/export"
 	"wowdata/internal/listfile"
-	appruntime "wowdata/internal/runtime"
+	appruntime "wowdata/internal/local/runtime"
 
 	"github.com/spf13/cobra"
 )

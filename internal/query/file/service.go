@@ -1,6 +1,6 @@
 package file
 
-import appruntime "wowdata/internal/runtime"
+import appruntime "wowdata/internal/local/runtime"
 
 type Service struct {
 	store appruntime.FileStore

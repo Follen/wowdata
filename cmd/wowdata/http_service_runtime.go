@@ -12,7 +12,7 @@ import (
 	"wowdata/internal/cache/metadata"
 	cacheparquet "wowdata/internal/cache/parquet"
 	"wowdata/internal/config"
-	appruntime "wowdata/internal/runtime"
+	appruntime "wowdata/internal/local/runtime"
 	httpservice "wowdata/internal/service/http"
 )
 

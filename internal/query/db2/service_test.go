@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	appruntime "wowdata/internal/runtime"
+	appruntime "wowdata/internal/local/runtime"
 )
 
 type fakeStore struct {

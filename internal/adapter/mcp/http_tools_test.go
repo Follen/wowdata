@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	appruntime "wowdata/internal/local/runtime"
 	"wowdata/internal/mcpserver"
-	appruntime "wowdata/internal/runtime"
 	httpservice "wowdata/internal/service/http"
 )
 

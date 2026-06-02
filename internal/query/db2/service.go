@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	appruntime "wowdata/internal/runtime"
+	appruntime "wowdata/internal/local/runtime"
 )
 
 type Query struct {

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	appruntime "wowdata/internal/runtime"
+	appruntime "wowdata/internal/local/runtime"
 
 	"github.com/spf13/cobra"
 )
