@@ -24,11 +24,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	defaultHTTPHost = "0.0.0.0"
+	defaultHTTPPort = 9788
+)
+
 type httpOptions struct {
 	ServiceName    string
 	ConfigPath     string
 	Host           string
 	Port           int
+	HostExplicit   bool
+	PortExplicit   bool
 	BaseURL        string
 	ArtifactRoot   string
 	MetadataDBPath string
@@ -74,8 +81,8 @@ func newMCPCommand(rt *serverruntime.Runtime, runHTTP httpRunner) *cobra.Command
 func newMCPHTTPCommand(rt *serverruntime.Runtime, runHTTP httpRunner) *cobra.Command {
 	opts := httpOptions{
 		ServiceName: rt.ServiceName,
-		Host:        "0.0.0.0",
-		Port:        9788,
+		Host:        defaultHTTPHost,
+		Port:        defaultHTTPPort,
 	}
 	cmd := &cobra.Command{
 		Use:   "http",
@@ -88,6 +95,8 @@ The MCP endpoint is /mcp. Health is available at /health.`,
 			if rt.ServiceName == "" {
 				return fmt.Errorf("server runtime name is empty")
 			}
+			opts.HostExplicit = cmd.Flags().Changed("host")
+			opts.PortExplicit = cmd.Flags().Changed("port")
 			return runHTTP(opts)
 		},
 	}
@@ -100,6 +109,11 @@ The MCP endpoint is /mcp. Health is available at /health.`,
 }
 
 func runHTTPServer(opts httpOptions) error {
+	effectiveOpts, err := resolveHTTPOptions(opts)
+	if err != nil {
+		return err
+	}
+	opts = effectiveOpts
 	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -116,6 +130,23 @@ func runHTTPServer(opts httpOptions) error {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	return server.Serve(listener)
+}
+
+func resolveHTTPOptions(opts httpOptions) (httpOptions, error) {
+	cfg, err := loadServerConfig(opts.ConfigPath)
+	if err != nil {
+		return opts, err
+	}
+	if !opts.HostExplicit && cfg.Server.Host != "" {
+		opts.Host = cfg.Server.Host
+	}
+	if !opts.PortExplicit && cfg.Server.Port != 0 {
+		opts.Port = cfg.Server.Port
+	}
+	if opts.BaseURL == "" && cfg.Server.BaseURL != "" {
+		opts.BaseURL = cfg.Server.BaseURL
+	}
+	return opts, nil
 }
 
 func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handler {

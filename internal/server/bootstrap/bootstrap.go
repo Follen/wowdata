@@ -102,16 +102,40 @@ func (r Runner) prepareTarget(ctx context.Context, target config.PrepareTarget, 
 		Locale:   target.Locale,
 		BuildKey: build.BuildKey,
 	}
-	if err := metadata.UpsertDiscoveredBuild(ctx, r.DB, metadata.Build{
-		Key:       buildKey,
-		BuildName: build.BuildName,
-		State:     metadata.StatePreparing,
-	}); err != nil {
-		return err
+	active, activeErr := metadata.ActiveBuild(ctx, r.DB, target.Region, target.Product, target.Locale)
+	if activeErr != nil && !errors.Is(activeErr, sql.ErrNoRows) {
+		return activeErr
+	}
+	sameActiveValid := activeErr == nil && active.Key.BuildKey == build.BuildKey && active.State == metadata.StateValid
+	var restoreTables []metadata.MaterializedTable
+	if sameActiveValid {
+		tables, err := metadata.ListValidMaterializedTables(ctx, r.DB, metadata.TableCatalogLookup{
+			Region:   target.Region,
+			Product:  target.Product,
+			Locale:   target.Locale,
+			BuildKey: build.BuildKey,
+		})
+		if err != nil {
+			return err
+		}
+		restoreTables = tables
+	} else {
+		if err := metadata.UpsertDiscoveredBuild(ctx, r.DB, metadata.Build{
+			Key:       buildKey,
+			BuildName: build.BuildName,
+			State:     metadata.StatePreparing,
+		}); err != nil {
+			return err
+		}
 	}
 
 	for _, tableName := range r.Config.Prepare.DefaultTables {
 		if err := materializer.MaterializeTable(ctx, target, build, tableName); err != nil {
+			if sameActiveValid {
+				_ = restoreValidTables(ctx, r.DB, restoreTables)
+				_ = metadata.MarkBuildReady(ctx, r.DB, buildKey)
+				return err
+			}
 			_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
 			return err
 		}
@@ -120,6 +144,17 @@ func (r Runner) prepareTarget(ctx context.Context, target config.PrepareTarget, 
 		return err
 	}
 	return metadata.ActivateBuild(ctx, r.DB, buildKey)
+}
+
+func restoreValidTables(ctx context.Context, db *sql.DB, tables []metadata.MaterializedTable) error {
+	for _, table := range tables {
+		table.State = metadata.StateValid
+		table.Error = ""
+		if err := metadata.UpsertMaterializedTable(ctx, db, table); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func recordTargetFailure(ctx context.Context, db *sql.DB, target config.PrepareTarget, message string) {

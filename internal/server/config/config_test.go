@@ -37,6 +37,18 @@ func TestDefaultResourceLimitsFitTenGBServer(t *testing.T) {
 	}
 }
 
+func TestDefaultPrepareDefaultTablesIncludeRequiredBusinessTables(t *testing.T) {
+	tables := Default().Prepare.DefaultTables
+	if len(tables) == 0 {
+		t.Fatal("Default().Prepare.DefaultTables is empty")
+	}
+	for _, want := range []string{"SpellName", "Item", "CreatureDisplayInfo", "HouseDecor"} {
+		if !containsString(tables, want) {
+			t.Fatalf("Default().Prepare.DefaultTables missing %q: %#v", want, tables)
+		}
+	}
+}
+
 func TestConfigStructsHaveSnakeCaseYAMLTags(t *testing.T) {
 	assertYAMLTags(t, reflect.TypeOf(Config{}), map[string]string{
 		"Server":  "server",
@@ -57,7 +69,8 @@ func TestConfigStructsHaveSnakeCaseYAMLTags(t *testing.T) {
 		"DuckDBPath": "duckdb_path",
 	})
 	assertYAMLTags(t, reflect.TypeOf(PrepareConfig{}), map[string]string{
-		"Targets": "targets",
+		"Targets":       "targets",
+		"DefaultTables": "default_tables",
 	})
 	assertYAMLTags(t, reflect.TypeOf(PrepareTarget{}), map[string]string{
 		"Label":   "label",
@@ -95,6 +108,25 @@ func TestExampleYAMLPrepareTargetsMatchDefault(t *testing.T) {
 	if !reflect.DeepEqual(example.Prepare.Targets, Default().Prepare.Targets) {
 		t.Fatalf("example targets = %#v, want %#v", example.Prepare.Targets, Default().Prepare.Targets)
 	}
+}
+
+func TestExampleYAMLPrepareDefaultTablesMatchDefault(t *testing.T) {
+	var example struct {
+		Prepare PrepareConfig `yaml:"prepare"`
+	}
+	readExampleYAML(t, &example)
+	if !reflect.DeepEqual(example.Prepare.DefaultTables, Default().Prepare.DefaultTables) {
+		t.Fatalf("example default tables = %#v, want %#v", example.Prepare.DefaultTables, Default().Prepare.DefaultTables)
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func assertYAMLTags(t *testing.T, typ reflect.Type, fields map[string]string) {

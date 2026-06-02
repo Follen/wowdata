@@ -53,7 +53,7 @@ func Default() Config {
 			DB2Dir:     "/var/lib/wowdata/cache/db2",
 			DuckDBPath: "/var/lib/wowdata/cache/duckdb/wowdata.duckdb",
 		},
-		Prepare: PrepareConfig{Targets: defaultTargets()},
+		Prepare: PrepareConfig{Targets: defaultTargets(), DefaultTables: defaultTables()},
 		Limits: LimitsConfig{
 			MaxParallelContextPrepares:       2,
 			MaxParallelTableMaterializations: 2,
@@ -62,6 +62,26 @@ func Default() Config {
 			MemorySoftLimitMB:                4096,
 			MemoryHardLimitMB:                8192,
 		},
+	}
+}
+
+func defaultTables() []string {
+	return []string{
+		"SpellName",
+		"Spell",
+		"SpellEffect",
+		"SpellMisc",
+		"Item",
+		"ItemSparse",
+		"ItemEffect",
+		"ItemModifiedAppearance",
+		"ItemAppearance",
+		"ItemDisplayInfo",
+		"TextureFileData",
+		"ModelFileData",
+		"CreatureDisplayInfo",
+		"CreatureModelData",
+		"HouseDecor",
 	}
 }
 

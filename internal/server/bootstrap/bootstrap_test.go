@@ -86,6 +86,35 @@ func TestPrepareFailureMarksCandidateFailedAndPreservesOldActiveBuild(t *testing
 	}
 }
 
+func TestPrepareFailureForSameActiveBuildKeepsExistingBuildValidAndReady(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item", "Spell"})
+	seedActiveBuildWithTables(t, ctx, db, metadata.BuildKey{
+		Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1",
+	}, []string{"Item", "Spell"})
+	fail := errors.New("Spell transient decode failed")
+	materializer := &fakeMaterializer{db: db, failTable: "Spell", err: fail}
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "build-1", BuildName: "Build 1"},
+	}}
+
+	err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx)
+	if !errors.Is(err, fail) {
+		t.Fatalf("Prepare error = %v, want %v", err, fail)
+	}
+
+	active := activeBuild(t, ctx, db, "us", "wow", "enUS")
+	if active.Key.BuildKey != "build-1" || active.State != metadata.StateValid {
+		t.Fatalf("active build = %#v, want build-1 still valid", active)
+	}
+	snapshot := healthSnapshot(t, ctx, db, cfg)
+	if !snapshot.Readiness.OK || snapshot.Contexts[0].State != health.StateReady || snapshot.Contexts[0].PrepareCurrent != 2 {
+		t.Fatalf("health = %#v, want old active build still ready with 2/2 tables", snapshot)
+	}
+}
+
 func TestPrepareNoBuildDoesNotMarkTargetReady(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -77,8 +78,58 @@ func TestServerHTTPCommandInvokesRunnerWithConfig(t *testing.T) {
 	if got.Port != 11223 {
 		t.Fatalf("Port = %d", got.Port)
 	}
+	if !got.HostExplicit {
+		t.Fatal("HostExplicit = false, want true for --host")
+	}
+	if !got.PortExplicit {
+		t.Fatal("PortExplicit = false, want true for --port")
+	}
 	if got.ArtifactRoot != "/srv/wowdata/artifacts" {
 		t.Fatalf("ArtifactRoot = %q", got.ArtifactRoot)
+	}
+}
+
+func TestServerConfigHostPortUsedWhenCLIOptionsAreDefaults(t *testing.T) {
+	configPath := writeServerBindConfig(t, "127.0.0.1", 11223)
+
+	got, err := resolveHTTPOptions(httpOptions{
+		ServiceName: "wowdata-server",
+		ConfigPath:  configPath,
+		Host:        "0.0.0.0",
+		Port:        9788,
+	})
+	if err != nil {
+		t.Fatalf("resolveHTTPOptions: %v", err)
+	}
+
+	if got.Host != "127.0.0.1" {
+		t.Fatalf("Host = %q, want config host", got.Host)
+	}
+	if got.Port != 11223 {
+		t.Fatalf("Port = %d, want config port", got.Port)
+	}
+}
+
+func TestServerExplicitCLIHostPortOverrideConfig(t *testing.T) {
+	configPath := writeServerBindConfig(t, "127.0.0.1", 11223)
+
+	got, err := resolveHTTPOptions(httpOptions{
+		ServiceName:  "wowdata-server",
+		ConfigPath:   configPath,
+		Host:         "0.0.0.0",
+		Port:         9788,
+		HostExplicit: true,
+		PortExplicit: true,
+	})
+	if err != nil {
+		t.Fatalf("resolveHTTPOptions: %v", err)
+	}
+
+	if got.Host != "0.0.0.0" {
+		t.Fatalf("Host = %q, want explicit CLI host", got.Host)
+	}
+	if got.Port != 9788 {
+		t.Fatalf("Port = %d, want explicit CLI port", got.Port)
 	}
 }
 
@@ -678,6 +729,23 @@ func seedActiveMaterializedTables(t *testing.T, metadataPath string, buildKey me
 	}
 }
 
+func writeServerBindConfig(t *testing.T, host string, port int) string {
+	t.Helper()
+	configPath := filepath.Join(t.TempDir(), "http-mcp.yaml")
+	body := strings.Join([]string{
+		"server:",
+		"  host: " + host,
+		"  port: " + strconv.Itoa(port),
+		"cache:",
+		"  metadata_db: " + filepath.ToSlash(filepath.Join(t.TempDir(), "metadata.sqlite")),
+		"",
+	}, "\n")
+	if err := os.WriteFile(configPath, []byte(body), 0644); err != nil {
+		t.Fatalf("write server bind config: %v", err)
+	}
+	return configPath
+}
+
 func writeHealthConfig(t *testing.T, metadataPath, label, region, product, locale string) string {
 	t.Helper()
 	configPath := filepath.Join(t.TempDir(), "http-mcp.yaml")
@@ -690,6 +758,8 @@ func writeHealthConfig(t *testing.T, metadataPath, label, region, product, local
 		"      region: " + region,
 		"      product: " + product,
 		"      locale: " + locale,
+		"  default_tables:",
+		"    - Item",
 		"",
 	}, "\n")
 	if err := os.WriteFile(configPath, []byte(body), 0644); err != nil {
