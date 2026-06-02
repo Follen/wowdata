@@ -141,9 +141,10 @@ func TestConfigStructsHaveSnakeCaseYAMLTags(t *testing.T) {
 		"Limits":    "limits",
 	})
 	assertYAMLTags(t, reflect.TypeOf(ServerConfig{}), map[string]string{
-		"Host":    "host",
-		"Port":    "port",
-		"BaseURL": "base_url",
+		"Host":                 "host",
+		"Port":                 "port",
+		"BaseURL":              "base_url",
+		"EnableUpdateFixtures": "enable_update_fixtures",
 	})
 	assertYAMLTags(t, reflect.TypeOf(CacheConfig{}), map[string]string{
 		"Root":       "root",

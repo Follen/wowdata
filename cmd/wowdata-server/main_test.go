@@ -895,6 +895,49 @@ func TestServerMCPFileExportReturnsDownloadableResourceLink(t *testing.T) {
 	}
 }
 
+func TestServerUpdateFlowFixtureEndpointRequiresOptIn(t *testing.T) {
+	handler := newHTTPHandler(httpOptions{ServiceName: "wowdata-server"}, &testHealthProvider{})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/test/update-flow/UpdateNoNewBuild", strings.NewReader(`{}`))
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 when update fixtures are disabled: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestServerUpdateFlowFixtureEndpointRunsConfiguredChecks(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "http-mcp.yaml")
+	if err := os.WriteFile(configPath, []byte("server:\n  enable_update_fixtures: true\n"), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	handler := newHTTPHandler(httpOptions{ServiceName: "wowdata-server", ConfigPath: configPath}, &testHealthProvider{})
+
+	for _, check := range []string{
+		"UpdateNoNewBuild",
+		"UpdateCandidateSuccess",
+		"UpdateCandidateFailure",
+		"UpdateListfileSourceHashChange",
+		"UpdateCASCIndexVersionChange",
+		"UpdateDB2FingerprintChange",
+		"UpdateUnaffectedTableStillValid",
+	} {
+		t.Run(check, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/test/update-flow/"+check, strings.NewReader(`{}`))
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), `"passed":true`) {
+				t.Fatalf("fixture did not pass: %s", rec.Body.String())
+			}
+		})
+	}
+}
+
 type testHealthProvider struct {
 	snapshot health.Snapshot
 	calls    int

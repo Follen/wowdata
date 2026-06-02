@@ -15,6 +15,7 @@ import (
 	"wowdata/internal/server/config"
 	"wowdata/internal/server/health"
 	"wowdata/internal/server/mcphttp"
+	"wowdata/internal/server/refresh"
 	serverruntime "wowdata/internal/server/runtime"
 	"wowdata/internal/server/service"
 	"wowdata/internal/server/storage/artifacts"
@@ -246,10 +247,35 @@ func newHTTPHandlerStrict(opts httpOptions, healthProvider health.Provider) (htt
 	if artifactRoot != "" {
 		mux.Handle("/files/", artifacts.FileHandler(artifactRoot))
 	}
+	if cfg.Server.EnableUpdateFixtures {
+		mux.HandleFunc("/test/update-flow/", updateFlowFixtureHandler)
+	}
 	if sharedMetadataDB != nil {
 		return closeableHandler{Handler: mux, close: sharedMetadataDB.Close}, nil
 	}
 	return mux, nil
+}
+
+func updateFlowFixtureHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	check := strings.TrimPrefix(r.URL.Path, "/test/update-flow/")
+	if check == "" || strings.Contains(check, "/") {
+		http.NotFound(w, r)
+		return
+	}
+	result, err := refresh.RunUpdateFixture(r.Context(), check)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]interface{}{"passed": false, "error": err.Error()})
+		return
+	}
+	status := http.StatusOK
+	if !result.Passed {
+		status = http.StatusInternalServerError
+	}
+	writeJSON(w, status, result)
 }
 
 func filesBaseURL(baseURL string) string {

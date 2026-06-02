@@ -9,9 +9,10 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Host    string `yaml:"host"`
-	Port    int    `yaml:"port"`
-	BaseURL string `yaml:"base_url"`
+	Host                 string `yaml:"host"`
+	Port                 int    `yaml:"port"`
+	BaseURL              string `yaml:"base_url"`
+	EnableUpdateFixtures bool   `yaml:"enable_update_fixtures"`
 }
 
 type CacheConfig struct {
