@@ -274,9 +274,40 @@ func TestMaterializeReleasesDecodedRowsWhenWriterFails(t *testing.T) {
 	}
 }
 
+func TestMaterializeStreamsRowSourceWithoutBufferedRows(t *testing.T) {
+	ctx := context.Background()
+	db := openMetadataDB(t)
+	root := t.TempDir()
+	spec := testSpec(root)
+	source := &sliceRowSource{rows: []map[string]interface{}{
+		{"ID": int32(1), "Name": "A"},
+		{"ID": int32(2), "Name": "B"},
+	}}
+	decoder := &fakeDecoder{source: source}
+	writer := &observingWriter{streamWrite: cacheparquet.WriteRowSourceFile}
+
+	result, err := NewMaterializer(db, decoder, writer).Materialize(ctx, spec)
+	if err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
+	if writer.calls != 0 {
+		t.Fatalf("buffered writer calls = %d, want 0 for row source", writer.calls)
+	}
+	if writer.streamCalls != 1 {
+		t.Fatalf("stream writer calls = %d, want 1", writer.streamCalls)
+	}
+	if result.RowCount != 2 {
+		t.Fatalf("row count = %d, want 2", result.RowCount)
+	}
+	if !source.closed {
+		t.Fatal("row source was not closed")
+	}
+}
+
 type fakeDecoder struct {
 	rows            []map[string]interface{}
 	buffer          *rowBuffer
+	source          RowSource
 	err             error
 	calls           int
 	lastStaleReason string
@@ -297,6 +328,9 @@ func (d *fakeDecoder) DecodeTable(_ context.Context, _ TableSpec, staleReason st
 	if d.buffer != nil {
 		return DecodedTable{Rows: d.buffer.values, Release: d.buffer.Release}, nil
 	}
+	if d.source != nil {
+		return DecodedTable{RowSource: d.source, Release: func() { _ = d.source.Close() }}, nil
+	}
 	return DecodedTable{Rows: d.rows}, nil
 }
 
@@ -312,8 +346,10 @@ func (b *rowBuffer) Release() {
 
 type observingWriter struct {
 	write        func(string, cacheparquet.Metadata, []cacheparquet.Field, []map[string]interface{}) error
+	streamWrite  func(string, cacheparquet.Metadata, []cacheparquet.Field, cacheparquet.RowSource) (int, error)
 	afterWrite   func() error
 	calls        int
+	streamCalls  int
 	sawTemp      bool
 	writePath    string
 	observedPath string
@@ -334,11 +370,40 @@ func (w *observingWriter) WriteRows(path string, meta cacheparquet.Metadata, sch
 	return nil
 }
 
+func (w *observingWriter) WriteRowSource(path string, meta cacheparquet.Metadata, schema []cacheparquet.Field, rows RowSource) (int, error) {
+	w.streamCalls++
+	w.writePath = path
+	if w.streamWrite == nil {
+		return 0, nil
+	}
+	return w.streamWrite(path, meta, schema, rows)
+}
+
 func (w *observingWriter) ObserveTemp(path string) {
 	w.observedPath = path
 	if _, err := os.Stat(path); err == nil {
 		w.sawTemp = true
 	}
+}
+
+type sliceRowSource struct {
+	rows   []map[string]interface{}
+	index  int
+	closed bool
+}
+
+func (s *sliceRowSource) NextRow() (map[string]interface{}, bool, error) {
+	if s.index >= len(s.rows) {
+		return nil, false, nil
+	}
+	row := s.rows[s.index]
+	s.index++
+	return row, true, nil
+}
+
+func (s *sliceRowSource) Close() error {
+	s.closed = true
+	return nil
 }
 
 func testSpec(root string) TableSpec {

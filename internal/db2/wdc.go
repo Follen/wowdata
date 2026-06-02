@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 )
 
@@ -627,6 +628,73 @@ func (r *WDCReader) GetAllRows() map[uint32]map[string]interface{} {
 	}
 
 	return rows
+}
+
+func (r *WDCReader) ForEachRow(fn func(uint32, map[string]interface{}) error) error {
+	if !r.IsLoaded {
+		return nil
+	}
+	seen := map[uint32]struct{}{}
+	for si := range r.Sections {
+		section := &r.Sections[si]
+		if section.IsEncrypted {
+			continue
+		}
+		hasIDMap := len(section.IDList) > 0
+		emptyIDMap := hasIDMap
+		for _, id := range section.IDList {
+			if id != 0 {
+				emptyIDMap = false
+				break
+			}
+		}
+		for ri := uint32(0); ri < section.Header.RecordCount; ri++ {
+			var recordID uint32
+			if hasIDMap && emptyIDMap {
+				recordID = ri
+			} else if hasIDMap {
+				recordID = section.IDList[ri]
+			}
+			row := r.readRecordFromSection(si, ri, recordID)
+			if row == nil {
+				continue
+			}
+			if recordID == 0 && !hasIDMap {
+				recordID = rowIDUint32(row["ID"])
+				if recordID == 0 {
+					recordID = uint32(len(seen))
+				}
+			}
+			seen[recordID] = struct{}{}
+			if err := fn(recordID, row); err != nil {
+				return err
+			}
+		}
+	}
+	copyIDs := make([]uint32, 0, len(r.CopyTable))
+	for destID := range r.CopyTable {
+		copyIDs = append(copyIDs, destID)
+	}
+	sort.Slice(copyIDs, func(i, j int) bool { return copyIDs[i] < copyIDs[j] })
+	for _, destID := range copyIDs {
+		if _, ok := seen[destID]; ok {
+			continue
+		}
+		srcID := r.CopyTable[destID]
+		row := r.readRecord(srcID)
+		if row == nil {
+			continue
+		}
+		cp := make(map[string]interface{}, len(row)+1)
+		for key, value := range row {
+			cp[key] = value
+		}
+		cp["ID"] = destID
+		if err := fn(destID, cp); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *WDCReader) GetRelationshipRows(fkValue uint32) ([]map[string]interface{}, bool) {

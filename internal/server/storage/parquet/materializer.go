@@ -23,16 +23,26 @@ type TableSpec struct {
 }
 
 type DecodedTable struct {
-	Rows    []map[string]interface{}
-	Release func()
+	Rows      []map[string]interface{}
+	RowSource RowSource
+	Release   func()
 }
 
 type TableDecoder interface {
 	DecodeTable(context.Context, TableSpec, string) (DecodedTable, error)
 }
 
+type RowSource interface {
+	NextRow() (map[string]interface{}, bool, error)
+	Close() error
+}
+
 type RowWriter interface {
 	WriteRows(string, cacheparquet.Metadata, []cacheparquet.Field, []map[string]interface{}) error
+}
+
+type StreamingRowWriter interface {
+	WriteRowSource(string, cacheparquet.Metadata, []cacheparquet.Field, RowSource) (int, error)
 }
 
 type tempObserver interface {
@@ -112,11 +122,11 @@ func (m Materializer) Materialize(ctx context.Context, spec TableSpec) (Result, 
 	}
 	defer releaseDecoded()
 
-	if err := m.writeAtomically(spec.ParquetPath, want, spec.Schema, decoded.Rows); err != nil {
+	rowCount, err := m.writeAtomically(spec.ParquetPath, want, spec.Schema, decoded)
+	if err != nil {
 		_ = metadata.MarkMaterializedTableState(ctx, m.db, spec.Key, metadata.StateFailed, err.Error())
 		return Result{}, err
 	}
-	rowCount := len(decoded.Rows)
 	releaseDecoded()
 	if _, err := m.validateExisting(spec.ParquetPath, want); err != nil {
 		_ = metadata.MarkMaterializedTableState(ctx, m.db, spec.Key, metadata.StateFailed, err.Error())
@@ -131,18 +141,18 @@ func (m Materializer) Materialize(ctx context.Context, spec TableSpec) (Result, 
 	return Result{ParquetPath: spec.ParquetPath, RowCount: table.RowCount}, nil
 }
 
-func (m Materializer) writeAtomically(path string, meta cacheparquet.Metadata, schema []cacheparquet.Field, rows []map[string]interface{}) error {
+func (m Materializer) writeAtomically(path string, meta cacheparquet.Metadata, schema []cacheparquet.Field, decoded DecodedTable) (int, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
+		return 0, err
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	tmpPath := tmp.Name()
 	if err := tmp.Close(); err != nil {
 		_ = os.Remove(tmpPath)
-		return err
+		return 0, err
 	}
 	committed := false
 	defer func() {
@@ -154,20 +164,35 @@ func (m Materializer) writeAtomically(path string, meta cacheparquet.Metadata, s
 	if observer, ok := m.writer.(tempObserver); ok {
 		observer.ObserveTemp(tmpPath)
 	}
-	if err := m.writer.WriteRows(tmpPath, meta, schema, rows); err != nil {
-		return err
+	var rowCount int
+	if decoded.RowSource != nil {
+		streamingWriter, ok := m.writer.(StreamingRowWriter)
+		if !ok {
+			return 0, errors.New("row writer does not support streaming row sources")
+		}
+		rowCount, err = streamingWriter.WriteRowSource(tmpPath, meta, schema, decoded.RowSource)
+	} else {
+		rowCount = len(decoded.Rows)
+		err = m.writer.WriteRows(tmpPath, meta, schema, decoded.Rows)
+	}
+	if err != nil {
+		return 0, err
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
-		return err
+		return 0, err
 	}
 	committed = true
-	return nil
+	return rowCount, nil
 }
 
 type parquetRowWriter struct{}
 
 func (parquetRowWriter) WriteRows(path string, meta cacheparquet.Metadata, schema []cacheparquet.Field, rows []map[string]interface{}) error {
 	return cacheparquet.WriteRowsFile(path, meta, schema, rows)
+}
+
+func (parquetRowWriter) WriteRowSource(path string, meta cacheparquet.Metadata, schema []cacheparquet.Field, rows RowSource) (int, error) {
+	return cacheparquet.WriteRowSourceFile(path, meta, schema, rows)
 }
 
 func parquetMetadata(spec TableSpec) cacheparquet.Metadata {

@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -584,23 +583,53 @@ func (d runtimeTableDecoder) DecodeTable(ctx context.Context, spec serverparquet
 	if err != nil {
 		return serverparquet.DecodedTable{}, err
 	}
-	allRows := reader.GetAllRows()
-	ids := make([]uint32, 0, len(allRows))
-	for id := range allRows {
-		ids = append(ids, id)
+	rowSource, err := newWDCRowSource(reader)
+	if err != nil {
+		return serverparquet.DecodedTable{}, err
 	}
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	rows := make([]map[string]interface{}, 0, len(ids))
-	for _, id := range ids {
-		rows = append(rows, allRows[id])
-	}
-	return serverparquet.DecodedTable{Rows: rows, Release: func() { rows = nil }}, nil
+	return serverparquet.DecodedTable{RowSource: rowSource, Release: func() { _ = rowSource.Close() }}, nil
 }
 
 type serverparquetRowWriter struct{}
 
 func (serverparquetRowWriter) WriteRows(path string, meta cacheparquet.Metadata, schema []cacheparquet.Field, rows []map[string]interface{}) error {
 	return cacheparquet.WriteRowsFile(path, meta, schema, rows)
+}
+
+func (serverparquetRowWriter) WriteRowSource(path string, meta cacheparquet.Metadata, schema []cacheparquet.Field, rows serverparquet.RowSource) (int, error) {
+	return cacheparquet.WriteRowSourceFile(path, meta, schema, rows)
+}
+
+type wdcRowSource struct {
+	reader *db2.WDCReader
+	ids    []uint32
+	index  int
+}
+
+func newWDCRowSource(reader *db2.WDCReader) (*wdcRowSource, error) {
+	ids := make([]uint32, 0, reader.Size())
+	if err := reader.ForEachRow(func(id uint32, _ map[string]interface{}) error {
+		ids = append(ids, id)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return &wdcRowSource{reader: reader, ids: ids}, nil
+}
+
+func (s *wdcRowSource) NextRow() (map[string]interface{}, bool, error) {
+	if s.index >= len(s.ids) {
+		return nil, false, nil
+	}
+	id := s.ids[s.index]
+	s.index++
+	return s.reader.GetRow(id), true, nil
+}
+
+func (s *wdcRowSource) Close() error {
+	s.reader = nil
+	s.ids = nil
+	return nil
 }
 
 func schemaForTable(rawDBD string, buildName string) ([]cacheparquet.Field, error) {

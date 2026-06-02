@@ -49,6 +49,21 @@ func WriteRowsFile(path string, meta Metadata, schema []Field, rows []map[string
 	})
 }
 
+type RowSource interface {
+	NextRow() (map[string]interface{}, bool, error)
+	Close() error
+}
+
+func WriteRowSourceFile(path string, meta Metadata, schema []Field, rows RowSource) (int, error) {
+	var rowCount int
+	err := writeFile(path, func(file *os.File) error {
+		count, err := writeParquetRowSourceFile(file, meta, schema, rows)
+		rowCount = count
+		return err
+	})
+	return rowCount, err
+}
+
 func writeFile(path string, write func(*os.File) error) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -115,6 +130,44 @@ func writeParquetRowsFile(file *os.File, meta Metadata, fields []Field, rows []m
 		}
 	}
 	return writer.Close()
+}
+
+func writeParquetRowSourceFile(file *os.File, meta Metadata, fields []Field, rows RowSource) (int, error) {
+	columns, err := parquetColumns(fields)
+	if err != nil {
+		return 0, err
+	}
+	schema, err := rowSchema(columns)
+	if err != nil {
+		return 0, err
+	}
+	writer := parquetgo.NewWriter(file, append(metadataWriterOptions(meta), schema)...)
+	defer rows.Close()
+	rowCount := 0
+	for {
+		row, ok, err := rows.NextRow()
+		if err != nil {
+			_ = writer.Close()
+			return 0, err
+		}
+		if !ok {
+			break
+		}
+		normalized, err := normalizeRow(columns, row)
+		if err != nil {
+			_ = writer.Close()
+			return 0, err
+		}
+		if _, err := writer.WriteRows([]parquetgo.Row{schema.Deconstruct(nil, normalized)}); err != nil {
+			_ = writer.Close()
+			return 0, err
+		}
+		rowCount++
+	}
+	if err := writer.Close(); err != nil {
+		return 0, err
+	}
+	return rowCount, nil
 }
 
 type parquetColumn struct {

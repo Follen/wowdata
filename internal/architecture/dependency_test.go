@@ -2,7 +2,9 @@ package architecture
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -20,6 +22,16 @@ func TestServerDoesNotImportLocalPackages(t *testing.T) {
 		if strings.Contains(dep, "/internal/local/") || strings.HasSuffix(dep, "/internal/app") || strings.HasSuffix(dep, "/internal/runtime") {
 			t.Fatalf("server dependency imports local package: %s", dep)
 		}
+	}
+}
+
+func TestServerBootstrapDoesNotUseFullTableDB2RowMaterialization(t *testing.T) {
+	source, err := os.ReadFile(filepath.Join("..", "server", "bootstrap", "bootstrap.go"))
+	if err != nil {
+		t.Fatalf("read server bootstrap: %v", err)
+	}
+	if strings.Contains(string(source), ".GetAllRows(") {
+		t.Fatal("server bootstrap must stream DB2 rows instead of calling GetAllRows for full-table materialization")
 	}
 }
 
