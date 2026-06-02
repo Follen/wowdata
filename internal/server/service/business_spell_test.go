@@ -73,6 +73,65 @@ func TestSpellAssemblerUsesBoundedQueries(t *testing.T) {
 	}
 }
 
+func TestBusinessAssemblersSkipZeroIDQueries(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name string
+		run  func(*boundedBusinessQueryService) error
+	}{
+		{
+			name: "spell",
+			run: func(fake *boundedBusinessQueryService) error {
+				_, err := SpellInfo(ctx, fake, SpellInfoRequest{SpellIDs: []uint32{0}, MaxDepth: 1})
+				return err
+			},
+		},
+		{
+			name: "item",
+			run: func(fake *boundedBusinessQueryService) error {
+				_, err := ItemInfo(ctx, fake, ItemInfoRequest{ItemID: 0})
+				return err
+			},
+		},
+		{
+			name: "creature",
+			run: func(fake *boundedBusinessQueryService) error {
+				_, err := CreatureDisplay(ctx, fake, CreatureDisplayRequest{DisplayID: 0, FileDataID: 0})
+				return err
+			},
+		},
+		{
+			name: "encounter",
+			run: func(fake *boundedBusinessQueryService) error {
+				_, err := EncounterInfo(ctx, fake, EncounterInfoRequest{JournalEncounterID: 0})
+				return err
+			},
+		},
+		{
+			name: "decor",
+			run: func(fake *boundedBusinessQueryService) error {
+				_, err := DecorItem(ctx, fake, DecorItemRequest{ID: 0, ModelFileDataID: 0})
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := newBoundedBusinessQueryService(map[string][]map[string]interface{}{})
+			fake.requireBounded("SpellEffect", "Spell", "SpellName", "SpellMisc", "SpellCastTimes", "SpellDuration", "SpellRange", "Item", "ItemSparse", "CreatureDisplayInfo", "CreatureModelData", "CreatureDisplayInfoGeosetData", "JournalEncounterSection", "HouseDecor")
+
+			if err := tt.run(fake); err != nil {
+				t.Fatalf("%s assembler error = %v", tt.name, err)
+			}
+			if len(fake.calls) != 0 {
+				t.Fatalf("%s zero-id query calls = %#v, want none", tt.name, fake.calls)
+			}
+		})
+	}
+}
+
 type businessQueryCall struct {
 	table   string
 	idField string

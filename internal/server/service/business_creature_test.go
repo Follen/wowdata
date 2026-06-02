@@ -34,3 +34,30 @@ func TestCreatureAssemblerUsesBoundedQueries(t *testing.T) {
 		t.Fatalf("Variations = %#v, want [307]", got.Variations)
 	}
 }
+
+func TestCreatureAssemblerLooksUpDisplayByModelIDFromFileDataID(t *testing.T) {
+	ctx := context.Background()
+	fake := newBoundedBusinessQueryService(map[string][]map[string]interface{}{
+		"CreatureModelData":             {{"ID": uint32(10), "FileDataID": uint32(5000)}},
+		"CreatureDisplayInfo":           {{"ID": uint32(100), "ModelID": uint32(10), "TextureVariationFileDataID": []uint32{6000}}},
+		"CreatureDisplayInfoGeosetData": {{"CreatureDisplayInfoID": uint32(100), "GeosetIndex": uint32(0), "GeosetValue": uint32(4)}},
+	})
+	fake.requireBounded("CreatureDisplayInfo", "CreatureModelData", "CreatureDisplayInfoGeosetData")
+
+	got, err := CreatureDisplay(ctx, fake, CreatureDisplayRequest{Context: RequestContext{Region: "US"}, FileDataID: 5000})
+	if err != nil {
+		t.Fatalf("CreatureDisplay error = %v", err)
+	}
+
+	fake.assertExactBoundedCalls(t, []businessQueryCall{
+		{table: "CreatureModelData", idField: "FileDataID"},
+		{table: "CreatureDisplayInfo", idField: "ModelID"},
+		{table: "CreatureDisplayInfoGeosetData", idField: "CreatureDisplayInfoID"},
+	})
+	if got == nil {
+		t.Fatal("CreatureDisplay = nil, want display resolved through CreatureModelData.ID")
+	}
+	if got.DisplayID != 100 || got.ModelID != 10 || got.FileDataID != 5000 {
+		t.Fatalf("CreatureDisplay = %#v, want display 100 model 10 fileDataID 5000", got)
+	}
+}

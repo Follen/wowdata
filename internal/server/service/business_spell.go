@@ -196,13 +196,14 @@ func spellLookupRows(ctx context.Context, query QueryService, rc RequestContext,
 }
 
 func rowsByUint32IDs(ctx context.Context, query QueryService, rc RequestContext, table, idField string, ids []uint32) (map[uint32]map[string]interface{}, error) {
-	if len(ids) == 0 {
+	boundedIDs := uint32sToUint64s(uniqueUint32s(ids))
+	if len(boundedIDs) == 0 {
 		return map[uint32]map[string]interface{}{}, nil
 	}
 	rows, err := query.Rows(ctx, QueryRowsRequest{
 		Context: rc,
 		Table:   table,
-		IDs:     uint32sToUint64s(uniqueUint32s(ids)),
+		IDs:     boundedIDs,
 		IDField: idField,
 	})
 	if err != nil {
@@ -218,13 +219,14 @@ func rowsByUint32IDs(ctx context.Context, query QueryService, rc RequestContext,
 }
 
 func rowsByUint32ForeignKey(ctx context.Context, query QueryService, rc RequestContext, table, idField string, ids []uint32) ([]map[string]interface{}, error) {
-	if len(ids) == 0 {
+	boundedIDs := uint32sToUint64s(uniqueUint32s(ids))
+	if len(boundedIDs) == 0 {
 		return []map[string]interface{}{}, nil
 	}
 	return query.Rows(ctx, QueryRowsRequest{
 		Context: rc,
 		Table:   table,
-		IDs:     uint32sToUint64s(uniqueUint32s(ids)),
+		IDs:     boundedIDs,
 		IDField: idField,
 	})
 }

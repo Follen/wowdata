@@ -52,9 +52,12 @@ func creatureDisplayByFileDataID(ctx context.Context, query QueryService, req Cr
 		return nil, nil
 	}
 	var modelID uint32
-	for id := range modelRows {
-		modelID = id
+	for _, modelRow := range modelRows {
+		modelID = rowUint32(modelRow, "ID")
 		break
+	}
+	if modelID == 0 {
+		return nil, nil
 	}
 	displayRows, err := rowsByUint32IDs(ctx, query, req.Context, "CreatureDisplayInfo", "ModelID", []uint32{modelID})
 	if err != nil {
