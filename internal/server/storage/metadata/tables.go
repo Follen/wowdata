@@ -21,9 +21,10 @@ type TableLookup struct {
 }
 
 type TableCatalogLookup struct {
-	Region  string
-	Product string
-	Locale  string
+	Region   string
+	Product  string
+	Locale   string
+	BuildKey string
 }
 
 type MaterializedTable struct {
@@ -160,18 +161,20 @@ FROM server_materialized_tables t
 JOIN (
   SELECT table_name, MAX(updated_seq) AS updated_seq
   FROM server_materialized_tables
-  WHERE region = ? AND product = ? AND locale = ? AND state = ?
+  WHERE region = ? AND product = ? AND locale = ? AND build_key = ? AND state = ?
   GROUP BY table_name
 ) latest ON latest.table_name = t.table_name AND latest.updated_seq = t.updated_seq
-WHERE t.region = ? AND t.product = ? AND t.locale = ? AND t.state = ?
+WHERE t.region = ? AND t.product = ? AND t.locale = ? AND t.build_key = ? AND t.state = ?
 ORDER BY t.table_name`,
 		lookup.Region,
 		lookup.Product,
 		lookup.Locale,
+		lookup.BuildKey,
 		StateValid,
 		lookup.Region,
 		lookup.Product,
 		lookup.Locale,
+		lookup.BuildKey,
 		StateValid,
 	)
 	if err != nil {

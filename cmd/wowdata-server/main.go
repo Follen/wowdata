@@ -19,13 +19,14 @@ import (
 )
 
 type httpOptions struct {
-	ServiceName  string
-	ConfigPath   string
-	Host         string
-	Port         int
-	BaseURL      string
-	ArtifactRoot string
-	QueryService service.QueryService
+	ServiceName    string
+	ConfigPath     string
+	Host           string
+	Port           int
+	BaseURL        string
+	ArtifactRoot   string
+	MetadataDBPath string
+	QueryService   service.QueryService
 }
 
 type httpRunner func(httpOptions) error
@@ -115,9 +116,17 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 		}
 		writeJSON(w, http.StatusOK, snapshot)
 	})
+	queryService := opts.QueryService
+	if queryService == nil {
+		metadataDBPath := opts.MetadataDBPath
+		if metadataDBPath == "" {
+			metadataDBPath = config.Default().Cache.MetadataDB
+		}
+		queryService = service.NewMetadataQueryService(metadataDBPath)
+	}
 	mcpServer := mcpserver.NewServer("wowdata", mcphttp.HTTPTools(mcphttp.Options{
 		HealthProvider: healthProvider,
-		QueryService:   opts.QueryService,
+		QueryService:   queryService,
 	}))
 	mux.Handle("/mcp", mcpServer)
 	mux.Handle("/mcp/", mcpServer)

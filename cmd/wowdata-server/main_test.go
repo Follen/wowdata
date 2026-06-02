@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"wowdata/internal/server/health"
+	"wowdata/internal/server/storage/metadata"
 )
 
 func TestServerHTTPHelpExposesHTTPCommand(t *testing.T) {
@@ -145,6 +146,83 @@ func TestServerMCPTrailingSlashRouteListsTools(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"name":"wow_query"`) {
 		t.Fatalf("/mcp/ tools/list missing wow_query: %s", rec.Body.String())
+	}
+}
+
+func TestServerDefaultMCPHandlerAnswersTablesFromMetadata(t *testing.T) {
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db, err := metadata.Open(metadataPath)
+	if err != nil {
+		t.Fatalf("open metadata DB: %v", err)
+	}
+	ctx := context.Background()
+	if err := metadata.UpsertMaterializedTable(ctx, db, metadata.MaterializedTable{
+		Key:                 metadata.TableKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1", TableName: "Item"},
+		DB2FileDataID:       1,
+		DBDHash:             "dbd-a",
+		DecoderVersion:      "decoder-1",
+		MaterializerVersion: "materializer-1",
+		ParquetPath:         "cache/db2/item.parquet",
+		RowCount:            1,
+		State:               metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert Item metadata: %v", err)
+	}
+	if err := metadata.UpsertMaterializedTable(ctx, db, metadata.MaterializedTable{
+		Key:                 metadata.TableKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2", TableName: "OldBuildOnly"},
+		DB2FileDataID:       2,
+		DBDHash:             "dbd-b",
+		DecoderVersion:      "decoder-1",
+		MaterializerVersion: "materializer-1",
+		ParquetPath:         "cache/db2/old.parquet",
+		RowCount:            1,
+		State:               metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert OldBuildOnly metadata: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close metadata DB: %v", err)
+	}
+
+	handler := newHTTPHandler(httpOptions{
+		ServiceName:    "wowdata-server",
+		MetadataDBPath: metadataPath,
+	}, &testHealthProvider{})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_query","arguments":{"mode":"tables","region":"us","product":"wow","locale":"enUS","buildKey":"build-1"}}}`))
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		Result struct {
+			StructuredContent struct {
+				OK      bool   `json:"ok"`
+				Command string `json:"command"`
+				Data    struct {
+					Count  int `json:"count"`
+					Tables []struct {
+						Name string `json:"name"`
+					} `json:"tables"`
+				} `json:"data"`
+				Error map[string]interface{} `json:"error"`
+			} `json:"structuredContent"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode MCP response: %v\n%s", err, rec.Body.String())
+	}
+	got := payload.Result.StructuredContent
+	if !got.OK {
+		t.Fatalf("wow_query mode=tables returned error instead of metadata catalog: %#v", got.Error)
+	}
+	if got.Command != "query tables" {
+		t.Fatalf("command = %q, want query tables", got.Command)
+	}
+	if got.Data.Count != 1 || len(got.Data.Tables) != 1 || got.Data.Tables[0].Name != "Item" {
+		t.Fatalf("tables payload = %#v, want only Item from requested build", got.Data)
 	}
 }
 

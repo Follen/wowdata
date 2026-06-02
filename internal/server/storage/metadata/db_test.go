@@ -298,10 +298,10 @@ WHERE region = 'us' AND product = 'wow' AND locale = 'enUS' AND table_name = 'Sp
 	}
 }
 
-func TestListValidMaterializedTablesReturnsLatestDistinctNames(t *testing.T) {
+func TestListValidMaterializedTablesFiltersByBuildKey(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)
-	lookup := TableCatalogLookup{Region: "us", Product: "wow", Locale: "enUS"}
+	lookup := TableCatalogLookup{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2"}
 
 	tables := []MaterializedTable{
 		{
@@ -315,12 +315,12 @@ func TestListValidMaterializedTablesReturnsLatestDistinctNames(t *testing.T) {
 			State:               StateValid,
 		},
 		{
-			Key:                 TableKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2", TableName: "Spell"},
+			Key:                 TableKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2", TableName: "SpellBuild2Only"},
 			DB2FileDataID:       123,
 			DBDHash:             "dbd-b",
 			DecoderVersion:      "decoder-1",
 			MaterializerVersion: "materializer-1",
-			ParquetPath:         "cache/db2/spell-build-2.parquet",
+			ParquetPath:         "cache/db2/spell-build-2-only.parquet",
 			RowCount:            4,
 			State:               StateValid,
 		},
@@ -332,6 +332,26 @@ func TestListValidMaterializedTablesReturnsLatestDistinctNames(t *testing.T) {
 			MaterializerVersion: "materializer-1",
 			ParquetPath:         "cache/db2/item-build-1.parquet",
 			RowCount:            6,
+			State:               StateValid,
+		},
+		{
+			Key:                 TableKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2", TableName: "Item"},
+			DB2FileDataID:       456,
+			DBDHash:             "dbd-b",
+			DecoderVersion:      "decoder-1",
+			MaterializerVersion: "materializer-1",
+			ParquetPath:         "cache/db2/item-build-2.parquet",
+			RowCount:            7,
+			State:               StateValid,
+		},
+		{
+			Key:                 TableKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1", TableName: "OldBuildOnly"},
+			DB2FileDataID:       654,
+			DBDHash:             "dbd-a",
+			DecoderVersion:      "decoder-1",
+			MaterializerVersion: "materializer-1",
+			ParquetPath:         "cache/db2/old-build-only.parquet",
+			RowCount:            9,
 			State:               StateValid,
 		},
 		{
@@ -368,11 +388,13 @@ func TestListValidMaterializedTablesReturnsLatestDistinctNames(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("table count = %d, want 2: %#v", len(got), got)
 	}
-	if got[0].Key.TableName != "Item" || got[1].Key.TableName != "Spell" {
-		t.Fatalf("table order = %#v, want Item then Spell", got)
+	if got[0].Key.TableName != "Item" || got[1].Key.TableName != "SpellBuild2Only" {
+		t.Fatalf("table order = %#v, want Item then SpellBuild2Only", got)
 	}
-	if got[1].Key.BuildKey != "build-2" || got[1].RowCount != 4 {
-		t.Fatalf("latest Spell = %#v, want build-2 row count 4", got[1])
+	for _, table := range got {
+		if table.Key.BuildKey != "build-2" {
+			t.Fatalf("returned table from wrong build: %#v", table)
+		}
 	}
 }
 
