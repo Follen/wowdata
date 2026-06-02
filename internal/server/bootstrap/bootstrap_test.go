@@ -163,6 +163,62 @@ func TestPrepareDiscoversEveryConfiguredTargetBeforeMaterializing(t *testing.T) 
 	}
 }
 
+func TestPrepareRecordsDiscoveredBuildBeforeMaterializing(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "discovered-build", BuildName: "Discovered Build"},
+	}}
+	materializer := &fakeMaterializer{
+		db: db,
+		before: func(target config.PrepareTarget, _ string) {
+			latest, err := metadata.LatestBuildForTarget(ctx, db, target.Region, target.Product, target.Locale)
+			if err != nil {
+				t.Fatalf("latest discovered build before materialization: %v", err)
+			}
+			if latest.Key.BuildKey != "discovered-build" || latest.State != metadata.StatePreparing {
+				t.Fatalf("latest discovered build before materialization = %#v, want discovered-build preparing", latest)
+			}
+		},
+	}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+}
+
+func TestPrepareRecordsDiscoveredBuildBeforeResourcePreparationFailure(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item"})
+	resourceErr := errors.New("cdn reset during CASC preload")
+	discoverer := &resourcePreparingDiscoverer{
+		builds: map[string]DiscoveredBuild{
+			"us/wow/enUS": {BuildKey: "discovered-build", BuildName: "Discovered Build"},
+		},
+		err: resourceErr,
+	}
+	materializer := &fakeMaterializer{db: db}
+
+	err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx)
+	if !errors.Is(err, resourceErr) {
+		t.Fatalf("Prepare error = %v, want %v", err, resourceErr)
+	}
+	latest, err := metadata.LatestBuildForTarget(ctx, db, "us", "wow", "enUS")
+	if err != nil {
+		t.Fatalf("latest discovered build: %v", err)
+	}
+	if latest.Key.BuildKey != "discovered-build" || latest.State != metadata.StateFailed || !strings.Contains(latest.Error, "cdn reset") {
+		t.Fatalf("latest discovered build = %#v, want discovered-build failed with resource error", latest)
+	}
+	if materializer.calls != 0 {
+		t.Fatalf("materialize calls = %d, want 0 when resource preparation fails", materializer.calls)
+	}
+}
+
 func TestPrepareSkipsMaterializationWhenActiveBuildHasAllDefaultTables(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
@@ -458,6 +514,23 @@ func (d *recordingDiscoverer) DiscoveredCount() int {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return len(d.seen)
+}
+
+type resourcePreparingDiscoverer struct {
+	builds map[string]DiscoveredBuild
+	err    error
+}
+
+func (d *resourcePreparingDiscoverer) DiscoverBuild(_ context.Context, target config.PrepareTarget) (DiscoveredBuild, error) {
+	key := target.Region + "/" + target.Product + "/" + target.Locale
+	build, ok := d.builds[key]
+	if !ok {
+		return DiscoveredBuild{}, errors.New("unexpected discover target " + key)
+	}
+	build.PrepareResources = func(context.Context) (DiscoveredBuild, error) {
+		return build, d.err
+	}
+	return build, nil
 }
 
 type discoverResult struct {

@@ -41,6 +41,7 @@ type DiscoveredBuild struct {
 	NoBuild         bool
 	Error           string
 	FileReader      appruntime.FileDataReader
+	PrepareResources func(context.Context) (DiscoveredBuild, error)
 }
 
 type Discoverer interface {
@@ -117,6 +118,18 @@ func (r Runner) Prepare(ctx context.Context) error {
 					message = "no build found"
 				}
 				recordTargetNoBuild(ctx, r.DB, target, message)
+				return
+			}
+			if build.BuildName == "" {
+				build.BuildName = build.BuildKey
+			}
+			if err := recordDiscoveredPreparing(ctx, r.DB, target, build); err != nil {
+				discovered[i].Err = err
+				firstErrMu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				firstErrMu.Unlock()
 			}
 		}(i, target)
 	}
@@ -153,7 +166,6 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 	if build.BuildName == "" {
 		build.BuildName = build.BuildKey
 	}
-
 	buildKey := metadata.BuildKey{
 		Region:   target.Region,
 		Product:  target.Product,
@@ -165,6 +177,25 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 		return activeErr
 	}
 	sameActiveValid := activeErr == nil && active.Key.BuildKey == build.BuildKey && active.State == metadata.StateValid
+	if build.PrepareResources != nil {
+		prepared, err := build.PrepareResources(ctx)
+		if err != nil {
+			if sameActiveValid {
+				_ = metadata.MarkBuildReady(ctx, r.DB, buildKey)
+				return err
+			}
+			_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
+			return err
+		}
+		prepared.PrepareResources = nil
+		if prepared.BuildKey == "" {
+			prepared.BuildKey = build.BuildKey
+		}
+		if prepared.BuildName == "" {
+			prepared.BuildName = build.BuildName
+		}
+		build = prepared
+	}
 	tablesToMaterialize := r.Config.Prepare.DefaultTables
 	var restoreTables []metadata.MaterializedTable
 	if sameActiveValid {
@@ -322,6 +353,27 @@ func recordTargetNoBuild(ctx context.Context, db *sql.DB, target config.PrepareT
 	})
 }
 
+func recordDiscoveredPreparing(ctx context.Context, db *sql.DB, target config.PrepareTarget, build DiscoveredBuild) error {
+	buildKey := metadata.BuildKey{
+		Region:   target.Region,
+		Product:  target.Product,
+		Locale:   target.Locale,
+		BuildKey: build.BuildKey,
+	}
+	active, err := metadata.ActiveBuild(ctx, db, target.Region, target.Product, target.Locale)
+	if err == nil && active.Key.BuildKey == build.BuildKey && active.State == metadata.StateValid {
+		return nil
+	}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	return metadata.UpsertDiscoveredBuild(ctx, db, metadata.Build{
+		Key:       buildKey,
+		BuildName: build.BuildName,
+		State:     metadata.StatePreparing,
+	})
+}
+
 func StartBackground(ctx context.Context, cfg config.Config, db *sql.DB) error {
 	go func() {
 		if err := (Runner{Config: cfg, DB: db}).Prepare(ctx); err != nil {
@@ -364,18 +416,31 @@ func (d ProductionDiscoverer) DiscoverBuild(_ context.Context, target config.Pre
 	if buildIndex < 0 {
 		return DiscoveredBuild{NoBuild: true, Error: fmt.Sprintf("no build found for %s/%s", target.Region, target.Product)}, nil
 	}
-	if err := remote.Preload(buildIndex); err != nil {
-		return DiscoveredBuild{}, err
+	version := remote.Builds[buildIndex]
+	buildKey := version.BuildConfig
+	if buildKey == "" {
+		buildKey = version.BuildKey
 	}
-	if remote.GetBuildKey() == "" {
+	if buildKey == "" {
 		return DiscoveredBuild{NoBuild: true, Error: fmt.Sprintf("no build key found for %s/%s", target.Region, target.Product)}, nil
 	}
 	return DiscoveredBuild{
-		BuildKey:        remote.GetBuildKey(),
-		BuildName:       remote.GetBuildName(),
-		CASCBuildConfig: remote.Build.BuildConfig,
-		CASCCDNConfig:   remote.Build.CDNConfig,
-		FileReader:      remote,
+		BuildKey:        buildKey,
+		BuildName:       version.VersionsName,
+		CASCBuildConfig: version.BuildConfig,
+		CASCCDNConfig:   version.CDNConfig,
+		PrepareResources: func(context.Context) (DiscoveredBuild, error) {
+			if err := remote.Preload(buildIndex); err != nil {
+				return DiscoveredBuild{}, err
+			}
+			return DiscoveredBuild{
+				BuildKey:        remote.GetBuildKey(),
+				BuildName:       remote.GetBuildName(),
+				CASCBuildConfig: remote.Build.BuildConfig,
+				CASCCDNConfig:   remote.Build.CDNConfig,
+				FileReader:      remote,
+			}, nil
+		},
 	}, nil
 }
 
