@@ -318,6 +318,39 @@ func TestPrepareSkipsMaterializationWhenActiveBuildHasAllDefaultTables(t *testin
 	}
 }
 
+func TestPrepareSkipsResourcePreparationWhenActiveBuildHasAllDefaultTables(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item", "Spell"})
+	seedActiveBuildWithTables(t, ctx, db, metadata.BuildKey{
+		Region: "us", Product: "wow", Locale: "enUS", BuildKey: "ready-build",
+	}, cfg.Prepare.DefaultTables)
+	var prepareResourcesCalled bool
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {
+			BuildKey:  "ready-build",
+			BuildName: "Ready Build",
+			PrepareResources: func(context.Context) (DiscoveredBuild, error) {
+				prepareResourcesCalled = true
+				return DiscoveredBuild{BuildKey: "ready-build", BuildName: "Ready Build"}, nil
+			},
+		},
+	}}
+	materializer := &fakeMaterializer{db: db}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	if prepareResourcesCalled {
+		t.Fatal("PrepareResources was called for an active build that already has all default tables")
+	}
+	if materializer.calls != 0 {
+		t.Fatalf("materialize calls = %d, want 0 for ready active build with all default tables", materializer.calls)
+	}
+}
+
 func TestPrepareFailureMarksCandidateFailedAndPreservesOldActiveBuild(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")

@@ -182,28 +182,6 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 		return activeErr
 	}
 	sameActiveValid := activeErr == nil && active.Key.BuildKey == build.BuildKey && active.State == metadata.StateValid
-	if build.PrepareResources != nil {
-		if !sameActiveValid {
-			_ = metadata.MarkBuildPreparingMessage(ctx, r.DB, buildKey, "resource preparation started")
-		}
-		prepared, err := build.PrepareResources(ctx)
-		if err != nil {
-			if sameActiveValid {
-				_ = metadata.MarkBuildReady(ctx, r.DB, buildKey)
-				return err
-			}
-			_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
-			return err
-		}
-		prepared.PrepareResources = nil
-		if prepared.BuildKey == "" {
-			prepared.BuildKey = build.BuildKey
-		}
-		if prepared.BuildName == "" {
-			prepared.BuildName = build.BuildName
-		}
-		build = prepared
-	}
 	tablesToMaterialize := r.Config.Prepare.DefaultTables
 	var restoreTables []metadata.MaterializedTable
 	if sameActiveValid {
@@ -221,7 +199,31 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 		if len(tablesToMaterialize) == 0 {
 			return nil
 		}
-	} else {
+	}
+	if build.PrepareResources != nil {
+		if !sameActiveValid {
+			_ = metadata.MarkBuildPreparingMessage(ctx, r.DB, buildKey, "resource preparation started")
+		}
+		prepared, err := build.PrepareResources(ctx)
+		if err != nil {
+			if sameActiveValid {
+				_ = restoreValidTables(ctx, r.DB, restoreTables)
+				_ = metadata.MarkBuildReady(ctx, r.DB, buildKey)
+				return err
+			}
+			_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
+			return err
+		}
+		prepared.PrepareResources = nil
+		if prepared.BuildKey == "" {
+			prepared.BuildKey = build.BuildKey
+		}
+		if prepared.BuildName == "" {
+			prepared.BuildName = build.BuildName
+		}
+		build = prepared
+	}
+	if !sameActiveValid {
 		if err := metadata.UpsertDiscoveredBuild(ctx, r.DB, metadata.Build{
 			Key:       buildKey,
 			BuildName: build.BuildName,
