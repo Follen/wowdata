@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -75,6 +76,111 @@ func TestPrepareEmptyDefaultTablesMaterializesManifestTableSet(t *testing.T) {
 	snapshot := healthSnapshot(t, ctx, db, cfg)
 	if snapshot.Contexts[0].PrepareCurrent != 3 || snapshot.Contexts[0].PrepareTotal != 3 {
 		t.Fatalf("prepare progress = %d/%d, want 3/3 manifest tables", snapshot.Contexts[0].PrepareCurrent, snapshot.Contexts[0].PrepareTotal)
+	}
+}
+
+func TestPrepareUsesConfiguredParallelTableMaterializations(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"A", "B", "C", "D"})
+	cfg.Limits.MaxParallelContextPrepares = 1
+	cfg.Limits.MaxParallelTableMaterializations = 2
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "build-2", BuildName: "Build 2"},
+	}}
+	release := make(chan struct{})
+	entered := make(chan struct{}, 4)
+	var active int32
+	var maxActive int32
+	materializer := &fakeMaterializer{
+		db: db,
+		before: func(config.PrepareTarget, string) {
+			now := atomic.AddInt32(&active, 1)
+			for {
+				observed := atomic.LoadInt32(&maxActive)
+				if now <= observed || atomic.CompareAndSwapInt32(&maxActive, observed, now) {
+					break
+				}
+			}
+			entered <- struct{}{}
+			<-release
+			atomic.AddInt32(&active, -1)
+		},
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx)
+	}()
+
+	if !eventually(1*time.Second, func() bool {
+		return atomic.LoadInt32(&maxActive) == 2
+	}) {
+		close(release)
+		t.Fatalf("max parallel table materializations = %d, want 2", atomic.LoadInt32(&maxActive))
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	if got := len(entered); got != 4 {
+		t.Fatalf("materialized table entries = %d, want 4", got)
+	}
+}
+
+func TestPrepareLimitsParallelTableMaterializationsAcrossTargets(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"A", "B"})
+	cfg.Prepare.Targets = append(cfg.Prepare.Targets, config.PrepareTarget{
+		Label: "US PTR", Region: "us", Product: "wowt", Locale: "enUS",
+	})
+	cfg.Limits.MaxParallelContextPrepares = 2
+	cfg.Limits.MaxParallelTableMaterializations = 2
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS":  {BuildKey: "build-2", BuildName: "Build 2"},
+		"us/wowt/enUS": {BuildKey: "ptr-build-2", BuildName: "PTR Build 2"},
+	}}
+	release := make(chan struct{})
+	var active int32
+	var maxActive int32
+	materializer := &fakeMaterializer{
+		db: db,
+		before: func(config.PrepareTarget, string) {
+			now := atomic.AddInt32(&active, 1)
+			for {
+				observed := atomic.LoadInt32(&maxActive)
+				if now <= observed || atomic.CompareAndSwapInt32(&maxActive, observed, now) {
+					break
+				}
+			}
+			<-release
+			atomic.AddInt32(&active, -1)
+		},
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx)
+	}()
+
+	if eventually(1*time.Second, func() bool {
+		return atomic.LoadInt32(&maxActive) > 2
+	}) {
+		close(release)
+		_ = <-done
+		t.Fatalf("max parallel table materializations across targets = %d, want <= 2", atomic.LoadInt32(&maxActive))
+	}
+	if atomic.LoadInt32(&maxActive) != 2 {
+		close(release)
+		_ = <-done
+		t.Fatalf("max parallel table materializations across targets = %d, want 2", atomic.LoadInt32(&maxActive))
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatalf("Prepare: %v", err)
 	}
 }
 

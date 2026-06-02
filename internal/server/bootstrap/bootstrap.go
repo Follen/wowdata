@@ -142,6 +142,7 @@ func (r Runner) Prepare(ctx context.Context) error {
 	wg.Wait()
 
 	sem = make(chan struct{}, maxParallel)
+	tableSem := make(chan struct{}, maxTableMaterializations(r.Config.Limits.MaxParallelTableMaterializations))
 	wg = sync.WaitGroup{}
 	for _, item := range discovered {
 		if item.Err != nil || item.Build.NoBuild || item.Build.BuildKey == "" {
@@ -153,7 +154,7 @@ func (r Runner) Prepare(ctx context.Context) error {
 			defer wg.Done()
 			defer func() { <-sem }()
 			fmt.Fprintf(os.Stderr, "wowdata-server prepare target materialization starting: %s %s/%s/%s build=%s\n", item.Target.Label, item.Target.Region, item.Target.Product, item.Target.Locale, item.Build.BuildKey)
-			if err := r.materializeTarget(ctx, item.Target, item.Build, materializer); err != nil {
+			if err := r.materializeTarget(ctx, item.Target, item.Build, materializer, tableSem); err != nil {
 				fmt.Fprintf(os.Stderr, "wowdata-server prepare target materialization failed: %s %s/%s/%s build=%s: %v\n", item.Target.Label, item.Target.Region, item.Target.Product, item.Target.Locale, item.Build.BuildKey, err)
 				firstErrMu.Lock()
 				if firstErr == nil {
@@ -169,7 +170,14 @@ func (r Runner) Prepare(ctx context.Context) error {
 	return firstErr
 }
 
-func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, materializer TableMaterializer) error {
+func maxTableMaterializations(configured int) int {
+	if configured <= 0 {
+		return 1
+	}
+	return configured
+}
+
+func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, materializer TableMaterializer, tableSem chan struct{}) error {
 	if build.BuildName == "" {
 		build.BuildName = build.BuildKey
 	}
@@ -242,25 +250,93 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 		}
 	}
 
-	for _, tableName := range tablesToMaterialize {
-		if !sameActiveValid {
-			_ = metadata.MarkBuildPreparingMessage(ctx, r.DB, buildKey, "materializing "+tableName)
-		}
-		fmt.Fprintf(os.Stderr, "wowdata-server prepare materializing table: %s %s/%s/%s build=%s table=%s\n", target.Label, target.Region, target.Product, target.Locale, build.BuildKey, tableName)
-		if err := materializer.MaterializeTable(ctx, target, build, tableName); err != nil {
-			if sameActiveValid {
-				_ = restoreValidTables(ctx, r.DB, restoreTables)
-				_ = metadata.MarkBuildReady(ctx, r.DB, buildKey)
-				return err
-			}
-			_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
+	if err := r.materializeTables(ctx, target, build, buildKey, tablesToMaterialize, materializer, !sameActiveValid, tableSem); err != nil {
+		if sameActiveValid {
+			_ = restoreValidTables(ctx, r.DB, restoreTables)
+			_ = metadata.MarkBuildReady(ctx, r.DB, buildKey)
 			return err
 		}
+		_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
+		return err
 	}
 	if err := metadata.MarkBuildReady(ctx, r.DB, buildKey); err != nil {
 		return err
 	}
 	return metadata.ActivateBuild(ctx, r.DB, buildKey)
+}
+
+func (r Runner) materializeTables(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, buildKey metadata.BuildKey, tables []string, materializer TableMaterializer, markBuildProgress bool, tableSem chan struct{}) error {
+	maxParallel := maxTableMaterializations(r.Config.Limits.MaxParallelTableMaterializations)
+	if maxParallel > len(tables) {
+		maxParallel = len(tables)
+	}
+	if maxParallel <= 1 {
+		for _, tableName := range tables {
+			if err := r.materializeOneTable(ctx, target, build, buildKey, tableName, materializer, markBuildProgress, tableSem); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	workCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	jobs := make(chan string)
+	var wg sync.WaitGroup
+	var firstErr error
+	var firstErrMu sync.Mutex
+	recordErr := func(err error) {
+		if err == nil {
+			return
+		}
+		firstErrMu.Lock()
+		if firstErr == nil {
+			firstErr = err
+			cancel()
+		}
+		firstErrMu.Unlock()
+	}
+	for i := 0; i < maxParallel; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for tableName := range jobs {
+				if err := r.materializeOneTable(workCtx, target, build, buildKey, tableName, materializer, markBuildProgress, tableSem); err != nil {
+					recordErr(err)
+				}
+			}
+		}()
+	}
+sendJobs:
+	for _, tableName := range tables {
+		select {
+		case <-workCtx.Done():
+			break sendJobs
+		case jobs <- tableName:
+		}
+	}
+	close(jobs)
+	wg.Wait()
+	if firstErr != nil {
+		return firstErr
+	}
+	return workCtx.Err()
+}
+
+func (r Runner) materializeOneTable(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, buildKey metadata.BuildKey, tableName string, materializer TableMaterializer, markBuildProgress bool, tableSem chan struct{}) error {
+	if tableSem != nil {
+		select {
+		case tableSem <- struct{}{}:
+			defer func() { <-tableSem }()
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	if markBuildProgress {
+		_ = metadata.MarkBuildPreparingMessage(ctx, r.DB, buildKey, "materializing "+tableName)
+	}
+	fmt.Fprintf(os.Stderr, "wowdata-server prepare materializing table: %s %s/%s/%s build=%s table=%s\n", target.Label, target.Region, target.Product, target.Locale, build.BuildKey, tableName)
+	return materializer.MaterializeTable(ctx, target, build, tableName)
 }
 
 func ResolveRequiredTables(ctx context.Context, configured []string, materializer TableMaterializer) ([]string, error) {
