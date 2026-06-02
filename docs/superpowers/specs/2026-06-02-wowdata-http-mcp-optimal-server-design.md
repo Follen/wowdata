@@ -485,25 +485,27 @@ Build the server image on the remote Docker host. The image must contain `wowdat
 
 ### Remote Node-Parity Full Data Test
 
-Against the remote HTTP endpoint, run a generated parity test against the legacy Node implementation for every configured ready target. This replaces the historical fixed-denominator matrix check.
+Against the remote HTTP endpoint, run a generated parity test against the legacy Node implementation for every configured ready target. This replaces the historical fixed-denominator matrix check and is the authoritative business-equivalence gate for DB2 data.
 
 Required coverage:
 
 - all 23 configured build targets when the server marks them ready
-- every DB2 table that the legacy Node implementation can read for each target build; this is the full table set discovered from the Node oracle, not the old sampled smoke set
+- the exact active build key for each target; the Node oracle must report its resolved build key and the test must fail if it differs from the server target build key
+- every DB2 table that the legacy Node implementation can read for each target build; this is the full table set discovered from the Node oracle, not the old sampled smoke set and not a handpicked list
 - every row in every compared table
 - every field in every compared row
 - schema equality: table list, field names, field order, field cardinality, and field value normalization
 - row equality: row count and deterministic row identity/order
 - value equality: canonical JSON value for every scalar, array, localized string, null, and numeric field
 
-The legacy Node implementation is the oracle for this acceptance test. The table list must be discovered by running the old Node implementation for the same region/product/locale/build target, not by asking the new Go code, not by reading the Go materialized cache, and not by reusing a static checked-in list. A Go HTTP result is a failure if it is missing any Node-readable table, missing any Node-emitted field, has a different field order, has a different row count, or has a different canonical value. Go-only extra tables must be reported as extras and fail the parity test until deliberately reviewed in a later spec revision.
+The legacy Node implementation is the oracle for this acceptance test. The table list must be discovered by running the old Node implementation for the same region/product/locale/build target, not by asking the new Go code, not by reading the Go materialized cache, and not by reusing a static checked-in list. Before comparing tables, the harness must verify `node.build.buildKey == serverTarget.buildKey`; if the legacy Node implementation resolves a different build, that target fails before any table hash is accepted. A Go HTTP result is a failure if it is missing any Node-readable table, missing any Node-emitted field, has a different field order, has a different row count, or has a different canonical value. Go-only extra tables must be reported as extras and fail the parity test until deliberately reviewed in a later spec revision.
 
-The test must not hard-code `93/93`, `92/92`, or any other stale denominator. It must compute the total from the 23 prepared targets and the full table list discovered from the legacy Node implementation for each target. The only acceptable final denominator is the runtime sum of all Node-readable DB2 tables across the 23 targets. If a target has zero Node-readable tables, that target must fail with a diagnostic explaining why the Node oracle produced no table list.
+The test must not hard-code `93/93`, `92/92`, or any other stale denominator. It must compute the total from the 23 prepared targets and the full table list discovered from the legacy Node implementation for each target. The only acceptable final denominator is the runtime sum of all Node-readable DB2 tables across the 23 targets. If a target has zero Node-readable tables, that target must fail with a diagnostic explaining why the Node oracle produced no table list. A table-level pass is only valid when every row and every field emitted by Node has been included in the canonical hash input.
 
 The comparison may use streaming canonical hashes to avoid loading all rows into memory, but the hash input must include every field of every row. Hashing is only a fast equality proof; on mismatch, the harness must perform or retain enough row-level comparison state to print concrete diffs. For each target/table it must report:
 
 - target label, region, product, locale, and build
+- server build key and legacy Node build key
 - table name
 - compared row count
 - compared field count
