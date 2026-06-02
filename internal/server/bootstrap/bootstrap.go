@@ -774,7 +774,7 @@ func persistResourceIndexes(ctx context.Context, db *sql.DB, indexes ResourceInd
 			return err
 		}
 	}
-	if len(indexes.CASCRoots) > 0 || len(indexes.CASCEncodings) > 0 || len(indexes.CASCArchives) > 0 {
+	if indexes.CASCSourceVersion != "" {
 		if err := cascindex.ReplaceIndexForSource(ctx, db, indexes.CASCSource, indexes.CASCSourceVersion, indexes.CASCRoots, indexes.CASCEncodings, indexes.CASCArchives); err != nil {
 			return err
 		}
@@ -798,9 +798,8 @@ func buildProductionResourceIndexes(cacheRoot string, target config.PrepareTarge
 		return ResourceIndexes{}, err
 	}
 	entries := serverListfileEntries(lf.GetAll())
-	roots := cascRootMappings(source)
-	encodings := cascEncodingMappings(source)
-	archives := cascArchiveMappings(source)
+	locale := casc.LocaleFlagByName(target.Locale)
+	roots, encodings, archives := cascResourceMappingsForLocale(source, locale)
 	return ResourceIndexes{
 		ListfileSourceHash: hashListfileEntries(entries),
 		ListfileEntries:    entries,
@@ -910,21 +909,57 @@ func hashCASCResourceMappings(roots []cascindex.RootMapping, encodings []cascind
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
+func cascResourceMappingsForLocale(source *casc.CASCSource, locale casc.LocaleFlag) ([]cascindex.RootMapping, []cascindex.EncodingMapping, []cascindex.ArchiveMapping) {
+	roots := cascRootMappingsForLocale(source, locale)
+	encodings := cascEncodingMappingsForRoots(source, roots)
+	archives := cascArchiveMappingsForEncodings(source, encodings)
+	encodings = cascEncodingMappingsForArchives(encodings, archives)
+	roots = cascRootMappingsForEncodings(roots, encodings)
+	return roots, encodings, archives
+}
+
 func cascRootMappings(source *casc.CASCSource) []cascindex.RootMapping {
 	if source == nil {
 		return nil
 	}
-	ids := source.GetValidRootEntries()
+	return cascRootMappingsForLocale(source, source.Locale)
+}
+
+func cascRootMappingsForLocale(source *casc.CASCSource, locale casc.LocaleFlag) []cascindex.RootMapping {
+	if source == nil {
+		return nil
+	}
+	ids := make([]int, 0, len(source.RootEntries))
+	for id := range source.RootEntries {
+		ids = append(ids, int(id))
+	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	mappings := make([]cascindex.RootMapping, 0, len(ids))
 	for _, id := range ids {
-		contentKey, _, err := source.ResolveFileKeys(id)
-		if err != nil || contentKey == "" {
+		contentKey := rootContentKeyForLocale(source, uint32(id), locale)
+		if contentKey == "" {
 			continue
 		}
-		mappings = append(mappings, cascindex.RootMapping{FileDataID: id, ContentKey: contentKey})
+		mappings = append(mappings, cascindex.RootMapping{FileDataID: uint32(id), ContentKey: contentKey})
 	}
 	return mappings
+}
+
+func rootContentKeyForLocale(source *casc.CASCSource, fileDataID uint32, locale casc.LocaleFlag) string {
+	rootEntries, ok := source.RootEntries[fileDataID]
+	if !ok {
+		return ""
+	}
+	for _, entry := range rootEntries {
+		if entry.TypeIndex >= len(source.RootTypes) {
+			continue
+		}
+		rootType := source.RootTypes[entry.TypeIndex]
+		if rootType.LocaleFlags&locale != 0 && rootType.ContentFlags&casc.ContentLowViolence == 0 {
+			return entry.ContentKey
+		}
+	}
+	return ""
 }
 
 func cascEncodingMappings(source *casc.CASCSource) []cascindex.EncodingMapping {
@@ -948,6 +983,63 @@ func cascEncodingMappings(source *casc.CASCSource) []cascindex.EncodingMapping {
 	return mappings
 }
 
+func cascEncodingMappingsForRoots(source *casc.CASCSource, roots []cascindex.RootMapping) []cascindex.EncodingMapping {
+	if source == nil {
+		return nil
+	}
+	keys := make([]string, 0, len(roots))
+	seen := make(map[string]struct{}, len(roots))
+	for _, root := range roots {
+		if _, ok := seen[root.ContentKey]; ok {
+			continue
+		}
+		if _, ok := source.EncodingEntries[root.ContentKey]; !ok {
+			continue
+		}
+		seen[root.ContentKey] = struct{}{}
+		keys = append(keys, root.ContentKey)
+	}
+	sort.Strings(keys)
+	mappings := make([]cascindex.EncodingMapping, 0, len(keys))
+	for _, contentKey := range keys {
+		entry := source.EncodingEntries[contentKey]
+		mappings = append(mappings, cascindex.EncodingMapping{
+			ContentKey:  contentKey,
+			EncodingKey: entry.Key,
+			Size:        entry.Size,
+		})
+	}
+	return mappings
+}
+
+func cascEncodingMappingsForArchives(encodings []cascindex.EncodingMapping, archives []cascindex.ArchiveMapping) []cascindex.EncodingMapping {
+	archiveKeys := make(map[string]struct{}, len(archives))
+	for _, archive := range archives {
+		archiveKeys[archive.EncodingKey] = struct{}{}
+	}
+	filtered := make([]cascindex.EncodingMapping, 0, len(encodings))
+	for _, encoding := range encodings {
+		if _, ok := archiveKeys[encoding.EncodingKey]; ok {
+			filtered = append(filtered, encoding)
+		}
+	}
+	return filtered
+}
+
+func cascRootMappingsForEncodings(roots []cascindex.RootMapping, encodings []cascindex.EncodingMapping) []cascindex.RootMapping {
+	contentKeys := make(map[string]struct{}, len(encodings))
+	for _, encoding := range encodings {
+		contentKeys[encoding.ContentKey] = struct{}{}
+	}
+	filtered := make([]cascindex.RootMapping, 0, len(roots))
+	for _, root := range roots {
+		if _, ok := contentKeys[root.ContentKey]; ok {
+			filtered = append(filtered, root)
+		}
+	}
+	return filtered
+}
+
 func cascArchiveMappings(source *casc.CASCSource) []cascindex.ArchiveMapping {
 	if source == nil {
 		return nil
@@ -955,6 +1047,36 @@ func cascArchiveMappings(source *casc.CASCSource) []cascindex.ArchiveMapping {
 	keys := make([]string, 0, len(source.Archives))
 	for encodingKey := range source.Archives {
 		keys = append(keys, encodingKey)
+	}
+	sort.Strings(keys)
+	mappings := make([]cascindex.ArchiveMapping, 0, len(keys))
+	for _, encodingKey := range keys {
+		archive := source.Archives[encodingKey]
+		mappings = append(mappings, cascindex.ArchiveMapping{
+			EncodingKey: encodingKey,
+			ArchiveKey:  archive.Key,
+			Offset:      int64(archive.Offset),
+			Size:        int64(archive.Size),
+		})
+	}
+	return mappings
+}
+
+func cascArchiveMappingsForEncodings(source *casc.CASCSource, encodings []cascindex.EncodingMapping) []cascindex.ArchiveMapping {
+	if source == nil {
+		return nil
+	}
+	keys := make([]string, 0, len(encodings))
+	seen := make(map[string]struct{}, len(encodings))
+	for _, encoding := range encodings {
+		if _, ok := seen[encoding.EncodingKey]; ok {
+			continue
+		}
+		if _, ok := source.Archives[encoding.EncodingKey]; !ok {
+			continue
+		}
+		seen[encoding.EncodingKey] = struct{}{}
+		keys = append(keys, encoding.EncodingKey)
 	}
 	sort.Strings(keys)
 	mappings := make([]cascindex.ArchiveMapping, 0, len(keys))

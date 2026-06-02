@@ -17,6 +17,7 @@ import (
 	"wowdata/internal/server/storage/cascindex"
 	serverlistfile "wowdata/internal/server/storage/listfile"
 	"wowdata/internal/server/storage/metadata"
+	"wowdata/internal/shared/casc"
 	"wowdata/internal/shared/db2"
 )
 
@@ -282,6 +283,57 @@ func TestPreparePersistsResourceIndexesForAssets(t *testing.T) {
 	}
 	if span.EncodingKey != "encoding-key" || span.ArchiveKey != "archive-key" {
 		t.Fatalf("casc span = %#v, want persisted encoding/archive mapping", span)
+	}
+}
+
+func TestPrepareClearsOldCASCIndexWhenNewResourceIndexIsEmpty(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	source := cascindex.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2"}
+	if err := cascindex.ReplaceIndexForSource(ctx, db, source, "old-casc-version",
+		[]cascindex.RootMapping{{FileDataID: 555, ContentKey: "old-content-key"}},
+		[]cascindex.EncodingMapping{{ContentKey: "old-content-key", EncodingKey: "old-encoding-key", Size: 12}},
+		[]cascindex.ArchiveMapping{{EncodingKey: "old-encoding-key", ArchiveKey: "old-archive-key", Offset: 34, Size: 12}},
+	); err != nil {
+		t.Fatalf("seed old casc index: %v", err)
+	}
+	cfg := testConfig(metadataPath, []string{"Item"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {
+			BuildKey:  "build-2",
+			BuildName: "12.0.5.67823",
+			PrepareResources: func(context.Context) (DiscoveredBuild, error) {
+				return DiscoveredBuild{
+					BuildKey:  "build-2",
+					BuildName: "12.0.5.67823",
+					ResourceIndexes: ResourceIndexes{
+						CASCSource:        source,
+						CASCSourceVersion: "empty-casc-version",
+					},
+				}, nil
+			},
+		},
+	}}
+
+	if err := (Runner{
+		Config:       cfg,
+		DB:           db,
+		Discoverer:   discoverer,
+		Materializer: &fakeMaterializer{db: db, availableTables: []string{"Item"}},
+	}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	ready, err := cascindex.HasUsableIndexForSource(ctx, db, source)
+	if err != nil {
+		t.Fatalf("usable casc index: %v", err)
+	}
+	if ready {
+		t.Fatal("usable casc index = true, want false after empty replacement")
+	}
+	if _, err := cascindex.ResolveFileDataIDForSource(ctx, db, source, 555); !errors.Is(err, cascindex.ErrNotFound) {
+		t.Fatalf("old casc resolve error = %v, want ErrNotFound", err)
 	}
 }
 
@@ -1039,6 +1091,48 @@ func TestPrepareReusesDB2TablesWhenActiveBuildHasAllDefaultTables(t *testing.T) 
 	}
 	if materializer.calls != 0 {
 		t.Fatalf("materialize calls = %d, want 0 for ready active build with all default tables", materializer.calls)
+	}
+}
+
+func TestCASCResourceMappingsKeepOnlyTargetLocaleReachableFiles(t *testing.T) {
+	source := casc.NewCASCSource()
+	source.RootTypes = []casc.RootType{
+		{LocaleFlags: casc.LocaleEnUS},
+		{LocaleFlags: casc.LocaleZhCN},
+		{LocaleFlags: casc.LocaleEnUS, ContentFlags: casc.ContentLowViolence},
+	}
+	source.RootEntries = map[uint32][]casc.RootEntry{
+		100: {{TypeIndex: 0, ContentKey: "enus-content"}},
+		200: {{TypeIndex: 1, ContentKey: "zhcn-content"}},
+		300: {{TypeIndex: 2, ContentKey: "low-violence-content"}},
+		400: {{TypeIndex: 99, ContentKey: "bad-type-content"}},
+		500: {{TypeIndex: 0, ContentKey: "missing-encoding-content"}},
+		600: {{TypeIndex: 0, ContentKey: "missing-archive-content"}},
+	}
+	source.EncodingEntries = map[string]casc.EncodingEntry{
+		"enus-content":            {Key: "enus-encoding", Size: 11},
+		"zhcn-content":            {Key: "zhcn-encoding", Size: 22},
+		"low-violence-content":    {Key: "low-violence-encoding", Size: 33},
+		"missing-archive-content": {Key: "missing-archive-encoding", Size: 55},
+		"unreferenced-content":    {Key: "unreferenced-encoding", Size: 44},
+	}
+	source.Archives = map[string]casc.ArchiveEntry{
+		"enus-encoding":         {Key: "enus-archive", Offset: 10, Size: 11},
+		"zhcn-encoding":         {Key: "zhcn-archive", Offset: 20, Size: 22},
+		"low-violence-encoding": {Key: "low-violence-archive", Offset: 30, Size: 33},
+		"unreferenced-encoding": {Key: "unreferenced-archive", Offset: 40, Size: 44},
+	}
+
+	roots, encodings, archives := cascResourceMappingsForLocale(source, casc.LocaleEnUS)
+
+	if len(roots) != 1 || roots[0] != (cascindex.RootMapping{FileDataID: 100, ContentKey: "enus-content"}) {
+		t.Fatalf("roots = %#v, want only enUS non-low-violence root", roots)
+	}
+	if len(encodings) != 1 || encodings[0] != (cascindex.EncodingMapping{ContentKey: "enus-content", EncodingKey: "enus-encoding", Size: 11}) {
+		t.Fatalf("encodings = %#v, want only encoding reachable from enUS root", encodings)
+	}
+	if len(archives) != 1 || archives[0] != (cascindex.ArchiveMapping{EncodingKey: "enus-encoding", ArchiveKey: "enus-archive", Offset: 10, Size: 11}) {
+		t.Fatalf("archives = %#v, want only archive reachable from enUS encoding", archives)
 	}
 }
 
