@@ -121,6 +121,73 @@ func TestPrepareManifestDefaultTablesSkipsTablesWithoutBuildStructure(t *testing
 	}
 }
 
+func TestPrepareManifestDefaultTablesDoesNotRetryKnownUnreadableTablesForReadyActiveBuild(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"*"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "build-2", BuildName: "12.0.5.67823"},
+	}}
+	firstMaterializer := &fakeMaterializer{
+		db:              db,
+		availableTables: []string{"Achievement", "ModelSound", "Spell"},
+		failTable:       "ModelSound",
+		err:             errors.New("no DBD structure for build 12.0.5.67823"),
+	}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: firstMaterializer}).Prepare(ctx); err != nil {
+		t.Fatalf("first Prepare: %v", err)
+	}
+
+	secondMaterializer := &fakeMaterializer{
+		db:              db,
+		availableTables: []string{"Achievement", "ModelSound", "Spell"},
+		failTable:       "ModelSound",
+		err:             errors.New("no DBD structure for build 12.0.5.67823"),
+	}
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: secondMaterializer}).Prepare(ctx); err != nil {
+		t.Fatalf("second Prepare: %v", err)
+	}
+
+	if secondMaterializer.calls != 0 {
+		t.Fatalf("second prepare materialized tables = %q (%d calls), want reuse with no unreadable retry", strings.Join(secondMaterializer.tables, ","), secondMaterializer.calls)
+	}
+}
+
+func TestPrepareConfiguredTableFailsEvenAfterWildcardMarkedTableUnreadable(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	wildcardCfg := testConfig(metadataPath, []string{"*"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "build-2", BuildName: "12.0.5.67823"},
+	}}
+	firstMaterializer := &fakeMaterializer{
+		db:              db,
+		availableTables: []string{"Achievement", "ModelSound", "Spell"},
+		failTable:       "ModelSound",
+		err:             errors.New("no DBD structure for build 12.0.5.67823"),
+	}
+	if err := (Runner{Config: wildcardCfg, DB: db, Discoverer: discoverer, Materializer: firstMaterializer}).Prepare(ctx); err != nil {
+		t.Fatalf("wildcard Prepare: %v", err)
+	}
+
+	explicitCfg := testConfig(metadataPath, []string{"ModelSound"})
+	secondMaterializer := &fakeMaterializer{
+		db:        db,
+		failTable: "ModelSound",
+		err:       errors.New("no DBD structure for build 12.0.5.67823"),
+	}
+	err := (Runner{Config: explicitCfg, DB: db, Discoverer: discoverer, Materializer: secondMaterializer}).Prepare(ctx)
+	if err == nil || !strings.Contains(err.Error(), "no DBD structure for build 12.0.5.67823") {
+		t.Fatalf("explicit Prepare error = %v, want unreadable table failure", err)
+	}
+	if secondMaterializer.calls != 1 || strings.Join(secondMaterializer.tables, ",") != "ModelSound" {
+		t.Fatalf("explicit materialized tables = %q (%d calls), want ModelSound attempted", strings.Join(secondMaterializer.tables, ","), secondMaterializer.calls)
+	}
+}
+
 func TestPrepareManifestDefaultTablesSkipsInvalidDBDDefinitions(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")

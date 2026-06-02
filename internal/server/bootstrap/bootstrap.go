@@ -27,10 +27,11 @@ import (
 )
 
 const (
-	decoderVersion       = "runtime-db2-loader-v1"
-	materializerVersion  = "server-prepare-bootstrap-v1"
-	defaultRetryAttempts = 3
-	defaultRetryDelay    = 500 * time.Millisecond
+	decoderVersion                = "runtime-db2-loader-v1"
+	materializerVersion           = "server-prepare-bootstrap-v1"
+	manifestUnreadableErrorPrefix = "manifest unreadable: "
+	defaultRetryAttempts          = 3
+	defaultRetryDelay             = 500 * time.Millisecond
 )
 
 type Config = config.Config
@@ -221,6 +222,13 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 			return err
 		}
 		restoreTables = tables
+		if allManifestTables {
+			knownUnreadable, err := knownManifestUnreadableTables(ctx, r.DB, buildKey)
+			if err != nil {
+				return err
+			}
+			tables = append(tables, knownUnreadable...)
+		}
 		tablesToMaterialize = missingDefaultTables(requiredTables, tables)
 		if len(tablesToMaterialize) == 0 {
 			return nil
@@ -363,10 +371,43 @@ func (r Runner) materializeOneTable(ctx context.Context, target config.PrepareTa
 	fmt.Fprintf(os.Stderr, "wowdata-server prepare materializing table: %s %s/%s/%s build=%s table=%s\n", target.Label, target.Region, target.Product, target.Locale, build.BuildKey, tableName)
 	err := materializer.MaterializeTable(ctx, target, build, tableName)
 	if err != nil && skipUnavailableBuildStructure && isManifestUnreadableTableError(err) {
+		if markErr := metadata.UpsertMaterializedTable(ctx, r.DB, metadata.MaterializedTable{
+			Key: metadata.TableKey{
+				Region:    target.Region,
+				Product:   target.Product,
+				Locale:    target.Locale,
+				BuildKey:  build.BuildKey,
+				TableName: tableName,
+			},
+			MaterializerVersion: materializerVersion,
+			State:               metadata.StateFailed,
+			Error:               manifestUnreadableErrorPrefix + err.Error(),
+		}); markErr != nil {
+			return markErr
+		}
 		fmt.Fprintf(os.Stderr, "wowdata-server prepare skipping unreadable table: %s %s/%s/%s build=%s table=%s error=%v\n", target.Label, target.Region, target.Product, target.Locale, build.BuildKey, tableName, err)
 		return nil
 	}
 	return err
+}
+
+func knownManifestUnreadableTables(ctx context.Context, db *sql.DB, buildKey metadata.BuildKey) ([]metadata.MaterializedTable, error) {
+	tables, err := metadata.ListFailedMaterializedTablesWithErrorPrefix(ctx, db, metadata.TableCatalogLookup{
+		Region:   buildKey.Region,
+		Product:  buildKey.Product,
+		Locale:   buildKey.Locale,
+		BuildKey: buildKey.BuildKey,
+	}, manifestUnreadableErrorPrefix)
+	if err != nil {
+		return nil, err
+	}
+	var current []metadata.MaterializedTable
+	for _, table := range tables {
+		if table.MaterializerVersion == materializerVersion {
+			current = append(current, table)
+		}
+	}
+	return current, nil
 }
 
 func isManifestUnreadableTableError(err error) bool {
