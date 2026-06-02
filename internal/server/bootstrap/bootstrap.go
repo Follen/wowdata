@@ -7,9 +7,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	cacheparquet "wowdata/internal/cache/parquet"
 	"wowdata/internal/casc"
@@ -22,8 +24,10 @@ import (
 )
 
 const (
-	decoderVersion      = "runtime-db2-loader-v1"
-	materializerVersion = "server-prepare-bootstrap-v1"
+	decoderVersion       = "runtime-db2-loader-v1"
+	materializerVersion  = "server-prepare-bootstrap-v1"
+	defaultRetryAttempts = 3
+	defaultRetryDelay    = 500 * time.Millisecond
 )
 
 type Config = config.Config
@@ -47,10 +51,13 @@ type TableMaterializer interface {
 }
 
 type Runner struct {
-	Config       config.Config
-	DB           *sql.DB
-	Discoverer   Discoverer
-	Materializer TableMaterializer
+	Config                config.Config
+	DB                    *sql.DB
+	Discoverer            Discoverer
+	Materializer          TableMaterializer
+	DiscoverRetryAttempts int
+	DiscoverRetryDelay    time.Duration
+	RetrySleeper          func(context.Context, time.Duration) error
 }
 
 func (r Runner) Prepare(ctx context.Context) error {
@@ -79,7 +86,7 @@ func (r Runner) prepareTarget(ctx context.Context, target config.PrepareTarget, 
 	if len(r.Config.Prepare.DefaultTables) == 0 {
 		return nil
 	}
-	build, err := discoverer.DiscoverBuild(ctx, target)
+	build, err := r.discoverBuild(ctx, target, discoverer)
 	if err != nil {
 		recordTargetFailure(ctx, r.DB, target, err.Error())
 		return err
@@ -144,6 +151,66 @@ func (r Runner) prepareTarget(ctx context.Context, target config.PrepareTarget, 
 		return err
 	}
 	return metadata.ActivateBuild(ctx, r.DB, buildKey)
+}
+
+func (r Runner) discoverBuild(ctx context.Context, target config.PrepareTarget, discoverer Discoverer) (DiscoveredBuild, error) {
+	attempts := r.DiscoverRetryAttempts
+	if attempts <= 0 {
+		attempts = defaultRetryAttempts
+	}
+	delay := r.DiscoverRetryDelay
+	if delay <= 0 {
+		delay = defaultRetryDelay
+	}
+	sleeper := r.RetrySleeper
+	if sleeper == nil {
+		sleeper = sleepContext
+	}
+
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return DiscoveredBuild{}, err
+		}
+		build, err := discoverer.DiscoverBuild(ctx, target)
+		if err == nil {
+			return build, nil
+		}
+		lastErr = err
+		if attempt == attempts || !isTransientDiscoverError(err) {
+			return DiscoveredBuild{}, err
+		}
+		if err := sleeper(ctx, delay); err != nil {
+			return DiscoveredBuild{}, err
+		}
+	}
+	return DiscoveredBuild{}, lastErr
+}
+
+func isTransientDiscoverError(err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "timeout") || strings.Contains(message, "deadline exceeded")
+}
+
+func sleepContext(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func restoreValidTables(ctx context.Context, db *sql.DB, tables []metadata.MaterializedTable) error {

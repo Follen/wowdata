@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"wowdata/internal/server/config"
 	"wowdata/internal/server/health"
@@ -143,6 +144,112 @@ func TestPrepareNoBuildDoesNotMarkTargetReady(t *testing.T) {
 	}
 }
 
+func TestPrepareRetriesTransientDiscoverTimeoutAndActivatesBuild(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item"})
+	timeout := context.DeadlineExceeded
+	discoverer := &scriptedDiscoverer{results: []discoverResult{
+		{err: timeout},
+		{err: timeout},
+		{build: DiscoveredBuild{BuildKey: "build-3", BuildName: "Build 3"}},
+	}}
+	sleeper := &fakeRetrySleeper{}
+	materializer := &fakeMaterializer{db: db}
+
+	err := (Runner{
+		Config:       cfg,
+		DB:           db,
+		Discoverer:   discoverer,
+		Materializer: materializer,
+		RetrySleeper: sleeper.Sleep,
+	}).Prepare(ctx)
+	if err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	if discoverer.calls != 3 {
+		t.Fatalf("discover calls = %d, want 3", discoverer.calls)
+	}
+	if len(sleeper.delays) != 2 {
+		t.Fatalf("retry sleeps = %d, want 2", len(sleeper.delays))
+	}
+	active := activeBuild(t, ctx, db, "us", "wow", "enUS")
+	if active.Key.BuildKey != "build-3" || active.State != metadata.StateValid {
+		t.Fatalf("active build = %#v, want build-3 valid", active)
+	}
+	if materializer.calls != 1 {
+		t.Fatalf("materialize calls = %d, want 1", materializer.calls)
+	}
+}
+
+func TestPrepareDoesNotRetryNoBuildResult(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item"})
+	discoverer := &scriptedDiscoverer{results: []discoverResult{
+		{build: DiscoveredBuild{NoBuild: true, Error: "no build published"}},
+	}}
+	sleeper := &fakeRetrySleeper{}
+	materializer := &fakeMaterializer{db: db}
+
+	err := (Runner{
+		Config:       cfg,
+		DB:           db,
+		Discoverer:   discoverer,
+		Materializer: materializer,
+		RetrySleeper: sleeper.Sleep,
+	}).Prepare(ctx)
+	if err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	if discoverer.calls != 1 {
+		t.Fatalf("discover calls = %d, want 1", discoverer.calls)
+	}
+	if len(sleeper.delays) != 0 {
+		t.Fatalf("retry sleeps = %d, want 0", len(sleeper.delays))
+	}
+	if materializer.calls != 0 {
+		t.Fatalf("materialize calls = %d, want 0 for no-build", materializer.calls)
+	}
+}
+
+func TestPrepareStopsDiscoverRetryWhenContextCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item"})
+	timeout := context.DeadlineExceeded
+	discoverer := &scriptedDiscoverer{results: []discoverResult{
+		{err: timeout},
+		{err: timeout},
+		{build: DiscoveredBuild{BuildKey: "build-after-cancel", BuildName: "Build After Cancel"}},
+	}}
+	sleeper := &fakeRetrySleeper{onSleep: cancel}
+	materializer := &fakeMaterializer{db: db}
+
+	err := (Runner{
+		Config:       cfg,
+		DB:           db,
+		Discoverer:   discoverer,
+		Materializer: materializer,
+		RetrySleeper: sleeper.Sleep,
+	}).Prepare(ctx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Prepare error = %v, want context.Canceled", err)
+	}
+	if discoverer.calls != 1 {
+		t.Fatalf("discover calls = %d, want 1 after cancellation", discoverer.calls)
+	}
+	if len(sleeper.delays) != 1 {
+		t.Fatalf("retry sleeps = %d, want 1", len(sleeper.delays))
+	}
+	if materializer.calls != 0 {
+		t.Fatalf("materialize calls = %d, want 0 after cancellation", materializer.calls)
+	}
+}
+
 type fakeDiscoverer struct {
 	builds map[string]DiscoveredBuild
 }
@@ -154,6 +261,43 @@ func (d fakeDiscoverer) DiscoverBuild(_ context.Context, target config.PrepareTa
 		return DiscoveredBuild{}, errors.New("unexpected discover target " + key)
 	}
 	return build, nil
+}
+
+type discoverResult struct {
+	build DiscoveredBuild
+	err   error
+}
+
+type scriptedDiscoverer struct {
+	results []discoverResult
+	calls   int
+}
+
+func (d *scriptedDiscoverer) DiscoverBuild(_ context.Context, _ config.PrepareTarget) (DiscoveredBuild, error) {
+	if d.calls >= len(d.results) {
+		return DiscoveredBuild{}, errors.New("unexpected extra discover call")
+	}
+	result := d.results[d.calls]
+	d.calls++
+	return result.build, result.err
+}
+
+type fakeRetrySleeper struct {
+	delays  []time.Duration
+	onSleep func()
+}
+
+func (s *fakeRetrySleeper) Sleep(ctx context.Context, delay time.Duration) error {
+	s.delays = append(s.delays, delay)
+	if s.onSleep != nil {
+		s.onSleep()
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		return nil
+	}
 }
 
 type fakeMaterializer struct {
