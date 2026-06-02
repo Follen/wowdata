@@ -472,7 +472,7 @@ func (r *CASCRemote) GetProductList() []Product {
 	return products
 }
 
-var httpClient = &http.Client{Timeout: 120 * time.Second}
+var httpClient = &http.Client{Timeout: 600 * time.Second}
 
 func httpGet(url string) (*http.Response, error) {
 	resp, err := httpClient.Get(url)

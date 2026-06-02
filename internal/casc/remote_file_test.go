@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestDecodeCASCData(t *testing.T) {
@@ -151,6 +152,12 @@ func TestHTTPRangeLargeFileUsesConcurrentChunks(t *testing.T) {
 func TestHTTPRangeConcurrentUsesSixteenWorkersByDefault(t *testing.T) {
 	if rangeWorkerCount != 16 {
 		t.Fatalf("rangeWorkerCount = %d, want 16", rangeWorkerCount)
+	}
+}
+
+func TestDefaultHTTPClientTimeoutAllowsLargeMaterializationDownloads(t *testing.T) {
+	if httpClient.Timeout < 600*time.Second {
+		t.Fatalf("http client timeout = %s, want at least 600s for large materialization downloads", httpClient.Timeout)
 	}
 }
 
