@@ -210,10 +210,36 @@ func equalityWhere(where map[string]interface{}) (string, []interface{}, error) 
 		if err != nil {
 			return "", nil, err
 		}
-		clauses = append(clauses, column+" = ?")
-		args = append(args, where[field])
+		placeholder, values := equalityPlaceholder(where[field])
+		clauses = append(clauses, column+" "+placeholder)
+		args = append(args, values...)
 	}
 	return " WHERE " + strings.Join(clauses, " AND "), args, nil
+}
+
+func equalityPlaceholder(value interface{}) (string, []interface{}) {
+	switch v := value.(type) {
+	case []uint64:
+		return inPlaceholder(v)
+	default:
+		return "= ?", []interface{}{value}
+	}
+}
+
+func inPlaceholder(values []uint64) (string, []interface{}) {
+	if len(values) == 0 {
+		return "= ?", []interface{}{uint64(0)}
+	}
+	placeholders := make([]string, 0, len(values))
+	args := make([]interface{}, 0, len(values))
+	for _, value := range values {
+		placeholders = append(placeholders, "?")
+		args = append(args, value)
+	}
+	if len(placeholders) == 1 {
+		return "= ?", args
+	}
+	return "IN (" + strings.Join(placeholders, ", ") + ")", args
 }
 
 func appendLimitOffset(sql string, args []interface{}, limit int, offset int) (string, []interface{}) {

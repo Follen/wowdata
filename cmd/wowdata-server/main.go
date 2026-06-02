@@ -130,7 +130,7 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 		if metadataDBPath == "" {
 			metadataDBPath = cfg.Cache.MetadataDB
 		}
-		queryService = service.NewMetadataQueryService(metadataDBPath)
+		queryService = service.NewMetadataQueryServiceWithRuntime(metadataDBPath, cfg.Cache.DuckDBPath, cfg.Cache.Root)
 	}
 	mcpServer := mcpserver.NewServer("wowdata", mcphttp.HTTPTools(mcphttp.Options{
 		HealthProvider: healthProvider,
