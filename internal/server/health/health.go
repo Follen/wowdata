@@ -65,6 +65,8 @@ type ContextStatus struct {
 	State          string `json:"state"`
 	Strict         bool   `json:"strict,omitempty"`
 	ActiveBuild    string `json:"activeBuild,omitempty"`
+	CandidateBuild     string `json:"candidateBuild,omitempty"`
+	CandidateBuildName string `json:"candidateBuildName,omitempty"`
 	DB2Ready       bool   `json:"db2Ready,omitempty"`
 	ListfileReady  bool   `json:"listfileReady,omitempty"`
 	CASCReady      bool   `json:"cascReady,omitempty"`
@@ -89,6 +91,8 @@ type TargetInput struct {
 	Strict         bool
 	Unsupported    bool
 	ActiveBuild    string
+	CandidateBuild     string
+	CandidateBuildName string
 	DB2Ready       bool
 	ListfileReady  bool
 	CASCReady      bool
@@ -127,6 +131,8 @@ func BuildSnapshot(input Input) Snapshot {
 			State:          state,
 			Strict:         target.Strict,
 			ActiveBuild:    target.ActiveBuild,
+			CandidateBuild: target.CandidateBuild,
+			CandidateBuildName: target.CandidateBuildName,
 			DB2Ready:       target.DB2Ready,
 			ListfileReady:  target.ListfileReady,
 			CASCReady:      target.CASCReady,

@@ -131,6 +131,12 @@ func (p MetadataProvider) HealthSnapshot(ctx context.Context) (Snapshot, error) 
 }
 
 func applyLatestBuildState(input *TargetInput, build metadata.Build) {
+	if build.Key.BuildKey != "" {
+		input.CandidateBuild = build.Key.BuildKey
+	}
+	if build.BuildName != "" {
+		input.CandidateBuildName = build.BuildName
+	}
 	switch build.State {
 	case metadata.StateNoBuild:
 		input.State = StateNoBuild

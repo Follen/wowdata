@@ -181,6 +181,39 @@ func TestMetadataProviderLeavesMissingBuildPreparing(t *testing.T) {
 	}
 }
 
+func TestMetadataProviderReportsPreparingCandidateBuild(t *testing.T) {
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db, err := metadata.Open(metadataPath)
+	if err != nil {
+		t.Fatalf("open metadata DB: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	if err := metadata.UpsertDiscoveredBuild(ctx, db, metadata.Build{
+		Key:       metadata.BuildKey{Region: "us", Product: "wowxptr", Locale: "enUS", BuildKey: "beta-build"},
+		BuildName: "12.0.7.67808",
+		State:     metadata.StatePreparing,
+	}); err != nil {
+		t.Fatalf("upsert preparing build: %v", err)
+	}
+
+	cfg := testMetadataProviderConfig(metadataPath)
+	cfg.Prepare.Targets[0] = config.PrepareTarget{Label: "US Beta", Region: "us", Product: "wowxptr", Locale: "enUS"}
+	provider := NewMetadataProviderWithDB(cfg, metadataPath, db)
+	snapshot, err := provider.HealthSnapshot(ctx)
+	if err != nil {
+		t.Fatalf("HealthSnapshot: %v", err)
+	}
+	got := snapshot.Contexts[0]
+	if got.State != StatePreparing {
+		t.Fatalf("context state = %q, want preparing", got.State)
+	}
+	if got.CandidateBuild != "beta-build" || got.CandidateBuildName != "12.0.7.67808" {
+		t.Fatalf("candidate build = %q/%q, want beta-build/12.0.7.67808", got.CandidateBuild, got.CandidateBuildName)
+	}
+}
+
 func testMetadataProviderConfig(metadataPath string) config.Config {
 	cfg := config.Default()
 	cfg.Cache.MetadataDB = metadataPath
