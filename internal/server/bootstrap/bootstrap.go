@@ -61,6 +61,12 @@ type Runner struct {
 	RetrySleeper          func(context.Context, time.Duration) error
 }
 
+type discoveredTarget struct {
+	Target config.PrepareTarget
+	Build  DiscoveredBuild
+	Err    error
+}
+
 func (r Runner) Prepare(ctx context.Context) error {
 	if r.DB == nil {
 		return errors.New("metadata db is required")
@@ -87,40 +93,61 @@ func (r Runner) Prepare(ctx context.Context) error {
 	var firstErrMu sync.Mutex
 	sem := make(chan struct{}, maxParallel)
 	var wg sync.WaitGroup
-	for _, target := range r.Config.Prepare.Targets {
+	discovered := make([]discoveredTarget, len(targets))
+	for i, target := range targets {
 		sem <- struct{}{}
 		wg.Add(1)
-		go func(target config.PrepareTarget) {
+		go func(i int, target config.PrepareTarget) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			if err := r.prepareTarget(ctx, target, discoverer, materializer); err != nil {
+			build, err := r.discoverBuild(ctx, target, discoverer)
+			discovered[i] = discoveredTarget{Target: target, Build: build, Err: err}
+			if err != nil {
+				recordTargetFailure(ctx, r.DB, target, err.Error())
+				firstErrMu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				firstErrMu.Unlock()
+				return
+			}
+			if build.NoBuild || build.BuildKey == "" {
+				message := build.Error
+				if message == "" {
+					message = "no build found"
+				}
+				recordTargetNoBuild(ctx, r.DB, target, message)
+			}
+		}(i, target)
+	}
+	wg.Wait()
+
+	sem = make(chan struct{}, maxParallel)
+	wg = sync.WaitGroup{}
+	for _, item := range discovered {
+		if item.Err != nil || item.Build.NoBuild || item.Build.BuildKey == "" {
+			continue
+		}
+		sem <- struct{}{}
+		wg.Add(1)
+		go func(item discoveredTarget) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			if err := r.materializeTarget(ctx, item.Target, item.Build, materializer); err != nil {
 				firstErrMu.Lock()
 				if firstErr == nil {
 					firstErr = err
 				}
 				firstErrMu.Unlock()
 			}
-		}(target)
+		}(item)
 	}
 	wg.Wait()
 	return firstErr
 }
 
-func (r Runner) prepareTarget(ctx context.Context, target config.PrepareTarget, discoverer Discoverer, materializer TableMaterializer) error {
+func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, materializer TableMaterializer) error {
 	if len(r.Config.Prepare.DefaultTables) == 0 {
-		return nil
-	}
-	build, err := r.discoverBuild(ctx, target, discoverer)
-	if err != nil {
-		recordTargetFailure(ctx, r.DB, target, err.Error())
-		return err
-	}
-	if build.NoBuild || build.BuildKey == "" {
-		message := build.Error
-		if message == "" {
-			message = "no build found"
-		}
-		recordTargetNoBuild(ctx, r.DB, target, message)
 		return nil
 	}
 	if build.BuildName == "" {

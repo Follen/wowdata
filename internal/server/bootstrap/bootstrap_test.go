@@ -132,6 +132,37 @@ func TestPrepareBootstrapsNewConfiguredTargetMissingFromMetadata(t *testing.T) {
 	}
 }
 
+func TestPrepareDiscoversEveryConfiguredTargetBeforeMaterializing(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item"})
+	cfg.Prepare.Targets = []config.PrepareTarget{
+		{Label: "US Retail", Region: "us", Product: "wow", Locale: "enUS"},
+		{Label: "US Beta", Region: "us", Product: "wowxptr", Locale: "enUS"},
+	}
+	cfg.Limits.MaxParallelContextPrepares = 1
+	discoverer := &recordingDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS":     {BuildKey: "retail-build", BuildName: "Retail Build"},
+		"us/wowxptr/enUS": {BuildKey: "beta-build", BuildName: "Beta Build"},
+	}}
+	materializer := &fakeMaterializer{
+		db: db,
+		before: func(_ config.PrepareTarget, _ string) {
+			if got := discoverer.DiscoveredCount(); got != len(cfg.Prepare.Targets) {
+				t.Fatalf("materialization started after %d/%d discoveries; want all targets discovered first", got, len(cfg.Prepare.Targets))
+			}
+		},
+	}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	if materializer.calls != 2 {
+		t.Fatalf("materialize calls = %d, want 2", materializer.calls)
+	}
+}
+
 func TestPrepareSkipsMaterializationWhenActiveBuildHasAllDefaultTables(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
@@ -400,6 +431,33 @@ func (d fakeDiscoverer) DiscoverBuild(_ context.Context, target config.PrepareTa
 		return DiscoveredBuild{}, errors.New("unexpected discover target " + key)
 	}
 	return build, nil
+}
+
+type recordingDiscoverer struct {
+	mu     sync.Mutex
+	builds map[string]DiscoveredBuild
+	seen   map[string]bool
+}
+
+func (d *recordingDiscoverer) DiscoverBuild(_ context.Context, target config.PrepareTarget) (DiscoveredBuild, error) {
+	key := target.Region + "/" + target.Product + "/" + target.Locale
+	build, ok := d.builds[key]
+	if !ok {
+		return DiscoveredBuild{}, errors.New("unexpected discover target " + key)
+	}
+	d.mu.Lock()
+	if d.seen == nil {
+		d.seen = map[string]bool{}
+	}
+	d.seen[key] = true
+	d.mu.Unlock()
+	return build, nil
+}
+
+func (d *recordingDiscoverer) DiscoveredCount() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return len(d.seen)
 }
 
 type discoverResult struct {
