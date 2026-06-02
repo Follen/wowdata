@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	cacheparquet "wowdata/internal/cache/parquet"
@@ -73,12 +74,35 @@ func (r Runner) Prepare(ctx context.Context) error {
 		materializer = NewProductionMaterializer(r.Config, r.DB)
 	}
 
-	var firstErr error
-	for _, target := range r.Config.Prepare.Targets {
-		if err := r.prepareTarget(ctx, target, discoverer, materializer); err != nil && firstErr == nil {
-			firstErr = err
-		}
+	targets := r.Config.Prepare.Targets
+	maxParallel := r.Config.Limits.MaxParallelContextPrepares
+	if maxParallel <= 0 {
+		maxParallel = 1
 	}
+	if maxParallel > len(targets) {
+		maxParallel = len(targets)
+	}
+
+	var firstErr error
+	var firstErrMu sync.Mutex
+	sem := make(chan struct{}, maxParallel)
+	var wg sync.WaitGroup
+	for _, target := range r.Config.Prepare.Targets {
+		sem <- struct{}{}
+		wg.Add(1)
+		go func(target config.PrepareTarget) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			if err := r.prepareTarget(ctx, target, discoverer, materializer); err != nil {
+				firstErrMu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				firstErrMu.Unlock()
+			}
+		}(target)
+	}
+	wg.Wait()
 	return firstErr
 }
 

@@ -48,6 +48,10 @@ func OpenWithMigrations(path string, migrationsDir string) (*sql.DB, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	if _, err := db.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 	if err := migrate(db, migrationsDir); err != nil {
 		_ = db.Close()
 		return nil, err

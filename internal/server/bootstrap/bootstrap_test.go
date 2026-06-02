@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -49,6 +50,78 @@ func TestPrepareActivatesBuildOnlyAfterEveryRequiredTableMaterializes(t *testing
 	}
 	if got := strings.Join(materializer.tables, ","); got != "Item,Spell" {
 		t.Fatalf("materialized tables = %q, want Item,Spell", got)
+	}
+}
+
+func TestPrepareBootstrapsNewConfiguredTargetMissingFromMetadata(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item"})
+	cfg.Prepare.Targets = append(cfg.Prepare.Targets, config.PrepareTarget{
+		Label: "US Beta", Region: "us", Product: "wowxptr", Locale: "enUS",
+	})
+	seedActiveBuildWithTables(t, ctx, db, metadata.BuildKey{
+		Region: "us", Product: "wow", Locale: "enUS", BuildKey: "old-ready-build",
+	}, []string{"Item"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS":     {BuildKey: "old-ready-build", BuildName: "Old Ready Build"},
+		"us/wowxptr/enUS": {BuildKey: "new-beta-build", BuildName: "New Beta Build"},
+	}}
+	oldStarted := make(chan struct{})
+	releaseOld := make(chan struct{})
+	materializer := &fakeMaterializer{
+		db: db,
+		before: func(target config.PrepareTarget, _ string) {
+			if target.Product != "wow" {
+				return
+			}
+			select {
+			case <-oldStarted:
+			default:
+				close(oldStarted)
+			}
+			<-releaseOld
+		},
+	}
+	cfg.Limits.MaxParallelContextPrepares = 2
+
+	done := make(chan error, 1)
+	go func() {
+		done <- (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx)
+	}()
+	defer func() {
+		close(releaseOld)
+		if err := <-done; err != nil {
+			t.Fatalf("Prepare after releasing old target: %v", err)
+		}
+	}()
+
+	select {
+	case <-oldStarted:
+	case <-time.After(time.Second):
+		t.Fatal("old ready target did not start prepare")
+	}
+
+	var beta metadata.Build
+	if !eventually(500*time.Millisecond, func() bool {
+		var err error
+		beta, err = metadata.ActiveBuild(ctx, db, "us", "wowxptr", "enUS")
+		return err == nil
+	}) {
+		t.Fatal("new configured beta target was not prepared while old ready target was blocked")
+	}
+	if beta.Key.BuildKey != "new-beta-build" || beta.State != metadata.StateValid {
+		t.Fatalf("beta active build = %#v, want new-beta-build valid", beta)
+	}
+	tables, err := metadata.ListValidMaterializedTables(ctx, db, metadata.TableCatalogLookup{
+		Region: "us", Product: "wowxptr", Locale: "enUS", BuildKey: "new-beta-build",
+	})
+	if err != nil {
+		t.Fatalf("list beta tables: %v", err)
+	}
+	if len(tables) != 1 || tables[0].Key.TableName != "Item" {
+		t.Fatalf("beta tables = %#v, want Item materialized", tables)
 	}
 }
 
@@ -334,14 +407,22 @@ type fakeMaterializer struct {
 	db        *sql.DB
 	failTable string
 	err       error
+	mu        sync.Mutex
 	tables    []string
 	calls     int
 	during    func(string)
+	before    func(config.PrepareTarget, string)
 }
 
 func (m *fakeMaterializer) MaterializeTable(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, tableName string) error {
+	if m.before != nil {
+		m.before(target, tableName)
+	}
+	m.mu.Lock()
 	m.calls++
+	call := m.calls
 	m.tables = append(m.tables, tableName)
+	m.mu.Unlock()
 	if m.during != nil {
 		m.during(tableName)
 	}
@@ -356,7 +437,7 @@ func (m *fakeMaterializer) MaterializeTable(ctx context.Context, target config.P
 			BuildKey:  build.BuildKey,
 			TableName: tableName,
 		},
-		DB2FileDataID:       100 + m.calls,
+		DB2FileDataID:       100 + call,
 		DBDHash:             "dbd-" + tableName,
 		DecoderVersion:      "fake-decoder",
 		MaterializerVersion: "fake-materializer",
@@ -364,6 +445,17 @@ func (m *fakeMaterializer) MaterializeTable(ctx context.Context, target config.P
 		RowCount:            1,
 		State:               metadata.StateValid,
 	})
+}
+
+func eventually(timeout time.Duration, condition func() bool) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if condition() {
+			return true
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return condition()
 }
 
 func testConfig(metadataPath string, defaultTables []string) config.Config {
