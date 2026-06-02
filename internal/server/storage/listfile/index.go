@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"path"
 	"strings"
+
+	"wowdata/internal/server/storage/sqlitewrite"
 )
 
 type Entry struct {
@@ -19,7 +21,12 @@ func ReplaceSource(ctx context.Context, db *sql.DB, sourceHash string, entries [
 	if db == nil {
 		return errors.New("listfile index: nil db")
 	}
+	return sqlitewrite.Do(ctx, func() error {
+		return replaceSourceLocked(ctx, db, sourceHash, entries)
+	})
+}
 
+func replaceSourceLocked(ctx context.Context, db *sql.DB, sourceHash string, entries []Entry) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err

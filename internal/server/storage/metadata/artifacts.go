@@ -3,6 +3,8 @@ package metadata
 import (
 	"context"
 	"database/sql"
+
+	"wowdata/internal/server/storage/sqlitewrite"
 )
 
 type SourceKey struct {
@@ -54,6 +56,16 @@ type Artifact struct {
 }
 
 func UpsertListfileSource(ctx context.Context, db *sql.DB, source ListfileSource) (bool, error) {
+	var changed bool
+	err := sqlitewrite.Do(ctx, func() error {
+		var err error
+		changed, err = upsertListfileSourceLocked(ctx, db, source)
+		return err
+	})
+	return changed, err
+}
+
+func upsertListfileSourceLocked(ctx context.Context, db *sql.DB, source ListfileSource) (bool, error) {
 	state := source.State
 	if state == "" {
 		state = StatePreparing
@@ -138,22 +150,25 @@ WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 }
 
 func MarkListfileSourceState(ctx context.Context, db *sql.DB, key SourceKey, state string, message string) error {
-	_, err := db.ExecContext(ctx, `
+	return sqlitewrite.Do(ctx, func() error {
+		_, err := db.ExecContext(ctx, `
 UPDATE server_listfile_sources
 SET state = ?, error = ?, updated_at = CURRENT_TIMESTAMP
 WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
-		state,
-		message,
-		key.Region,
-		key.Product,
-		key.Locale,
-		key.BuildKey,
-	)
-	return err
+			state,
+			message,
+			key.Region,
+			key.Product,
+			key.Locale,
+			key.BuildKey,
+		)
+		return err
+	})
 }
 
 func UpsertListfileIndexState(ctx context.Context, db *sql.DB, key SourceKey, indexName string, state string, message string) error {
-	_, err := db.ExecContext(ctx, `
+	return sqlitewrite.Do(ctx, func() error {
+		_, err := db.ExecContext(ctx, `
 INSERT INTO server_listfile_indexes (
   region, product, locale, build_key, index_name, state, error, updated_at
 ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -161,15 +176,16 @@ ON CONFLICT(region, product, locale, build_key, index_name) DO UPDATE SET
   state = excluded.state,
   error = excluded.error,
   updated_at = CURRENT_TIMESTAMP`,
-		key.Region,
-		key.Product,
-		key.Locale,
-		key.BuildKey,
-		indexName,
-		state,
-		message,
-	)
-	return err
+			key.Region,
+			key.Product,
+			key.Locale,
+			key.BuildKey,
+			indexName,
+			state,
+			message,
+		)
+		return err
+	})
 }
 
 func ListfileIndexState(ctx context.Context, db *sql.DB, key SourceKey, indexName string) (string, error) {
@@ -187,6 +203,16 @@ WHERE region = ? AND product = ? AND locale = ? AND build_key = ? AND index_name
 }
 
 func UpsertCASCSource(ctx context.Context, db *sql.DB, source CASCSource) (bool, error) {
+	var changed bool
+	err := sqlitewrite.Do(ctx, func() error {
+		var err error
+		changed, err = upsertCASCSourceLocked(ctx, db, source)
+		return err
+	})
+	return changed, err
+}
+
+func upsertCASCSourceLocked(ctx context.Context, db *sql.DB, source CASCSource) (bool, error) {
 	state := source.State
 	if state == "" {
 		state = StatePreparing
@@ -273,22 +299,25 @@ WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 }
 
 func MarkCASCSourceState(ctx context.Context, db *sql.DB, key SourceKey, state string, message string) error {
-	_, err := db.ExecContext(ctx, `
+	return sqlitewrite.Do(ctx, func() error {
+		_, err := db.ExecContext(ctx, `
 UPDATE server_casc_sources
 SET state = ?, error = ?, updated_at = CURRENT_TIMESTAMP
 WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
-		state,
-		message,
-		key.Region,
-		key.Product,
-		key.Locale,
-		key.BuildKey,
-	)
-	return err
+			state,
+			message,
+			key.Region,
+			key.Product,
+			key.Locale,
+			key.BuildKey,
+		)
+		return err
+	})
 }
 
 func UpsertCASCIndexState(ctx context.Context, db *sql.DB, key SourceKey, indexName string, state string, message string) error {
-	_, err := db.ExecContext(ctx, `
+	return sqlitewrite.Do(ctx, func() error {
+		_, err := db.ExecContext(ctx, `
 INSERT INTO server_casc_indexes (
   region, product, locale, build_key, index_name, state, error, updated_at
 ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -296,15 +325,16 @@ ON CONFLICT(region, product, locale, build_key, index_name) DO UPDATE SET
   state = excluded.state,
   error = excluded.error,
   updated_at = CURRENT_TIMESTAMP`,
-		key.Region,
-		key.Product,
-		key.Locale,
-		key.BuildKey,
-		indexName,
-		state,
-		message,
-	)
-	return err
+			key.Region,
+			key.Product,
+			key.Locale,
+			key.BuildKey,
+			indexName,
+			state,
+			message,
+		)
+		return err
+	})
 }
 
 func CASCIndexState(ctx context.Context, db *sql.DB, key SourceKey, indexName string) (string, error) {
@@ -322,7 +352,8 @@ WHERE region = ? AND product = ? AND locale = ? AND build_key = ? AND index_name
 }
 
 func UpsertArtifact(ctx context.Context, db *sql.DB, artifact Artifact) error {
-	_, err := db.ExecContext(ctx, `
+	return sqlitewrite.Do(ctx, func() error {
+		_, err := db.ExecContext(ctx, `
 INSERT INTO server_artifacts (
   region, product, locale, build_key, artifact_path, download_url,
   mime_type, size_bytes, sha256, created_at
@@ -336,15 +367,16 @@ ON CONFLICT(artifact_path) DO UPDATE SET
   mime_type = excluded.mime_type,
   size_bytes = excluded.size_bytes,
   sha256 = excluded.sha256`,
-		artifact.Region,
-		artifact.Product,
-		artifact.Locale,
-		artifact.BuildKey,
-		artifact.Path,
-		artifact.DownloadURL,
-		artifact.MIMEType,
-		artifact.Size,
-		artifact.SHA256,
-	)
-	return err
+			artifact.Region,
+			artifact.Product,
+			artifact.Locale,
+			artifact.BuildKey,
+			artifact.Path,
+			artifact.DownloadURL,
+			artifact.MIMEType,
+			artifact.Size,
+			artifact.SHA256,
+		)
+		return err
+	})
 }

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+
+	"wowdata/internal/server/storage/sqlitewrite"
 )
 
 const (
@@ -56,7 +58,12 @@ func ReplaceIndexForSource(ctx context.Context, db *sql.DB, source SourceKey, so
 	if db == nil {
 		return errors.New("casc index: nil db")
 	}
+	return sqlitewrite.Do(ctx, func() error {
+		return replaceIndexForSourceLocked(ctx, db, source, sourceVersion, roots, encodings, archives)
+	})
+}
 
+func replaceIndexForSourceLocked(ctx context.Context, db *sql.DB, source SourceKey, sourceVersion string, roots []RootMapping, encodings []EncodingMapping, archives []ArchiveMapping) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -231,6 +238,16 @@ func UpsertSourceVersion(ctx context.Context, db *sql.DB, sourceVersion string) 
 	if db == nil {
 		return false, errors.New("casc index: nil db")
 	}
+	var changed bool
+	err := sqlitewrite.Do(ctx, func() error {
+		var err error
+		changed, err = upsertSourceVersionLocked(ctx, db, sourceVersion)
+		return err
+	})
+	return changed, err
+}
+
+func upsertSourceVersionLocked(ctx context.Context, db *sql.DB, sourceVersion string) (bool, error) {
 	if err := ensureSchema(ctx, db); err != nil {
 		return false, err
 	}

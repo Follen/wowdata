@@ -3,6 +3,8 @@ package metadata
 import (
 	"context"
 	"database/sql"
+
+	"wowdata/internal/server/storage/sqlitewrite"
 )
 
 type BuildKey struct {
@@ -21,11 +23,12 @@ type Build struct {
 }
 
 func UpsertDiscoveredBuild(ctx context.Context, db *sql.DB, build Build) error {
-	state := build.State
-	if state == "" {
-		state = StatePreparing
-	}
-	_, err := db.ExecContext(ctx, `
+	return sqlitewrite.Do(ctx, func() error {
+		state := build.State
+		if state == "" {
+			state = StatePreparing
+		}
+		_, err := db.ExecContext(ctx, `
 INSERT INTO server_builds (
   region, product, locale, build_key, build_name, state, active, error, updated_at
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -34,16 +37,17 @@ ON CONFLICT(region, product, locale, build_key) DO UPDATE SET
   state = excluded.state,
   error = excluded.error,
   updated_at = CURRENT_TIMESTAMP`,
-		build.Key.Region,
-		build.Key.Product,
-		build.Key.Locale,
-		build.Key.BuildKey,
-		build.BuildName,
-		state,
-		boolInt(build.Active),
-		build.Error,
-	)
-	return err
+			build.Key.Region,
+			build.Key.Product,
+			build.Key.Locale,
+			build.Key.BuildKey,
+			build.BuildName,
+			state,
+			boolInt(build.Active),
+			build.Error,
+		)
+		return err
+	})
 }
 
 func MarkBuildPreparing(ctx context.Context, db *sql.DB, key BuildKey) error {
@@ -67,6 +71,12 @@ func MarkBuildNoBuild(ctx context.Context, db *sql.DB, key BuildKey, message str
 }
 
 func ActivateBuild(ctx context.Context, db *sql.DB, key BuildKey) error {
+	return sqlitewrite.Do(ctx, func() error {
+		return activateBuildLocked(ctx, db, key)
+	})
+}
+
+func activateBuildLocked(ctx context.Context, db *sql.DB, key BuildKey) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -157,18 +167,20 @@ LIMIT 1`,
 }
 
 func markBuildState(ctx context.Context, db *sql.DB, key BuildKey, state string, message string) error {
-	_, err := db.ExecContext(ctx, `
+	return sqlitewrite.Do(ctx, func() error {
+		_, err := db.ExecContext(ctx, `
 UPDATE server_builds
 SET state = ?, error = ?, updated_at = CURRENT_TIMESTAMP
 WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
-		state,
-		message,
-		key.Region,
-		key.Product,
-		key.Locale,
-		key.BuildKey,
-	)
-	return err
+			state,
+			message,
+			key.Region,
+			key.Product,
+			key.Locale,
+			key.BuildKey,
+		)
+		return err
+	})
 }
 
 func boolInt(value bool) int {

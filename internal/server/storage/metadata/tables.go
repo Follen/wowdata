@@ -3,6 +3,8 @@ package metadata
 import (
 	"context"
 	"database/sql"
+
+	"wowdata/internal/server/storage/sqlitewrite"
 )
 
 type TableKey struct {
@@ -40,6 +42,12 @@ type MaterializedTable struct {
 }
 
 func UpsertMaterializedTable(ctx context.Context, db *sql.DB, table MaterializedTable) error {
+	return sqlitewrite.Do(ctx, func() error {
+		return upsertMaterializedTableLocked(ctx, db, table)
+	})
+}
+
+func upsertMaterializedTableLocked(ctx context.Context, db *sql.DB, table MaterializedTable) error {
 	state := table.State
 	if state == "" {
 		state = StatePreparing
@@ -104,19 +112,21 @@ ON CONFLICT(region, product, locale, build_key, table_name) DO UPDATE SET
 }
 
 func MarkMaterializedTableState(ctx context.Context, db *sql.DB, key TableKey, state string, message string) error {
-	_, err := db.ExecContext(ctx, `
+	return sqlitewrite.Do(ctx, func() error {
+		_, err := db.ExecContext(ctx, `
 UPDATE server_materialized_tables
 SET state = ?, error = ?, updated_at = CURRENT_TIMESTAMP
 WHERE region = ? AND product = ? AND locale = ? AND build_key = ? AND table_name = ?`,
-		state,
-		message,
-		key.Region,
-		key.Product,
-		key.Locale,
-		key.BuildKey,
-		key.TableName,
-	)
-	return err
+			state,
+			message,
+			key.Region,
+			key.Product,
+			key.Locale,
+			key.BuildKey,
+			key.TableName,
+		)
+		return err
+	})
 }
 
 func LatestValidMaterializedTable(ctx context.Context, db *sql.DB, lookup TableLookup) (MaterializedTable, error) {
