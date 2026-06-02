@@ -114,13 +114,20 @@ func runHTTPServer(opts httpOptions) error {
 		return err
 	}
 	opts = effectiveOpts
-	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
-	listener, err := net.Listen("tcp", addr)
+	mux, err := newHTTPHandlerStrict(opts, nil)
 	if err != nil {
 		return err
 	}
-	mux := newHTTPHandler(opts, nil)
-	if closer, ok := mux.(interface{ Close() error }); ok {
+	closer, closeable := mux.(interface{ Close() error })
+	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		if closeable {
+			_ = closer.Close()
+		}
+		return err
+	}
+	if closeable {
 		defer closer.Close()
 	}
 	fmt.Fprintf(os.Stderr, "wowdata-server MCP HTTP listening on http://%s/mcp\n", addr)
@@ -150,12 +157,20 @@ func resolveHTTPOptions(opts httpOptions) (httpOptions, error) {
 }
 
 func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handler {
-	cfg, err := loadServerConfig(opts.ConfigPath)
+	handler, err := newHTTPHandlerStrict(opts, healthProvider)
 	if err != nil {
 		return errorHandler(http.StatusInternalServerError, map[string]interface{}{
-			"error":   "config_unavailable",
+			"error":   "handler_unavailable",
 			"message": err.Error(),
 		})
+	}
+	return handler
+}
+
+func newHTTPHandlerStrict(opts httpOptions, healthProvider health.Provider) (http.Handler, error) {
+	cfg, err := loadServerConfig(opts.ConfigPath)
+	if err != nil {
+		return nil, err
 	}
 	var sharedMetadataDB *sql.DB
 	if healthProvider == nil {
@@ -165,10 +180,7 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 		}
 		metadataDB, err := metadata.Open(metadataDBPath)
 		if err != nil {
-			return errorHandler(http.StatusInternalServerError, map[string]interface{}{
-				"error":   "health_unavailable",
-				"message": err.Error(),
-			})
+			return nil, err
 		}
 		sharedMetadataDB = metadataDB
 		healthProvider = health.NewMetadataProviderWithDB(cfg, metadataDBPath, metadataDB)
@@ -177,10 +189,8 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 			startBootstrap = serverbootstrap.StartBackground
 		}
 		if err := startBootstrap(context.Background(), cfg, metadataDB); err != nil {
-			return errorHandler(http.StatusInternalServerError, map[string]interface{}{
-				"error":   "prepare_unavailable",
-				"message": err.Error(),
-			})
+			_ = metadataDB.Close()
+			return nil, err
 		}
 	}
 	mux := http.NewServeMux()
@@ -217,9 +227,9 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 		mux.Handle("/files/", artifacts.FileHandler(opts.ArtifactRoot))
 	}
 	if sharedMetadataDB != nil {
-		return closeableHandler{Handler: mux, close: sharedMetadataDB.Close}
+		return closeableHandler{Handler: mux, close: sharedMetadataDB.Close}, nil
 	}
-	return mux
+	return mux, nil
 }
 
 type closeableHandler struct {

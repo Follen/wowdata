@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -130,6 +131,62 @@ func TestServerExplicitCLIHostPortOverrideConfig(t *testing.T) {
 	}
 	if got.Port != 9788 {
 		t.Fatalf("Port = %d, want explicit CLI port", got.Port)
+	}
+}
+
+func TestServerStrictHandlerReturnsBootstrapErrorAndClosesMetadataDB(t *testing.T) {
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	configPath := writeHealthConfigWithDefaultTables(t, metadataPath, "US Retail", "us", "wow", "enUS", []string{"Item"})
+	bootstrapErr := errors.New("bootstrap start failed")
+
+	handler, err := newHTTPHandlerStrict(httpOptions{
+		ServiceName: "wowdata-server",
+		ConfigPath:  configPath,
+		Bootstrap: func(ctx context.Context, cfg serverbootstrap.Config, db *sql.DB) error {
+			return bootstrapErr
+		},
+	}, nil)
+
+	if !errors.Is(err, bootstrapErr) {
+		t.Fatalf("newHTTPHandlerStrict error = %v, want bootstrap error", err)
+	}
+	if handler != nil {
+		t.Fatalf("handler = %#v, want nil on bootstrap failure", handler)
+	}
+	if err := os.Remove(metadataPath); err != nil {
+		t.Fatalf("metadata DB was not closed after bootstrap error: %v", err)
+	}
+}
+
+func TestServerStrictHandlerReturnsMetadataOpenErrorWithoutLiveHandler(t *testing.T) {
+	badMetadataPath := filepath.Join(t.TempDir(), "missing-parent", "metadata.sqlite")
+	configPath := writeHealthConfigWithDefaultTables(t, badMetadataPath, "US Retail", "us", "wow", "enUS", []string{"Item"})
+	if err := os.WriteFile(filepath.Dir(badMetadataPath), []byte("not a directory"), 0644); err != nil {
+		t.Fatalf("write metadata parent blocker: %v", err)
+	}
+
+	handler, err := newHTTPHandlerStrict(httpOptions{
+		ServiceName: "wowdata-server",
+		ConfigPath:  configPath,
+	}, nil)
+
+	if err == nil {
+		t.Fatal("newHTTPHandlerStrict error = nil, want metadata open error")
+	}
+	if handler != nil {
+		t.Fatalf("handler = %#v, want nil on metadata open failure", handler)
+	}
+}
+
+func TestServerStrictHandlerKeepsInjectedProviderPathWorking(t *testing.T) {
+	provider := &testHealthProvider{snapshot: health.Snapshot{Liveness: health.Liveness{OK: true}}}
+
+	handler, err := newHTTPHandlerStrict(httpOptions{ServiceName: "wowdata-server"}, provider)
+	if err != nil {
+		t.Fatalf("newHTTPHandlerStrict with provider: %v", err)
+	}
+	if handler == nil {
+		t.Fatal("handler = nil, want handler for injected provider")
 	}
 }
 
