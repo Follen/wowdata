@@ -173,7 +173,7 @@ Create or modify these files during the plan.
 
 ## Task Count
 
-This plan has 14 tasks. Each task is intended to be independently reviewable and committable.
+This plan has 16 named tasks: Tasks 1-14 plus Task 2A and Task 11A. Each task is intended to be independently reviewable and committable.
 
 ## Task 1: Rename Public Query Surface
 
@@ -291,13 +291,14 @@ package architecture
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
 )
 
 func TestServerDoesNotImportLocalPackages(t *testing.T) {
-	cmd := exec.Command("go", "list", "-deps", "./internal/server/...")
+	cmd := exec.Command(goToolPath(), "list", "-deps", "./internal/server/...")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
@@ -312,7 +313,7 @@ func TestServerDoesNotImportLocalPackages(t *testing.T) {
 }
 
 func TestLocalDoesNotImportServerPackages(t *testing.T) {
-	cmd := exec.Command("go", "list", "-deps", "./cmd/wowdata", "./internal/app/...", "./internal/adapter/mcp/...")
+	cmd := exec.Command(goToolPath(), "list", "-deps", "./cmd/wowdata", "./internal/app/...", "./internal/adapter/mcp/...")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
@@ -324,6 +325,13 @@ func TestLocalDoesNotImportServerPackages(t *testing.T) {
 			t.Fatalf("local dependency imports server package: %s", dep)
 		}
 	}
+}
+
+func goToolPath() string {
+	if path := os.Getenv("WOWDATA_GO"); path != "" {
+		return path
+	}
+	return `C:\Program Files\Go\bin\go.exe`
 }
 ```
 
@@ -410,6 +418,76 @@ git commit -m "split http server product target"
 
 Expected: commit succeeds.
 
+## Task 2A: Complete Spec Directory Architecture Migration
+
+**Files:**
+
+- Create or move into: `internal/shared/db2`, `internal/shared/dbd`, `internal/shared/casc`, `internal/shared/blte`, `internal/shared/blp`, `internal/shared/export`, `internal/shared/artifact`, `internal/shared/wowdata`, `internal/shared/mcpserver`
+- Create or move into: `internal/local/cli`, `internal/local/mcpstdio`, `internal/local/diagnostics`, `internal/local/cache`
+- Create or move into: `internal/server/prune`
+- Modify: imports under `cmd`, `internal`, and tests as needed
+- Modify: `internal/architecture/dependency_test.go`
+
+- [ ] **Step 1: Write failing strict architecture-layout tests**
+
+Extend `internal/architecture/dependency_test.go` with tests that assert:
+
+```text
+internal/shared/db2, dbd, casc, blte, blp, export, artifact, wowdata, and mcpserver all exist as Go packages.
+internal/local/cli, internal/local/mcpstdio, internal/local/diagnostics, and internal/local/cache exist as Go packages.
+internal/server/prune exists as a Go package.
+No server package imports root-level internal/db2, internal/dbd, internal/casc, internal/blte, internal/blp, internal/export, internal/artifact, internal/wowdata, internal/mcpserver, internal/app, internal/adapter, or internal/service/http.
+No local package imports internal/server.
+cmd/wowdata-server does not import internal/app, internal/adapter, internal/service/http, or internal/local.
+```
+
+Run:
+
+```powershell
+& 'C:\Program Files\Go\bin\go.exe' test ./internal/architecture -run "TestSpecDirectoryArchitecture|TestServerDoesNotImportLocalPackages|TestLocalDoesNotImportServerPackages" -count=1
+```
+
+Expected: FAIL until the package layout exactly matches the spec.
+
+- [ ] **Step 2: Move shared format/domain packages into `internal/shared/*`**
+
+Move DB2, DBD, CASC, BLTE, BLP, export, artifact, wowdata domain assemblers, and MCP server helper packages into `internal/shared/*`. Update imports mechanically and keep package names stable where possible.
+
+- [ ] **Step 3: Move local-only CLI/MCP/runtime support into `internal/local/*`**
+
+Move CLI command wiring and local stdio MCP adapter packages under `internal/local/cli` and `internal/local/mcpstdio`. Move local diagnostics/cache-only runtime helpers under `internal/local/diagnostics` and `internal/local/cache` where they are not shared by the remote server.
+
+- [ ] **Step 4: Move server prune implementation into `internal/server/prune`**
+
+Move server prune behavior out of legacy `internal/service/http` if it is part of the remote server runtime. If the old package is local-only legacy HTTP support, document that and keep it out of `cmd/wowdata-server`.
+
+- [ ] **Step 5: Verify full architecture and local/server build**
+
+Run:
+
+```powershell
+$env:PATH='C:\msys64\ucrt64\bin;' + $env:PATH
+$env:CGO_ENABLED='1'
+$env:CC='gcc'
+$env:CXX='g++'
+& 'C:\Program Files\Go\bin\go.exe' test ./internal/architecture -count=1
+& 'C:\Program Files\Go\bin\go.exe' test ./... -count=1
+& 'C:\Program Files\Go\bin\go.exe' build ./cmd/wowdata ./cmd/wowdata-server
+```
+
+Expected: all commands exit 0.
+
+- [ ] **Step 6: Commit**
+
+Run:
+
+```powershell
+git add cmd internal go.mod go.sum
+git commit -m "align package layout with server architecture"
+```
+
+Expected: commit succeeds.
+
 ## Task 3: Server Config Matrix and Resource Limits
 
 **Files:**
@@ -427,19 +505,19 @@ package config
 
 import "testing"
 
-func TestDefaultPrepareMatrixHasTwentyThreeTargets(t *testing.T) {
+func TestDefaultPrepareMatrixHasNineteenTargetsAndExcludesBetaForNow(t *testing.T) {
 	cfg := Default()
 	targets := cfg.Prepare.Targets
-	if len(targets) != 23 {
-		t.Fatalf("targets = %d, want 23", len(targets))
+	if len(targets) != 19 {
+		t.Fatalf("targets = %d, want 19", len(targets))
 	}
 	assertTarget(t, targets, "CN Retail", "cn", "wow", "zhCN")
 	assertTarget(t, targets, "US PTR", "us", "wowt", "enUS")
 	assertTarget(t, targets, "EU PTR", "eu", "wowt", "enUS")
-	assertTarget(t, targets, "US Beta", "us", "wowxptr", "enUS")
-	assertTarget(t, targets, "EU Beta", "eu", "wowxptr", "enUS")
-	assertTarget(t, targets, "KR Beta", "kr", "wowxptr", "koKR")
-	assertTarget(t, targets, "TW Beta", "tw", "wowxptr", "zhTW")
+	assertNoTarget(t, targets, "US Beta", "us", "wowxptr", "enUS")
+	assertNoTarget(t, targets, "EU Beta", "eu", "wowxptr", "enUS")
+	assertNoTarget(t, targets, "KR Beta", "kr", "wowxptr", "koKR")
+	assertNoTarget(t, targets, "TW Beta", "tw", "wowxptr", "zhTW")
 	assertTarget(t, targets, "CN Classic Titan", "cn", "wow_classic_titan", "zhCN")
 	assertNoTarget(t, targets, "US Classic Titan", "us", "wow_classic_titan", "enUS")
 	assertNoTarget(t, targets, "EU Classic Titan", "eu", "wow_classic_titan", "enUS")
@@ -566,7 +644,7 @@ func Default() Config {
 }
 ```
 
-Add `defaultTargets()` in the same file with all 23 explicit targets from the spec.
+Add `defaultTargets()` in the same file with all 19 explicit targets from the spec. Do not include Beta (`wowxptr`) in the default prepare matrix.
 
 - [ ] **Step 3: Verify config tests**
 
@@ -580,7 +658,7 @@ Expected: PASS.
 
 - [ ] **Step 4: Update example YAML**
 
-Update `config/http-mcp.example.yaml` to include the 23 target matrix and the five resource limit fields. Keep public base URL example as `http://211.154.18.253:11223`.
+Update `config/http-mcp.example.yaml` to include the 19 target matrix, no Beta (`wowxptr`) targets, and the five resource limit fields. Keep public base URL example as `http://211.154.18.253:11223`.
 
 - [ ] **Step 5: Commit**
 
@@ -753,7 +831,7 @@ Create `internal/server/health/health.go` with concrete structs for `Snapshot`, 
 
 - [ ] **Step 3: Implement readiness calculation**
 
-Readiness is true only when every supported strict or default-required target is ready. Custom-config `no_build` targets do not block unless strict; the default 23-target matrix must not include `no_build` entries.
+Readiness is true only when every supported strict or default-required target is ready. Custom-config `no_build` targets do not block unless strict; the default 19-target matrix must not include `no_build` entries.
 
 - [ ] **Step 4: Implement MCP status wrapper**
 
@@ -1228,6 +1306,94 @@ git commit -m "add server mcp tools"
 
 Expected: commit succeeds.
 
+## Task 11A: Implement Server File and Icon Artifact Tools
+
+**Files:**
+
+- Create: `internal/server/service/assets.go`
+- Create: `internal/server/service/assets_test.go`
+- Modify: `internal/server/mcphttp/tools.go`
+- Modify: `internal/server/mcphttp/tools_test.go`
+- Modify: `cmd/wowdata-server/main.go`
+
+- [ ] **Step 1: Write failing server asset service tests**
+
+Create tests proving `wow_file` and `wow_icon` can operate without `internal/local/runtime`:
+
+```go
+func TestServerFileLookupUsesSQLiteListfileIndex(t *testing.T)
+func TestServerFileExistsUsesCASCIndexWithoutListfileWhenFileDataIDProvided(t *testing.T)
+func TestServerFileExportReadsRawCacheAndStoresArtifact(t *testing.T)
+func TestServerIconExportConvertsBLPAndStoresDownloadableArtifact(t *testing.T)
+func TestServerAssetServiceDoesNotImportLocalRuntime(t *testing.T)
+```
+
+Run:
+
+```powershell
+& 'C:\Program Files\Go\bin\go.exe' test ./internal/server/service -run "TestServerFile|TestServerIcon|TestServerAsset" -count=1
+```
+
+Expected: FAIL until server-side asset service exists.
+
+- [ ] **Step 2: Write failing MCP tool tests for successful artifacts**
+
+Extend `internal/server/mcphttp/tools_test.go` so:
+
+```text
+wow_file lookup returns filename/fileDataID from a fake server asset service.
+wow_file exists returns true/false without calling prepare.
+wow_file export returns path, downloadUrl, mimeType, size, and sha256.
+wow_icon export returns path, downloadUrl, mimeType, size, and sha256.
+wow_file and wow_icon no longer return capability_unavailable for ready server assets.
+```
+
+Run:
+
+```powershell
+& 'C:\Program Files\Go\bin\go.exe' test ./internal/server/mcphttp -run "TestWowFile|TestWowIcon" -count=1
+```
+
+Expected: FAIL.
+
+- [ ] **Step 3: Implement server asset service**
+
+Implement file and icon operations against server storage only:
+
+```text
+listfile SQLite index for name/id/search/extension
+CASC index for FileDataID -> encoding key/archive span
+raw cache for bytes, with integrity checks and singleflight
+artifact store for /files URLs and metadata
+```
+
+Do not import `internal/local/...`, legacy `internal/service/http`, or CLI handlers.
+
+- [ ] **Step 4: Wire asset service into `wowdata-server`**
+
+Build the asset service from configured metadata DB, raw cache root, artifact root/base URL, and server CASC/listfile storage. `/files/` must be served from config `artifacts.root` when `--artifact-root` is omitted.
+
+- [ ] **Step 5: Verify file/icon artifact tests**
+
+Run:
+
+```powershell
+& 'C:\Program Files\Go\bin\go.exe' test ./internal/server/service ./internal/server/mcphttp ./cmd/wowdata-server -run "TestServerFile|TestServerIcon|TestServerAsset|TestWowFile|TestWowIcon|TestServerFileRoute" -count=1
+```
+
+Expected: PASS.
+
+- [ ] **Step 6: Commit**
+
+Run:
+
+```powershell
+git add internal/server/service internal/server/mcphttp cmd/wowdata-server
+git commit -m "implement server file icon artifact tools"
+```
+
+Expected: commit succeeds.
+
 ## Task 12: Bounded Business Assemblers
 
 **Files:**
@@ -1315,8 +1481,8 @@ Create `.local/wowdata/test-http-node-parity.ps1`. It must:
 
 - call `/health`
 - call MCP `wow_status`
-- derive the complete 23-target matrix from server status and fail if any configured target is missing
-- require all 23 configured targets to be server-ready and Node-resolvable; a target reported as no-build, missing, stale, failed, or preparing is a parity failure unless the script is explicitly run with a diagnostic `-AllowNotReady` flag
+- derive the complete 19-target default matrix from server status and fail if any configured target is missing
+- require all 19 default configured targets to be server-ready and Node-resolvable; a target reported as no-build, missing, stale, failed, or preparing is a parity failure unless the script is explicitly run with a diagnostic `-AllowNotReady` flag
 - call the legacy Node implementation for each target and discover that target's full Node-readable DB2 table list from Node output
 - require the legacy Node oracle to print its resolved build key for every target, and fail before comparison if that build key differs from the server target's active build key
 - call the new Go HTTP MCP implementation for each target
@@ -1344,7 +1510,7 @@ first_mismatch_kind=<schema|row_count|field_value|missing_table|extra_table>
 
 and at least 20 concrete row/field diffs when 20 are available. A hash-only mismatch report is incomplete and must fail review.
 
-The denominator `y` must be computed at runtime as the sum of every Node-readable DB2 table across all 23 configured targets. The script must not contain `93`, `92`, or any other historical fixed denominator except inside comments explaining that those values are obsolete. A run that only proves a fixed smoke set, a bounded business-query set, compares fewer than 23 targets, or uses the old matrix denominator is a failure even if it prints `x == y`.
+The denominator `y` must be computed at runtime as the sum of every Node-readable DB2 table across all 19 default configured targets. The script must not contain `93`, `92`, or any other historical fixed denominator except inside comments explaining that those values are obsolete. A run that only proves a fixed smoke set, a bounded business-query set, compares fewer than 19 targets, or uses the old matrix denominator is a failure even if it prints `x == y`.
 
 - [ ] **Step 2: Write update-flow script**
 
@@ -1434,9 +1600,9 @@ REMOTE_NODE_PARITY_PASS=x/y
 x equals y
 ```
 
-The script must fail if fewer than the 23 configured targets are compared, unless it is explicitly running in diagnostic `-AllowNotReady` mode. It must fail if any target is no-build/missing/stale/failed/preparing, if the legacy Node oracle cannot resolve that target's build, if any Node-readable table is missing, if any Go-only table appears, if any schema field differs, if any field order differs, if any row count differs, or if any canonical full-data hash differs from the legacy Node oracle.
+The script must fail if fewer than the 19 default configured targets are compared, unless it is explicitly running in diagnostic `-AllowNotReady` mode. It must fail if any target is no-build/missing/stale/failed/preparing, if the legacy Node oracle cannot resolve that target's build, if any Node-readable table is missing, if any Go-only table appears, if any schema field differs, if any field order differs, if any row count differs, or if any canonical full-data hash differs from the legacy Node oracle.
 
-The denominator in `REMOTE_NODE_PARITY_PASS=x/y` must be the runtime full-table denominator discovered from the legacy Node implementation across all 23 targets. A result shaped like the old smoke test, such as `REMOTE_NODE_PARITY_PASS=93/93`, is not acceptable unless the Node oracle genuinely discovered exactly 93 total DB2 tables across all 23 targets and the log shows each target/table discovery line proving that number. The log must also show, for every target, that the Node oracle build key equals the server active build key; otherwise the comparison is invalid even if hashes match.
+The denominator in `REMOTE_NODE_PARITY_PASS=x/y` must be the runtime full-table denominator discovered from the legacy Node implementation across all 19 default targets. A result shaped like the old smoke test, such as `REMOTE_NODE_PARITY_PASS=93/93`, is not acceptable unless the Node oracle genuinely discovered exactly 93 total DB2 tables across all 19 default targets and the log shows each target/table discovery line proving that number. The log must also show, for every target, that the Node oracle build key equals the server active build key; otherwise the comparison is invalid even if hashes match.
 
 - [ ] **Step 3: Run remote update-flow test**
 
@@ -1501,11 +1667,13 @@ Expected: commit succeeds.
 
 - [x] Public naming is covered by Task 1.
 - [x] local/server dependency isolation is covered by Task 2.
-- [x] 23-target default matrix is covered by Task 3.
+- [x] strict spec directory architecture migration is covered by Task 2A.
+- [x] 19-target default matrix with Beta excluded is covered by Task 3.
 - [x] SQLite metadata, listfile, CASC index, artifacts, and refresh state are covered by Tasks 4, 7, 8, 9, and 10.
 - [x] Health and `wow_status` shared state is covered by Task 5.
 - [x] Parquet/DuckDB query path is covered by Task 6.
 - [x] User requests not triggering prepare is covered by Task 10 and Task 11.
+- [x] server file/icon artifact tools are covered by Task 11A.
 - [x] Bounded business assemblers are covered by Task 12.
 - [x] Remote Node-parity full-data comparison, artifact download, restart reuse, and update-flow tests are covered by Tasks 13 and 14.
 - [x] Checkbox discipline is defined in "Progress Discipline".

@@ -10,7 +10,7 @@ import (
 )
 
 func TestServerDoesNotImportLocalPackages(t *testing.T) {
-	cmd := exec.Command("go", "list", "-deps", "./cmd/wowdata-server", "./internal/server/...")
+	cmd := exec.Command(goToolPath(), "list", "-deps", "./cmd/wowdata-server", "./internal/server/...")
 	cmd.Dir = "../.."
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -26,7 +26,7 @@ func TestServerDoesNotImportLocalPackages(t *testing.T) {
 }
 
 func TestRuntimePackageRootsMatchServerArchitecture(t *testing.T) {
-	cmd := exec.Command("go", "list", "./internal/shared/...", "./internal/local/runtime", "./internal/server/runtime")
+	cmd := exec.Command(goToolPath(), "list", "./internal/shared/...", "./internal/local/runtime", "./internal/server/runtime")
 	cmd.Dir = "../.."
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -47,7 +47,7 @@ func TestServerBootstrapDoesNotUseFullTableDB2RowMaterialization(t *testing.T) {
 }
 
 func TestLocalDoesNotImportServerPackages(t *testing.T) {
-	cmd := exec.Command("go", "list", "-deps", "./cmd/wowdata", "./internal/app/...", "./internal/adapter/mcp/...")
+	cmd := exec.Command(goToolPath(), "list", "-deps", "./cmd/wowdata", "./internal/app/...", "./internal/adapter/mcp/...")
 	cmd.Dir = "../.."
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -60,4 +60,11 @@ func TestLocalDoesNotImportServerPackages(t *testing.T) {
 			t.Fatalf("local dependency imports server package: %s", dep)
 		}
 	}
+}
+
+func goToolPath() string {
+	if path := os.Getenv("WOWDATA_GO"); path != "" {
+		return path
+	}
+	return `C:\Program Files\Go\bin\go.exe`
 }

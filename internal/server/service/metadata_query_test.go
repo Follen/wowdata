@@ -14,6 +14,13 @@ import (
 func TestMetadataQueryServiceTablesReadsRequestedBuildCatalog(t *testing.T) {
 	ctx := context.Background()
 	db := openMetadataQueryTestDB(t)
+	build1 := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1"}
+	build2 := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2"}
+	seedReadyBuild(t, ctx, db, build1)
+	seedReadyBuild(t, ctx, db, build2)
+	if err := metadata.ActivateBuild(ctx, db, build1); err != nil {
+		t.Fatalf("activate build-1: %v", err)
+	}
 	if err := metadata.UpsertMaterializedTable(ctx, db, metadata.MaterializedTable{
 		Key:                 metadata.TableKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1", TableName: "Item"},
 		DB2FileDataID:       1,
@@ -74,6 +81,38 @@ func TestMetadataQueryServiceTablesUsesActiveBuildWhenBuildKeyOmitted(t *testing
 	}
 }
 
+func TestMetadataQueryServiceRejectsExplicitNonActiveCandidateBuild(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	db := openMetadataQueryTestDB(t)
+	active := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "active-build"}
+	candidate := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "candidate-build"}
+	seedReadyBuild(t, ctx, db, active)
+	if err := metadata.ActivateBuild(ctx, db, active); err != nil {
+		t.Fatalf("activate build: %v", err)
+	}
+	if err := metadata.UpsertDiscoveredBuild(ctx, db, metadata.Build{Key: candidate, BuildName: "candidate-build", State: metadata.StatePreparing}); err != nil {
+		t.Fatalf("upsert candidate build: %v", err)
+	}
+	seedMaterializedTableAtPath(t, ctx, db, candidate, "Item", filepath.Join(root, "db2", "candidate", "Item.parquet"), 1)
+	engine := &fakeParquetQueryEngine{}
+
+	_, err := NewMetadataQueryServiceForTest(db, root, engine).Stream(ctx, StreamRequest{
+		Context: RequestContext{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "candidate-build"},
+		Table:   "Item",
+		Limit:   1,
+	})
+	if err == nil {
+		t.Fatal("Stream explicit candidate build error = nil, want not active error")
+	}
+	if !strings.Contains(err.Error(), "active build") {
+		t.Fatalf("Stream error = %q, want active build message", err.Error())
+	}
+	if len(engine.calls) != 0 {
+		t.Fatalf("engine calls = %#v, want none for non-active candidate", engine.calls)
+	}
+}
+
 func TestMetadataQueryServiceTablesWithoutBuildKeyRequiresActiveBuild(t *testing.T) {
 	_, err := NewMetadataQueryServiceWithDB(openMetadataQueryTestDB(t)).Tables(context.Background(), TablesRequest{
 		Context: RequestContext{Region: "us", Product: "wow", Locale: "enUS"},
@@ -91,6 +130,7 @@ func TestMetadataQueryServiceSchemaUsesMaterializedParquetAndReturnsOrderedField
 	root := t.TempDir()
 	db := openMetadataQueryTestDB(t)
 	key := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1"}
+	seedActiveReadyBuild(t, ctx, db, key)
 	parquetPath := seedMaterializedTableAtPath(t, ctx, db, key, "SpellName", filepath.Join(root, "db2", "SpellName.parquet"), 42)
 	engine := &fakeParquetQueryEngine{
 		results: [][]map[string]interface{}{{
@@ -126,6 +166,7 @@ func TestMetadataQueryServiceRowsBuildsBoundedParameterizedQuery(t *testing.T) {
 	root := t.TempDir()
 	db := openMetadataQueryTestDB(t)
 	key := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1"}
+	seedActiveReadyBuild(t, ctx, db, key)
 	parquetPath := seedMaterializedTableAtPath(t, ctx, db, key, "ItemSparse", filepath.Join(root, "db2", "ItemSparse.parquet"), 2)
 	engine := &fakeParquetQueryEngine{results: [][]map[string]interface{}{{{"ID": uint64(19019)}}}}
 
@@ -168,6 +209,7 @@ func TestMetadataQueryServiceRowsSupportsMultipleIDsWithoutInlining(t *testing.T
 	root := t.TempDir()
 	db := openMetadataQueryTestDB(t)
 	key := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1"}
+	seedActiveReadyBuild(t, ctx, db, key)
 	parquetPath := seedMaterializedTableAtPath(t, ctx, db, key, "ItemSparse", filepath.Join(root, "db2", "ItemSparse.parquet"), 2)
 	engine := &fakeParquetQueryEngine{results: [][]map[string]interface{}{{}}}
 
@@ -197,6 +239,7 @@ func TestMetadataQueryServiceRowsRejectsUnsafeFilter(t *testing.T) {
 	root := t.TempDir()
 	db := openMetadataQueryTestDB(t)
 	key := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1"}
+	seedActiveReadyBuild(t, ctx, db, key)
 	seedMaterializedTableAtPath(t, ctx, db, key, "ItemSparse", filepath.Join(root, "db2", "ItemSparse.parquet"), 2)
 	engine := &fakeParquetQueryEngine{}
 
@@ -218,6 +261,7 @@ func TestMetadataQueryServiceSearchForeignKeyAndStreamDispatchSafeQueries(t *tes
 	root := t.TempDir()
 	db := openMetadataQueryTestDB(t)
 	key := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1"}
+	seedActiveReadyBuild(t, ctx, db, key)
 	parquetPath := seedMaterializedTableAtPath(t, ctx, db, key, "SpellName", filepath.Join(root, "db2", "SpellName.parquet"), 2)
 	engine := &fakeParquetQueryEngine{results: [][]map[string]interface{}{{}, {}, {}}}
 	svc := NewMetadataQueryServiceForTest(db, root, engine)
@@ -276,6 +320,8 @@ func TestMetadataQueryServiceMissingTableReturnsClearError(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
 	db := openMetadataQueryTestDB(t)
+	key := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "missing-build"}
+	seedActiveReadyBuild(t, ctx, db, key)
 	engine := &fakeParquetQueryEngine{}
 	_, err := NewMetadataQueryServiceForTest(db, root, engine).Schema(ctx, SchemaRequest{
 		Context: RequestContext{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "missing-build"},
@@ -312,8 +358,8 @@ func TestMetadataQueryServiceQueryModesResolveProvidedAndActiveBuilds(t *testing
 		Context: RequestContext{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "inactive-build"},
 		Table:   "Item",
 		Limit:   1,
-	}); err != nil {
-		t.Fatalf("Stream provided buildKey: %v", err)
+	}); err == nil {
+		t.Fatal("Stream provided inactive buildKey error = nil, want not active")
 	}
 	if _, err := svc.Stream(ctx, StreamRequest{
 		Context: RequestContext{Region: "us", Product: "wow", Locale: "enUS"},
@@ -322,11 +368,11 @@ func TestMetadataQueryServiceQueryModesResolveProvidedAndActiveBuilds(t *testing
 	}); err != nil {
 		t.Fatalf("Stream active build: %v", err)
 	}
-	if engine.calls[0].args[0] != inactivePath {
-		t.Fatalf("provided build path = %#v, want inactive path %q", engine.calls[0].args[0], inactivePath)
+	if len(engine.calls) != 1 {
+		t.Fatalf("engine calls = %#v, want only active query", engine.calls)
 	}
-	if engine.calls[1].args[0] != activePath {
-		t.Fatalf("omitted build path = %#v, want active path %q", engine.calls[1].args[0], activePath)
+	if engine.calls[0].args[0] != activePath {
+		t.Fatalf("omitted build path = %#v, want active path %q; inactive path was %q", engine.calls[0].args[0], activePath, inactivePath)
 	}
 }
 
@@ -350,6 +396,14 @@ func seedReadyBuild(t *testing.T, ctx context.Context, db *sql.DB, key metadata.
 	}
 	if err := metadata.MarkBuildReady(ctx, db, key); err != nil {
 		t.Fatalf("mark build ready %s: %v", key.BuildKey, err)
+	}
+}
+
+func seedActiveReadyBuild(t *testing.T, ctx context.Context, db *sql.DB, key metadata.BuildKey) {
+	t.Helper()
+	seedReadyBuild(t, ctx, db, key)
+	if err := metadata.ActivateBuild(ctx, db, key); err != nil {
+		t.Fatalf("activate build %s: %v", key.BuildKey, err)
 	}
 }
 

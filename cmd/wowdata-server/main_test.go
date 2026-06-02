@@ -22,7 +22,7 @@ import (
 )
 
 func TestServerHTTPHelpExposesHTTPCommand(t *testing.T) {
-	cmd := exec.Command("go", "run", ".", "mcp", "http", "--help")
+	cmd := exec.Command(goToolPath(), "run", ".", "mcp", "http", "--help")
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=1")
 
 	var out bytes.Buffer
@@ -43,6 +43,13 @@ func TestServerHTTPHelpExposesHTTPCommand(t *testing.T) {
 			t.Fatalf("help output missing %q\n%s", want, output)
 		}
 	}
+}
+
+func goToolPath() string {
+	if path := os.Getenv("WOWDATA_GO"); path != "" {
+		return path
+	}
+	return `C:\Program Files\Go\bin\go.exe`
 }
 
 func TestServerHTTPCommandInvokesRunnerWithConfig(t *testing.T) {
@@ -508,6 +515,23 @@ func TestServerDefaultMCPHandlerAnswersTablesFromMetadata(t *testing.T) {
 		t.Fatalf("open metadata DB: %v", err)
 	}
 	ctx := context.Background()
+	if err := metadata.UpsertDiscoveredBuild(ctx, db, metadata.Build{
+		Key:       metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1"},
+		BuildName: "build-1",
+		State:     metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert build-1: %v", err)
+	}
+	if err := metadata.UpsertDiscoveredBuild(ctx, db, metadata.Build{
+		Key:       metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2"},
+		BuildName: "build-2",
+		State:     metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert build-2: %v", err)
+	}
+	if err := metadata.ActivateBuild(ctx, db, metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1"}); err != nil {
+		t.Fatalf("activate build-1: %v", err)
+	}
 	if err := metadata.UpsertMaterializedTable(ctx, db, metadata.MaterializedTable{
 		Key:                 metadata.TableKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1", TableName: "Item"},
 		DB2FileDataID:       1,
@@ -698,6 +722,36 @@ func TestServerFileRouteServesArtifacts(t *testing.T) {
 	handler := newHTTPHandler(httpOptions{
 		ServiceName:  "wowdata-server",
 		ArtifactRoot: root,
+	}, &testHealthProvider{})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/files/exports/data.json", nil)
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Equal(rec.Body.Bytes(), want) {
+		t.Fatalf("body = %q, want %q", rec.Body.Bytes(), want)
+	}
+}
+
+func TestServerFileRouteUsesConfigArtifactRoot(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "exports"), 0755); err != nil {
+		t.Fatalf("create exports dir: %v", err)
+	}
+	want := []byte("server artifact from config")
+	if err := os.WriteFile(filepath.Join(root, "exports", "data.json"), want, 0644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+	configPath := filepath.Join(t.TempDir(), "http-mcp.yaml")
+	if err := os.WriteFile(configPath, []byte("artifacts:\n  root: "+filepath.ToSlash(root)+"\n"), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	handler := newHTTPHandler(httpOptions{
+		ServiceName: "wowdata-server",
+		ConfigPath:  configPath,
 	}, &testHealthProvider{})
 
 	rec := httptest.NewRecorder()

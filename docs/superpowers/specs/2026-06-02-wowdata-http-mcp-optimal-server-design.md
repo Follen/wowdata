@@ -132,9 +132,6 @@ Retail:
 PTR:
   CN / US / EU
 
-Beta:
-  US / EU / KR / TW
-
 Classic:
   CN / US / EU / KR / TW
 
@@ -145,7 +142,9 @@ Classic Titan:
   CN
 ```
 
-Total default prepare targets: 23.
+Total default prepare targets: 19.
+
+Beta (`wowxptr`) targets are intentionally excluded from default prepare. They may be handled only by an explicit custom configuration or later spec revision; the default server must not discover, prepare, count, or block readiness on Beta targets.
 
 Default locale mapping:
 
@@ -382,7 +381,7 @@ Health includes:
 - concurrency limits
 - recent refresh errors
 
-`readiness.ok` is true when all required supported targets are ready. Custom-config `no_build` targets do not block readiness unless strict; the default 23-target matrix must not include `no_build` entries.
+`readiness.ok` is true when all required supported targets are ready. Custom-config `no_build` targets do not block readiness unless strict; the default 19-target matrix must not include `no_build` entries.
 
 ## Concurrency Model
 
@@ -488,11 +487,11 @@ Build the server image on the remote Docker host. The image must contain `wowdat
 
 ### Remote Node-Parity Full Data Test
 
-Against the remote HTTP endpoint, run a generated parity test against the legacy Node implementation for all 23 configured build targets. This replaces the historical fixed-denominator matrix check and is the authoritative business-equivalence gate for DB2 data.
+Against the remote HTTP endpoint, run a generated parity test against the legacy Node implementation for all 19 default configured build targets. This replaces the historical fixed-denominator matrix check and is the authoritative business-equivalence gate for DB2 data.
 
 Required coverage:
 
-- all 23 configured build targets; a target that cannot be resolved by either the server or the legacy Node oracle is a parity failure, not a skipped pass
+- all 19 default configured build targets; a target that cannot be resolved by either the server or the legacy Node oracle is a parity failure, not a skipped pass
 - the exact active build key for each target; the Node oracle must report its resolved build key and the test must fail if it differs from the server target build key
 - every DB2 table that the legacy Node implementation can read for each target build; this is the full table set discovered from the Node oracle, not the old sampled smoke set and not a handpicked list
 - every row in every compared table
@@ -501,9 +500,9 @@ Required coverage:
 - row equality: row count and deterministic row identity/order
 - value equality: canonical JSON value for every scalar, array, localized string, null, and numeric field
 
-The legacy Node implementation is the oracle for this acceptance test. The table list must be discovered by running the old Node implementation for the same region/product/locale/build target, not by asking the new Go code, not by reading the Go materialized cache, and not by reusing a static checked-in list. Before comparing tables, the harness must verify `node.build.buildKey == serverTarget.buildKey`; if the legacy Node implementation resolves a different build, or cannot resolve a build for one of the 23 configured targets, that target fails before any table hash is accepted. A Go HTTP result is a failure if it is missing any Node-readable table, missing any Node-emitted field, has a different field order, has a different row count, or has a different canonical value. Go-only extra tables must be reported as extras and fail the parity test until deliberately reviewed in a later spec revision.
+The legacy Node implementation is the oracle for this acceptance test. The table list must be discovered by running the old Node implementation for the same region/product/locale/build target, not by asking the new Go code, not by reading the Go materialized cache, and not by reusing a static checked-in list. Before comparing tables, the harness must verify `node.build.buildKey == serverTarget.buildKey`; if the legacy Node implementation resolves a different build, or cannot resolve a build for one of the 19 default configured targets, that target fails before any table hash is accepted. A Go HTTP result is a failure if it is missing any Node-readable table, missing any Node-emitted field, has a different field order, has a different row count, or has a different canonical value. Go-only extra tables must be reported as extras and fail the parity test until deliberately reviewed in a later spec revision.
 
-The test must not hard-code `93/93`, `92/92`, or any other stale denominator. It must compute the total from the 23 configured targets and the full table list discovered from the legacy Node implementation for each target. The only acceptable final denominator is the runtime sum of all Node-readable DB2 tables across the 23 targets. If a target has zero Node-readable tables, that target must fail with a diagnostic explaining why the Node oracle produced no table list. A table-level pass is only valid when every row and every field emitted by Node has been included in the canonical hash input.
+The test must not hard-code `93/93`, `92/92`, or any other stale denominator. It must compute the total from the 19 default configured targets and the full table list discovered from the legacy Node implementation for each target. The only acceptable final denominator is the runtime sum of all Node-readable DB2 tables across the 19 default targets. If a target has zero Node-readable tables, that target must fail with a diagnostic explaining why the Node oracle produced no table list. A table-level pass is only valid when every row and every field emitted by Node has been included in the canonical hash input.
 
 The comparison may use streaming canonical hashes to avoid loading all rows into memory, but the hash input must include every field of every row. Hashing is only a fast equality proof; on mismatch, the harness must perform or retain enough row-level comparison state to print concrete diffs. For each target/table it must report:
 
@@ -604,7 +603,7 @@ The rewrite is complete only when all of these are true:
 - Server unit tests pass.
 - Remote Docker deployment succeeds.
 - `/health` and `wow_status` report the same health state.
-- The remote Node-parity full data test reports full pass across the prepared 23-build matrix, every comparable table, every row, and every field.
+- The remote Node-parity full data test reports full pass across the prepared 19-build default matrix, every comparable table, every row, and every field.
 - Remote artifact URLs are downloadable.
 - Remote restart proves valid DB2/Listfile/CASC data is reused.
 - Remote update-flow tests prove successful candidate activation and failed candidate rollback.

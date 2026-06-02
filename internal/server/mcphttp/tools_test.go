@@ -197,6 +197,27 @@ func TestWowQueryInvalidModeMentionsTables(t *testing.T) {
 	}
 }
 
+func TestWowQueryStreamAppliesBoundedDefaultLimit(t *testing.T) {
+	fake := &fakeQueryService{}
+	tool := findTool(t, HTTPTools(Options{QueryService: fake}), "wow_query")
+
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{"mode":"stream","table":"Item"}`))
+	if err != nil {
+		t.Fatalf("wow_query handler: %v", err)
+	}
+	envelope := resultEnvelope(t, result)
+	if envelope["ok"] != true {
+		t.Fatalf("ok = %v, want true; result=%#v", envelope["ok"], envelope)
+	}
+	req, ok := fake.lastRequest.(service.StreamRequest)
+	if !ok {
+		t.Fatalf("lastRequest = %T, want StreamRequest", fake.lastRequest)
+	}
+	if req.Limit <= 0 {
+		t.Fatalf("stream limit = %d, want bounded default", req.Limit)
+	}
+}
+
 func TestHTTPBusinessToolsDispatchToBoundedServerAssemblers(t *testing.T) {
 	tests := []struct {
 		name      string

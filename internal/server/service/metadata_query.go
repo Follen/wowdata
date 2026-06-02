@@ -77,13 +77,9 @@ func (s *MetadataQueryService) Tables(ctx context.Context, req TablesRequest) (T
 	if closeDB {
 		defer db.Close()
 	}
-	buildKey := req.Context.BuildKey
-	if buildKey == "" {
-		active, err := metadata.ActiveBuild(ctx, db, req.Context.Region, req.Context.Product, req.Context.Locale)
-		if err != nil {
-			return TableCatalog{}, fmt.Errorf("active build is required for %s/%s/%s: %w", req.Context.Region, req.Context.Product, req.Context.Locale, err)
-		}
-		buildKey = active.Key.BuildKey
+	buildKey, err := s.resolveBuildKey(ctx, db, req.Context)
+	if err != nil {
+		return TableCatalog{}, err
 	}
 	tables, err := metadata.ListValidMaterializedTables(ctx, db, metadata.TableCatalogLookup{
 		Region:   req.Context.Region,
@@ -238,12 +234,15 @@ func (s *MetadataQueryService) materializedTable(ctx context.Context, reqCtx Req
 }
 
 func (s *MetadataQueryService) resolveBuildKey(ctx context.Context, db *sql.DB, reqCtx RequestContext) (string, error) {
-	if reqCtx.BuildKey != "" {
-		return reqCtx.BuildKey, nil
-	}
 	active, err := metadata.ActiveBuild(ctx, db, reqCtx.Region, reqCtx.Product, reqCtx.Locale)
 	if err != nil {
 		return "", fmt.Errorf("active build is required for %s/%s/%s: %w", reqCtx.Region, reqCtx.Product, reqCtx.Locale, err)
+	}
+	if reqCtx.BuildKey != "" {
+		if reqCtx.BuildKey != active.Key.BuildKey {
+			return "", fmt.Errorf("requested build %s is not the active build for %s/%s/%s", reqCtx.BuildKey, reqCtx.Region, reqCtx.Product, reqCtx.Locale)
+		}
+		return reqCtx.BuildKey, nil
 	}
 	return active.Key.BuildKey, nil
 }

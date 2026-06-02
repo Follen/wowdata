@@ -223,8 +223,12 @@ func newHTTPHandlerStrict(opts httpOptions, healthProvider health.Provider) (htt
 	}))
 	mux.Handle("/mcp", mcpServer)
 	mux.Handle("/mcp/", mcpServer)
-	if opts.ArtifactRoot != "" {
-		mux.Handle("/files/", artifacts.FileHandler(opts.ArtifactRoot))
+	artifactRoot := opts.ArtifactRoot
+	if artifactRoot == "" {
+		artifactRoot = cfg.Artifacts.Root
+	}
+	if artifactRoot != "" {
+		mux.Handle("/files/", artifacts.FileHandler(artifactRoot))
 	}
 	if sharedMetadataDB != nil {
 		return closeableHandler{Handler: mux, close: sharedMetadataDB.Close}, nil

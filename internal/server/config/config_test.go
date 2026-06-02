@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -23,6 +24,34 @@ func TestDefaultPrepareMatrixHasNineteenTargetsAndExcludesBetaForNow(t *testing.
 	}
 	if !reflect.DeepEqual(targets, expected) {
 		t.Fatalf("targets = %#v, want %#v", targets, expected)
+	}
+}
+
+func TestSpecDocumentsNineteenTargetDefaultPrepareMatrixWithoutBeta(t *testing.T) {
+	data, err := os.ReadFile("../../../docs/superpowers/specs/2026-06-02-wowdata-http-mcp-optimal-server-design.md")
+	if err != nil {
+		t.Fatalf("read design spec: %v", err)
+	}
+	spec := string(data)
+	if !strings.Contains(spec, "Total default prepare targets: 19.") {
+		t.Fatal("design spec must document 19 default prepare targets")
+	}
+	matrixStart := strings.Index(spec, "The server discovers and prepares the latest configured builds for this default matrix:")
+	if matrixStart < 0 {
+		t.Fatal("design spec default prepare matrix section not found")
+	}
+	codeStart := strings.Index(spec[matrixStart:], "```text")
+	if codeStart < 0 {
+		t.Fatal("design spec default prepare matrix code block not found")
+	}
+	codeStart += matrixStart
+	codeEnd := strings.Index(spec[codeStart+len("```text"):], "```")
+	if codeEnd < 0 {
+		t.Fatal("design spec default prepare matrix code block is unterminated")
+	}
+	matrix := spec[codeStart : codeStart+len("```text")+codeEnd]
+	if strings.Contains(matrix, "Beta:\n") || strings.Contains(matrix, "wowxptr") {
+		t.Fatal("design spec must not include Beta/wowxptr in the default prepare matrix")
 	}
 }
 

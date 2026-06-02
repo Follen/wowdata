@@ -14,6 +14,8 @@ import (
 	"wowdata/internal/server/service"
 )
 
+const defaultStreamLimit = 5000
+
 type Options struct {
 	HealthProvider health.Provider
 	QueryService   service.QueryService
@@ -193,7 +195,7 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 				if table == "" {
 					return errorEnvelope("query", "invalid_request", "table is required"), nil
 				}
-				limit, err := nonNegativeIntArg(args, "limit", 0)
+				limit, err := nonNegativeIntArg(args, "limit", defaultStreamLimit)
 				if err != nil {
 					return errorEnvelope("query stream", "invalid_request", err.Error()), nil
 				}
