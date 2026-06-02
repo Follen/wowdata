@@ -21,6 +21,11 @@ type Field struct {
 	ArrayLen int
 }
 
+const (
+	db2MaxRowsPerRowGroup = 500
+	db2PageBufferSize     = 64 * 1024
+)
+
 type writerOptions struct {
 	write func(*os.File, Metadata) error
 }
@@ -117,7 +122,7 @@ func writeParquetRowsFile(file *os.File, meta Metadata, fields []Field, rows []m
 	if err != nil {
 		return err
 	}
-	writer := parquetgo.NewWriter(file, append(metadataWriterOptions(meta), schema)...)
+	writer := parquetgo.NewWriter(file, append(db2WriterOptions(meta), schema)...)
 	for _, row := range rows {
 		normalized, err := normalizeRow(columns, row)
 		if err != nil {
@@ -141,7 +146,7 @@ func writeParquetRowSourceFile(file *os.File, meta Metadata, fields []Field, row
 	if err != nil {
 		return 0, err
 	}
-	writer := parquetgo.NewWriter(file, append(metadataWriterOptions(meta), schema)...)
+	writer := parquetgo.NewWriter(file, append(db2WriterOptions(meta), schema)...)
 	defer rows.Close()
 	rowCount := 0
 	for {
@@ -532,6 +537,15 @@ func metadataWriterOptions(meta Metadata) []parquetgo.WriterOption {
 	for key, value := range values {
 		options = append(options, parquetgo.KeyValueMetadata(key, value))
 	}
+	return options
+}
+
+func db2WriterOptions(meta Metadata) []parquetgo.WriterOption {
+	options := metadataWriterOptions(meta)
+	options = append(options,
+		parquetgo.MaxRowsPerRowGroup(db2MaxRowsPerRowGroup),
+		parquetgo.PageBufferSize(db2PageBufferSize),
+	)
 	return options
 }
 

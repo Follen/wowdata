@@ -144,6 +144,63 @@ func TestWriteRowsFileWritesDB2RowsAndMetadataFooter(t *testing.T) {
 	}
 }
 
+func TestWriteRowsFileSplitsLargeTablesIntoBoundedRowGroups(t *testing.T) {
+	root := t.TempDir()
+	meta := testMetadata()
+	path := PathFor(root, meta)
+	rows := make([]map[string]interface{}, 1200)
+	for i := range rows {
+		rows[i] = map[string]interface{}{"ID": int32(i + 1)}
+	}
+
+	if err := WriteRowsFile(path, meta, []Field{{Name: "ID", Type: "int32"}}, rows); err != nil {
+		t.Fatalf("WriteRowsFile: %v", err)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open parquet: %v", err)
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		t.Fatalf("stat parquet: %v", err)
+	}
+	pf, err := parquetgo.OpenFile(file, info.Size())
+	if err != nil {
+		t.Fatalf("open parquet file: %v", err)
+	}
+	assertBoundedDB2RowGroups(t, pf, 3)
+}
+
+func TestWriteRowSourceFileSplitsLargeTablesIntoBoundedRowGroups(t *testing.T) {
+	root := t.TempDir()
+	meta := testMetadata()
+	path := PathFor(root, meta)
+	source := &countingRowSource{total: 1200}
+
+	rowCount, err := WriteRowSourceFile(path, meta, []Field{{Name: "ID", Type: "int32"}}, source)
+	if err != nil {
+		t.Fatalf("WriteRowSourceFile: %v", err)
+	}
+	if rowCount != 1200 {
+		t.Fatalf("row count = %d, want 1200", rowCount)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open parquet: %v", err)
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		t.Fatalf("stat parquet: %v", err)
+	}
+	pf, err := parquetgo.OpenFile(file, info.Size())
+	if err != nil {
+		t.Fatalf("open parquet file: %v", err)
+	}
+	assertBoundedDB2RowGroups(t, pf, 3)
+}
+
 func TestWriteRowsFileAcceptsRuntimeDB2FieldTypes(t *testing.T) {
 	root := t.TempDir()
 	meta := testMetadata()
@@ -311,5 +368,35 @@ func testMetadata() Metadata {
 		DBDDefinitionHash:   "dbd-hash",
 		DecoderVersion:      "decoder-v1",
 		MaterializerVersion: "materializer-v1",
+	}
+}
+
+type countingRowSource struct {
+	total int
+	next  int
+}
+
+func (s *countingRowSource) NextRow() (map[string]interface{}, bool, error) {
+	if s.next >= s.total {
+		return nil, false, nil
+	}
+	s.next++
+	return map[string]interface{}{"ID": int32(s.next)}, true, nil
+}
+
+func (s *countingRowSource) Close() error {
+	return nil
+}
+
+func assertBoundedDB2RowGroups(t *testing.T, pf *parquetgo.File, wantGroups int) {
+	t.Helper()
+	rowGroups := pf.RowGroups()
+	if got := len(rowGroups); got != wantGroups {
+		t.Fatalf("row groups = %d, want %d", got, wantGroups)
+	}
+	for i, rowGroup := range rowGroups {
+		if got := rowGroup.NumRows(); got > db2MaxRowsPerRowGroup {
+			t.Fatalf("row group %d rows = %d, want <= %d", i, got, db2MaxRowsPerRowGroup)
+		}
 	}
 }
