@@ -836,10 +836,14 @@ func schemaForTable(rawDBD string, buildName string) ([]cacheparquet.Field, erro
 	}
 	out := make([]cacheparquet.Field, 0, len(schema))
 	for _, field := range schema {
+		arrayLen := field.ArrayLen
+		if field.Type == db2.FieldString {
+			arrayLen = 0
+		}
 		out = append(out, cacheparquet.Field{
 			Name:     field.Name,
 			Type:     field.Type.SchemaDescription(),
-			ArrayLen: field.ArrayLen,
+			ArrayLen: arrayLen,
 		})
 	}
 	return out, nil

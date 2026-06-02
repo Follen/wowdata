@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	cacheparquet "wowdata/internal/cache/parquet"
 	"wowdata/internal/server/config"
 	"wowdata/internal/server/health"
 	"wowdata/internal/server/storage/metadata"
@@ -297,6 +298,33 @@ func TestWDCRowSourceStreamsRowsAndEOF(t *testing.T) {
 	_, ok, err = source.NextRow()
 	if err != nil || ok {
 		t.Fatalf("after rows ok=%v err=%v, want EOF", ok, err)
+	}
+}
+
+func TestSchemaForTableTreatsDBDStringArraysAsScalarStrings(t *testing.T) {
+	rawDBD := strings.Join([]string{
+		"COLUMNS",
+		"string ParamLabel",
+		"int ParamTypeEnum",
+		"",
+		"BUILD 12.0.5.67823",
+		"ParamLabel[6]",
+		"ParamTypeEnum<u8>[6]",
+		"",
+	}, "\n")
+
+	schema, err := schemaForTable(rawDBD, "12.0.5.67823")
+	if err != nil {
+		t.Fatalf("schemaForTable: %v", err)
+	}
+	if len(schema) != 2 {
+		t.Fatalf("schema fields = %#v, want ParamLabel and ParamTypeEnum", schema)
+	}
+	if schema[0] != (cacheparquet.Field{Name: "ParamLabel", Type: "dbFieldString"}) {
+		t.Fatalf("ParamLabel schema = %#v, want scalar dbFieldString", schema[0])
+	}
+	if schema[1] != (cacheparquet.Field{Name: "ParamTypeEnum", Type: "dbFieldUInt8", ArrayLen: 6}) {
+		t.Fatalf("ParamTypeEnum schema = %#v, want numeric array preserved", schema[1])
 	}
 }
 
