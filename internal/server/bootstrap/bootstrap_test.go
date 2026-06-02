@@ -121,6 +121,55 @@ func TestPrepareManifestDefaultTablesSkipsTablesWithoutBuildStructure(t *testing
 	}
 }
 
+func TestPrepareManifestDefaultTablesSkipsInvalidDBDDefinitions(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"*"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "build-2", BuildName: "12.0.5.67823"},
+	}}
+	materializer := &fakeMaterializer{
+		db:              db,
+		availableTables: []string{"GarrMission", "GarrMissionReward", "GarrMechanic"},
+		failTable:       "GarrMissionReward",
+		err:             errors.New("Invalid DBD: Missing column definitions."),
+	}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	tables, err := metadata.ListValidMaterializedTables(ctx, db, metadata.TableCatalogLookup{
+		Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2",
+	})
+	if err != nil {
+		t.Fatalf("list materialized tables: %v", err)
+	}
+	if len(tables) != 2 || tables[0].Key.TableName != "GarrMechanic" || tables[1].Key.TableName != "GarrMission" {
+		t.Fatalf("valid tables = %#v, want only readable GarrMechanic and GarrMission", tables)
+	}
+}
+
+func TestPrepareConfiguredTableFailsOnInvalidDBDDefinition(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"GarrMissionReward"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "build-2", BuildName: "12.0.5.67823"},
+	}}
+	materializer := &fakeMaterializer{
+		db:        db,
+		failTable: "GarrMissionReward",
+		err:       errors.New("Invalid DBD: Missing column definitions."),
+	}
+
+	err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx)
+	if err == nil || !strings.Contains(err.Error(), "Invalid DBD") {
+		t.Fatalf("Prepare error = %v, want explicit table invalid DBD failure", err)
+	}
+}
+
 func TestPrepareManifestDefaultTablesFailsWhenNoReadableTablesMaterialize(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")

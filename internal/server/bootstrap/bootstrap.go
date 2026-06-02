@@ -362,18 +362,20 @@ func (r Runner) materializeOneTable(ctx context.Context, target config.PrepareTa
 	}
 	fmt.Fprintf(os.Stderr, "wowdata-server prepare materializing table: %s %s/%s/%s build=%s table=%s\n", target.Label, target.Region, target.Product, target.Locale, build.BuildKey, tableName)
 	err := materializer.MaterializeTable(ctx, target, build, tableName)
-	if err != nil && skipUnavailableBuildStructure && isUnavailableBuildStructureError(err) {
+	if err != nil && skipUnavailableBuildStructure && isManifestUnreadableTableError(err) {
 		fmt.Fprintf(os.Stderr, "wowdata-server prepare skipping unreadable table: %s %s/%s/%s build=%s table=%s error=%v\n", target.Label, target.Region, target.Product, target.Locale, build.BuildKey, tableName, err)
 		return nil
 	}
 	return err
 }
 
-func isUnavailableBuildStructureError(err error) bool {
+func isManifestUnreadableTableError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), "no DBD structure for build ")
+	message := err.Error()
+	return strings.Contains(message, "no DBD structure for build ") ||
+		strings.Contains(message, "Invalid DBD:")
 }
 
 func ResolveRequiredTables(ctx context.Context, configured []string, materializer TableMaterializer) ([]string, error) {
