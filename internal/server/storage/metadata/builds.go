@@ -58,6 +58,10 @@ func MarkBuildFailed(ctx context.Context, db *sql.DB, key BuildKey, message stri
 	return markBuildState(ctx, db, key, StateFailed, message)
 }
 
+func MarkBuildNoBuild(ctx context.Context, db *sql.DB, key BuildKey, message string) error {
+	return markBuildState(ctx, db, key, StateNoBuild, message)
+}
+
 func ActivateBuild(ctx context.Context, db *sql.DB, key BuildKey) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {

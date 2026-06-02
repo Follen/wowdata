@@ -60,8 +60,8 @@ func TestMigrationsCreateRequiredTables(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&applied); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if applied != 8 {
-		t.Fatalf("applied migrations = %d, want 8", applied)
+	if applied != 9 {
+		t.Fatalf("applied migrations = %d, want 9", applied)
 	}
 
 	db.Close()
@@ -69,8 +69,8 @@ func TestMigrationsCreateRequiredTables(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&applied); err != nil {
 		t.Fatalf("count migrations after reopen: %v", err)
 	}
-	if applied != 8 {
-		t.Fatalf("applied migrations after reopen = %d, want 8", applied)
+	if applied != 9 {
+		t.Fatalf("applied migrations after reopen = %d, want 9", applied)
 	}
 
 	artifact := Artifact{
@@ -197,6 +197,92 @@ WHERE region = 'us' AND product = 'wow' AND locale = 'enUS' AND build_key = 'new
 	if failedState != StateFailed || failedError != "prepare failed" {
 		t.Fatalf("failed candidate state/error = %q/%q, want failed/prepare failed", failedState, failedError)
 	}
+}
+
+func TestNoBuildStatePersistsThroughMigrations(t *testing.T) {
+	ctx := context.Background()
+	path := dbPath(t)
+	db := reopenTestDB(t, path)
+	key := BuildKey{Region: "us", Product: "wow_classic_titan", Locale: "enUS", BuildKey: ""}
+	if err := UpsertDiscoveredBuild(ctx, db, Build{
+		Key:   key,
+		State: StateNoBuild,
+		Error: "no build found for us/wow_classic_titan",
+	}); err != nil {
+		t.Fatalf("upsert no_build build: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close no_build DB: %v", err)
+	}
+
+	db = reopenTestDB(t, path)
+	t.Cleanup(func() { _ = db.Close() })
+	latest, err := LatestBuildForTarget(ctx, db, "us", "wow_classic_titan", "enUS")
+	if err != nil {
+		t.Fatalf("latest no_build build: %v", err)
+	}
+	if latest.State != StateNoBuild {
+		t.Fatalf("latest state = %q, want %q", latest.State, StateNoBuild)
+	}
+	if latest.Error != "no build found for us/wow_classic_titan" {
+		t.Fatalf("latest error = %q, want no-build error", latest.Error)
+	}
+}
+
+func TestOpenWithMigrationsConvertsLegacyFailedNoBuildRows(t *testing.T) {
+	ctx := context.Background()
+	migrationsDir := filepath.Join(t.TempDir(), "migrations", "server")
+	copyServerMigrations(t, migrationsDir)
+	path := filepath.Join(t.TempDir(), "legacy-no-build.sqlite")
+	seedLegacyFailedNoBuildMetadataDB(t, path)
+
+	db, err := OpenWithMigrations(path, migrationsDir)
+	if err != nil {
+		t.Fatalf("open legacy failed no-build metadata DB: %v", err)
+	}
+	latest, err := LatestBuildForTarget(ctx, db, "tw", "wow_classic_titan", "enUS")
+	if err != nil {
+		t.Fatalf("latest converted no-build row: %v", err)
+	}
+	if latest.State != StateNoBuild {
+		t.Fatalf("latest converted state = %q, want %q", latest.State, StateNoBuild)
+	}
+	if latest.Error != "no build found for tw/wow_classic_titan" {
+		t.Fatalf("latest converted error = %q, want no-build error", latest.Error)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close converted no-build DB: %v", err)
+	}
+
+	db, err = OpenWithMigrations(path, migrationsDir)
+	if err != nil {
+		t.Fatalf("reopen converted no-build metadata DB: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	latest, err = LatestBuildForTarget(ctx, db, "tw", "wow_classic_titan", "enUS")
+	if err != nil {
+		t.Fatalf("latest converted no-build row after reopen: %v", err)
+	}
+	if latest.State != StateNoBuild {
+		t.Fatalf("latest converted state after reopen = %q, want %q", latest.State, StateNoBuild)
+	}
+}
+
+func TestOpenWithMigrationsSkipsNoBuildMigrationWhenLegacyBuildTableMissing(t *testing.T) {
+	migrationsDir := filepath.Join(t.TempDir(), "migrations", "server")
+	copyServerMigrations(t, migrationsDir)
+	path := filepath.Join(t.TempDir(), "legacy-materialized-only.sqlite")
+	seedLegacyMaterializedOnlyMetadataDB(t, path)
+
+	db, err := OpenWithMigrations(path, migrationsDir)
+	if err != nil {
+		t.Fatalf("open legacy materialized-only metadata DB: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	assertSchemaMigrationVersionExists(t, db, "0009_no_build_state.sql")
+	assertTableMissing(t, db, "server_builds")
+	assertLegacyMaterializedTablePreserved(t, db)
 }
 
 func TestMaterializedTableStateTransitions(t *testing.T) {
@@ -689,6 +775,24 @@ CREATE TABLE schema_migrations (
   applied_at TEXT NOT NULL
 );
 
+CREATE TABLE server_builds (
+  region TEXT NOT NULL,
+  product TEXT NOT NULL,
+  locale TEXT NOT NULL,
+  build_key TEXT NOT NULL,
+  build_name TEXT NOT NULL DEFAULT '',
+  state TEXT NOT NULL CHECK(state IN ('valid', 'stale', 'preparing', 'failed')),
+  active INTEGER NOT NULL DEFAULT 0 CHECK(active IN (0, 1)),
+  error TEXT NOT NULL DEFAULT '',
+  discovered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(region, product, locale, build_key)
+);
+
+CREATE UNIQUE INDEX server_builds_one_active
+ON server_builds(region, product, locale)
+WHERE active = 1;
+
 CREATE TABLE server_materialized_tables (
   region TEXT NOT NULL,
   product TEXT NOT NULL,
@@ -723,6 +827,119 @@ ON server_materialized_tables(region, product, locale, table_name, state, update
 	} {
 		if _, err := db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES (?, CURRENT_TIMESTAMP)`, version); err != nil {
 			t.Fatalf("record legacy migration %s: %v", version, err)
+		}
+	}
+}
+
+func seedLegacyFailedNoBuildMetadataDB(t *testing.T, path string) {
+	t.Helper()
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open legacy failed no-build DB for seed: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`
+CREATE TABLE schema_migrations (
+  version TEXT PRIMARY KEY,
+  applied_at TEXT NOT NULL
+);
+
+CREATE TABLE server_builds (
+  region TEXT NOT NULL,
+  product TEXT NOT NULL,
+  locale TEXT NOT NULL,
+  build_key TEXT NOT NULL,
+  build_name TEXT NOT NULL DEFAULT '',
+  state TEXT NOT NULL CHECK(state IN ('valid', 'stale', 'preparing', 'failed')),
+  active INTEGER NOT NULL DEFAULT 0 CHECK(active IN (0, 1)),
+  error TEXT NOT NULL DEFAULT '',
+  discovered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(region, product, locale, build_key)
+);
+
+CREATE UNIQUE INDEX server_builds_one_active
+ON server_builds(region, product, locale)
+WHERE active = 1;
+
+INSERT INTO server_builds(region, product, locale, build_key, build_name, state, active, error)
+VALUES ('tw', 'wow_classic_titan', 'enUS', '', '', 'failed', 0, 'no build found for tw/wow_classic_titan');
+`); err != nil {
+		t.Fatalf("create legacy failed no-build schema: %v", err)
+	}
+	for _, version := range []string{
+		"0001_init.sql",
+		"0002_builds.sql",
+		"0003_materialized_tables.sql",
+		"0004_listfile.sql",
+		"0005_casc_index.sql",
+		"0006_artifacts.sql",
+		"0007_refresh.sql",
+		"0008_materialized_table_sequence.sql",
+	} {
+		if _, err := db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES (?, CURRENT_TIMESTAMP)`, version); err != nil {
+			t.Fatalf("record legacy no-build migration %s: %v", version, err)
+		}
+	}
+}
+
+func seedLegacyMaterializedOnlyMetadataDB(t *testing.T, path string) {
+	t.Helper()
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open legacy materialized-only metadata DB for seed: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`
+CREATE TABLE schema_migrations (
+  version TEXT PRIMARY KEY,
+  applied_at TEXT NOT NULL
+);
+
+CREATE TABLE server_materialized_tables (
+  region TEXT NOT NULL,
+  product TEXT NOT NULL,
+  locale TEXT NOT NULL,
+  build_key TEXT NOT NULL,
+  table_name TEXT NOT NULL,
+  db2_file_data_id INTEGER NOT NULL,
+  dbd_hash TEXT NOT NULL DEFAULT '',
+  decoder_version TEXT NOT NULL DEFAULT '',
+  materializer_version TEXT NOT NULL DEFAULT '',
+  parquet_path TEXT NOT NULL DEFAULT '',
+  row_count INTEGER NOT NULL DEFAULT 0,
+  state TEXT NOT NULL CHECK(state IN ('valid', 'stale', 'preparing', 'failed')),
+  error TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(region, product, locale, build_key, table_name)
+);
+
+INSERT INTO server_materialized_tables (
+  region, product, locale, build_key, table_name,
+  db2_file_data_id, dbd_hash, decoder_version, materializer_version,
+  parquet_path, row_count, state, error, updated_at
+) VALUES (
+  'us', 'wow', 'enUS', 'build-1', 'Spell',
+  123, 'dbd-a', 'decoder-1', 'materializer-1',
+  'cache/db2/spell-build-1.parquet', 42, 'valid', '', '2026-06-02 00:00:00'
+);
+`); err != nil {
+		t.Fatalf("create legacy materialized-only schema: %v", err)
+	}
+	for _, version := range []string{
+		"0001_init.sql",
+		"0002_builds.sql",
+		"0003_materialized_tables.sql",
+		"0004_listfile.sql",
+		"0005_casc_index.sql",
+		"0006_artifacts.sql",
+		"0007_refresh.sql",
+		"0008_materialized_table_sequence.sql",
+	} {
+		if _, err := db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES (?, CURRENT_TIMESTAMP)`, version); err != nil {
+			t.Fatalf("record legacy materialized-only migration %s: %v", version, err)
 		}
 	}
 }
@@ -794,6 +1011,30 @@ func assertLegacyTablePreserved(t *testing.T, db *sql.DB) {
 	}
 	if marker != "preserved" {
 		t.Fatalf("legacy marker = %q, want preserved", marker)
+	}
+}
+
+func assertTableMissing(t *testing.T, db *sql.DB, table string) {
+	t.Helper()
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&count); err != nil {
+		t.Fatalf("query table %s: %v", table, err)
+	}
+	if count != 0 {
+		t.Fatalf("table %s exists, want missing", table)
+	}
+}
+
+func assertLegacyMaterializedTablePreserved(t *testing.T, db *sql.DB) {
+	t.Helper()
+	var rowCount int
+	if err := db.QueryRow(`
+SELECT row_count FROM server_materialized_tables
+WHERE region = 'us' AND product = 'wow' AND locale = 'enUS' AND build_key = 'build-1' AND table_name = 'Spell'`).Scan(&rowCount); err != nil {
+		t.Fatalf("legacy materialized table row missing: %v", err)
+	}
+	if rowCount != 42 {
+		t.Fatalf("legacy materialized table row_count = %d, want 42", rowCount)
 	}
 }
 

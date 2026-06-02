@@ -120,6 +120,48 @@ func TestMetadataProviderReportsFailedLatestBuildWhenNoActiveBuildExists(t *test
 	}
 }
 
+func TestMetadataProviderReportsNoBuildLatestBuildWhenNoActiveBuildExists(t *testing.T) {
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db, err := metadata.Open(metadataPath)
+	if err != nil {
+		t.Fatalf("open metadata DB: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	if err := metadata.UpsertDiscoveredBuild(ctx, db, metadata.Build{
+		Key:   metadata.BuildKey{Region: "us", Product: "wow_classic_titan", Locale: "enUS", BuildKey: ""},
+		State: metadata.StateNoBuild,
+		Error: "no build found for us/wow_classic_titan",
+	}); err != nil {
+		t.Fatalf("upsert no-build row: %v", err)
+	}
+
+	cfg := testMetadataProviderConfig(metadataPath)
+	cfg.Prepare.Targets[0].Product = "wow_classic_titan"
+	provider := NewMetadataProviderWithDB(cfg, metadataPath, db)
+	snapshot, err := provider.HealthSnapshot(ctx)
+	if err != nil {
+		t.Fatalf("HealthSnapshot: %v", err)
+	}
+	if !snapshot.Readiness.OK || snapshot.Readiness.RequiredTargetsTotal != 0 {
+		t.Fatalf("readiness = %#v, want non-strict no_build not required", snapshot.Readiness)
+	}
+	if len(snapshot.Contexts) != 1 {
+		t.Fatalf("contexts = %d, want 1", len(snapshot.Contexts))
+	}
+	got := snapshot.Contexts[0]
+	if got.State != StateNoBuild {
+		t.Fatalf("context state = %q, want no_build", got.State)
+	}
+	if got.Error != "no build found for us/wow_classic_titan" {
+		t.Fatalf("context error = %q, want no-build error", got.Error)
+	}
+	if snapshot.Matrix.NoBuild != 1 || snapshot.Matrix.Failed != 0 {
+		t.Fatalf("matrix = %#v, want one no_build target", snapshot.Matrix)
+	}
+}
+
 func TestMetadataProviderLeavesMissingBuildPreparing(t *testing.T) {
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
 	db, err := metadata.Open(metadataPath)

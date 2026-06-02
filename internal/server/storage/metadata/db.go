@@ -17,6 +17,7 @@ const (
 	StateStale     = "stale"
 	StatePreparing = "preparing"
 	StateFailed    = "failed"
+	StateNoBuild   = "no_build"
 )
 
 var ErrBuildNotReady = errors.New("build is not ready")

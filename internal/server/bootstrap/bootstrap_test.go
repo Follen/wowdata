@@ -116,7 +116,7 @@ func TestPrepareFailureForSameActiveBuildKeepsExistingBuildValidAndReady(t *test
 	}
 }
 
-func TestPrepareNoBuildDoesNotMarkTargetReady(t *testing.T) {
+func TestPrepareNoBuildRecordsNoBuildAndDoesNotBlockReadiness(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
 	db := openMetadataDBAt(t, metadataPath)
@@ -135,12 +135,42 @@ func TestPrepareNoBuildDoesNotMarkTargetReady(t *testing.T) {
 	if _, err := metadata.ActiveBuild(ctx, db, "us", "wow", "enUS"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("active build error = %v, want sql.ErrNoRows", err)
 	}
+	latest, err := metadata.LatestBuildForTarget(ctx, db, "us", "wow", "enUS")
+	if err != nil {
+		t.Fatalf("latest no-build row: %v", err)
+	}
+	if latest.State != metadata.StateNoBuild {
+		t.Fatalf("latest state = %q, want no_build", latest.State)
+	}
 	snapshot := healthSnapshot(t, ctx, db, cfg)
-	if snapshot.Readiness.OK || snapshot.Contexts[0].State != health.StateFailed {
-		t.Fatalf("health = %#v, want failed without active build after no-build", snapshot)
+	if !snapshot.Readiness.OK || snapshot.Contexts[0].State != health.StateNoBuild {
+		t.Fatalf("health = %#v, want no_build readiness ok for non-strict target", snapshot)
 	}
 	if snapshot.Contexts[0].Error != "product is not published in region" {
 		t.Fatalf("health error = %q, want no-build error", snapshot.Contexts[0].Error)
+	}
+}
+
+func TestPrepareNoBuildForStrictTargetBlocksReadiness(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item"})
+	cfg.Prepare.Targets[0].Strict = true
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {NoBuild: true, Error: "strict target has no build"},
+	}}
+	materializer := &fakeMaterializer{db: db}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	snapshot := healthSnapshot(t, ctx, db, cfg)
+	if snapshot.Readiness.OK || snapshot.Contexts[0].State != health.StateNoBuild {
+		t.Fatalf("health = %#v, want no_build strict target to block readiness", snapshot)
+	}
+	if snapshot.Readiness.RequiredTargetsTotal != 1 || snapshot.Readiness.RequiredTargetsReady != 0 {
+		t.Fatalf("readiness counts = %#v, want 0/1 strict no-build", snapshot.Readiness)
 	}
 }
 

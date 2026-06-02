@@ -96,7 +96,7 @@ func (r Runner) prepareTarget(ctx context.Context, target config.PrepareTarget, 
 		if message == "" {
 			message = "no build found"
 		}
-		recordTargetFailure(ctx, r.DB, target, message)
+		recordTargetNoBuild(ctx, r.DB, target, message)
 		return nil
 	}
 	if build.BuildName == "" {
@@ -234,6 +234,20 @@ func recordTargetFailure(ctx context.Context, db *sql.DB, target config.PrepareT
 		},
 		BuildName: "",
 		State:     metadata.StateFailed,
+		Error:     message,
+	})
+}
+
+func recordTargetNoBuild(ctx context.Context, db *sql.DB, target config.PrepareTarget, message string) {
+	if db == nil {
+		return
+	}
+	_ = metadata.UpsertDiscoveredBuild(ctx, db, metadata.Build{
+		Key: metadata.BuildKey{
+			Region: target.Region, Product: target.Product, Locale: target.Locale,
+		},
+		BuildName: "",
+		State:     metadata.StateNoBuild,
 		Error:     message,
 	})
 }
