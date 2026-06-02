@@ -47,11 +47,14 @@ type CASCRemote struct {
 	Region    string
 	Host      string
 	PatchHost string
+	Products  []string
 	Builds    []VersionEntry
 	Build     *VersionEntry
 	Server    *VersionEntry
 	Cache     *DataCache
 	CacheRoot string
+	CacheLimitBytes  int64
+	CacheTargetBytes int64
 	fetchFull func(cdnFile string) ([]byte, error)
 
 	fetchPartial func(cdnFile string, offset, length int) ([]byte, error)
@@ -87,9 +90,10 @@ func (r *CASCRemote) GetBuildKey() string {
 
 func (r *CASCRemote) Init() error {
 	// Fetch version configs for all products
-	builds := make([]VersionEntry, len(defaultProducts))
+	products := r.products()
+	builds := make([]VersionEntry, len(products))
 	var failures []string
-	for productIndex, product := range defaultProducts {
+	for productIndex, product := range products {
 		config, err := r.getVersionConfig(product)
 		if err != nil {
 			failures = append(failures, product+": "+err.Error())
@@ -120,6 +124,13 @@ func (r *CASCRemote) Init() error {
 }
 
 var defaultProducts = []string{"wow", "wowt", "wowxptr", "wow_classic", "wow_classic_titan", "wow_classic_era"}
+
+func (r *CASCRemote) products() []string {
+	if len(r.Products) > 0 {
+		return r.Products
+	}
+	return defaultProducts
+}
 
 func (r *CASCRemote) getVersionConfig(product string) ([]VersionEntry, error) {
 	url := r.PatchHost + product + "/versions"
@@ -273,7 +284,7 @@ func (r *CASCRemote) Preload(buildIndex int) error {
 	if cacheRoot == "" {
 		cacheRoot = "cache"
 	}
-	r.Cache = NewDataCache(cacheRoot, r.Build.BuildConfig)
+	r.Cache = NewDataCacheWithLimits(cacheRoot, r.Build.BuildConfig, r.CacheLimitBytes, r.CacheTargetBytes)
 
 	if err := r.loadServerConfig(); err != nil {
 		return fmt.Errorf("server config: %w", err)

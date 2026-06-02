@@ -14,6 +14,8 @@ cache:
   raw_dir: /opt/wowdata/cache/raw
   db2_dir: /opt/wowdata/cache/db2
   duckdb_path: /opt/wowdata/cache/duckdb/wowdata.duckdb
+  casc_disk_limit_mb: 61440
+  casc_disk_target_mb: 49152
 
 artifacts:
   root: /opt/wowdata/output
@@ -30,78 +32,38 @@ prepare:
       region: cn
       product: wow
       locale: zhCN
-    - label: US Retail
-      region: us
-      product: wow
-      locale: enUS
-    - label: EU Retail
-      region: eu
-      product: wow
-      locale: enUS
-    - label: KR Retail
-      region: kr
-      product: wow
-      locale: koKR
-    - label: TW Retail
-      region: tw
-      product: wow
-      locale: zhTW
-    - label: CN PTR
-      region: cn
-      product: wowt
-      locale: zhCN
-    - label: US PTR
-      region: us
-      product: wowt
-      locale: enUS
-    - label: EU PTR
-      region: eu
-      product: wowt
-      locale: enUS
     - label: CN Classic
       region: cn
       product: wow_classic
       locale: zhCN
-    - label: US Classic
-      region: us
-      product: wow_classic
-      locale: enUS
-    - label: EU Classic
-      region: eu
-      product: wow_classic
-      locale: enUS
-    - label: KR Classic
-      region: kr
-      product: wow_classic
-      locale: koKR
-    - label: TW Classic
-      region: tw
-      product: wow_classic
-      locale: zhTW
-    - label: CN Classic Era
-      region: cn
-      product: wow_classic_era
-      locale: zhCN
-    - label: US Classic Era
-      region: us
-      product: wow_classic_era
-      locale: enUS
-    - label: EU Classic Era
-      region: eu
-      product: wow_classic_era
-      locale: enUS
-    - label: KR Classic Era
-      region: kr
-      product: wow_classic_era
-      locale: koKR
-    - label: TW Classic Era
-      region: tw
-      product: wow_classic_era
-      locale: zhTW
     - label: CN Classic Titan
       region: cn
       product: wow_classic_titan
       locale: zhCN
+    - label: CN Retail enUS
+      region: cn
+      product: wow
+      locale: enUS
+    - label: CN Classic enUS
+      region: cn
+      product: wow_classic
+      locale: enUS
+    - label: CN Retail PTR zhCN
+      region: cn
+      product: wowt
+      locale: zhCN
+    - label: CN Retail PTR enUS
+      region: cn
+      product: wowt
+      locale: enUS
+    - label: CN Classic PTR zhCN
+      region: cn
+      product: wow_classic_ptr
+      locale: zhCN
+    - label: CN Classic PTR enUS
+      region: cn
+      product: wow_classic_ptr
+      locale: enUS
   default_tables:
     - "*"
 

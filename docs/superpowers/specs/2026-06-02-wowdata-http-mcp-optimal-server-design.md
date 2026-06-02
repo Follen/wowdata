@@ -126,34 +126,30 @@ Hard dependency rules:
 The server discovers and prepares the latest configured builds for this default matrix:
 
 ```text
-Retail:
-  CN / US / EU / KR / TW
-
-PTR:
-  CN / US / EU
-
-Classic:
-  CN / US / EU / KR / TW
-
-Classic Era:
-  CN / US / EU / KR / TW
-
-Classic Titan:
-  CN
+CN CDN:
+  Retail zhCN
+  Retail enUS
+  Retail PTR zhCN
+  Retail PTR enUS
+  Classic zhCN
+  Classic enUS
+  Classic PTR zhCN
+  Classic PTR enUS
+  Classic Titan zhCN
 ```
 
-Total default prepare targets: 19.
+Total default prepare targets: 9.
 
-Beta (`wowxptr`) targets are intentionally excluded from default prepare. They may be handled only by an explicit custom configuration or later spec revision; the default server must not discover, prepare, count, or block readiness on Beta targets.
+Beta (`wowxptr`), Classic Era (`wow_classic_era`), non-CN CDN region targets, and unlisted locales are intentionally excluded from default prepare. They may be handled only by an explicit custom configuration or later spec revision; the default server must not discover, prepare, count, or block readiness on excluded targets.
 
 Default locale mapping:
 
 ```text
-CN -> zhCN
-US -> enUS
-EU -> enUS
-KR -> koKR
-TW -> zhTW
+CN CDN Retail -> zhCN, enUS
+CN CDN Retail PTR -> zhCN, enUS
+CN CDN Classic -> zhCN, enUS
+CN CDN Classic PTR -> zhCN, enUS
+CN CDN Classic Titan -> zhCN
 ```
 
 The default matrix must contain only region/product pairs that the current Blizzard product discovery and the legacy Node oracle can resolve. Unsupported pairs are rejected from the default matrix instead of being counted as `no_build` skips.
@@ -174,11 +170,14 @@ File/artifact request
   -> optional SQLite listfile lookup
   -> SQLite CASC index lookup
   -> local raw cache read or bounded remote range fetch
+  -> CASC raw disk cache LRU pruning when configured capacity is exceeded
   -> optional artifact write
   -> JSON response with /files URL
 ```
 
 User requests must not trigger full build prepare, full table materialization, full listfile indexing, or full CASC index construction. If a requested target is not ready, return `context_not_ready`, `build_not_ready`, or `table_not_ready`.
+
+The HTTP MCP server must enforce a CASC raw disk cache capacity. The default configuration limits CASC raw/cache data to 60 GiB and prunes least-recently-modified cache files down to 48 GiB when a write pushes the cache over the threshold. This limit applies to HTTP MCP server CASC preload and artifact/raw file cache paths; local CLI and stdio MCP behavior is unchanged unless they explicitly opt into the same lower-level cache limit APIs.
 
 ## Context Pool
 
@@ -391,7 +390,7 @@ Health includes:
 - concurrency limits
 - recent refresh errors
 
-`readiness.ok` is true when all required supported targets are ready. Custom-config `no_build` targets do not block readiness unless strict; the default 19-target matrix must not include `no_build` entries.
+`readiness.ok` is true when all required supported targets are ready. Custom-config `no_build` targets do not block readiness unless strict; the default 9-target matrix must not include `no_build` entries.
 
 ## Concurrency Model
 
@@ -403,7 +402,7 @@ The server must not globally lock all users while one user queries or downloads 
 User A: CN Retail
 User B: CN Classic
 User C: CN Classic Titan
-User D: CN PTR
+User D: CN Retail PTR enUS
 ```
 
 Locks and singleflight are resource-scoped:
@@ -597,7 +596,7 @@ Required assertions:
 
 After preparing the configured matrix:
 
-- concurrent read queries across Retail, PTR, Classic, Classic Era, and Titan must run without global runtime serialization
+- concurrent read queries across Retail, Retail PTR, Classic, Classic PTR, and Classic Titan must run without global runtime serialization
 - different raw-cache blobs must download concurrently
 - same raw-cache blob must singleflight
 - idle RSS must stay under `memory_soft_limit_mb` or the test must fail with diagnostics

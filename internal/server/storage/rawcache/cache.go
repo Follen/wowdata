@@ -10,14 +10,18 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"wowdata/internal/shared/diskcache"
 )
 
 type FetchFunc func(ctx context.Context, encodingKey string) ([]byte, error)
 
 type Cache struct {
-	root string
-	mu   sync.Mutex
-	in   map[string]*call
+	root             string
+	limitBytes       int64
+	targetBytes      int64
+	mu               sync.Mutex
+	in               map[string]*call
 }
 
 type call struct {
@@ -27,9 +31,15 @@ type call struct {
 }
 
 func New(root string) *Cache {
+	return NewWithLimits(root, 0, 0)
+}
+
+func NewWithLimits(root string, limitBytes int64, targetBytes int64) *Cache {
 	return &Cache{
-		root: root,
-		in:   map[string]*call{},
+		root:        root,
+		limitBytes:  limitBytes,
+		targetBytes: targetBytes,
+		in:          map[string]*call{},
 	}
 }
 
@@ -95,6 +105,9 @@ func (c *Cache) fetchAndStore(ctx context.Context, path, encodingKey, expectedSH
 		return nil, errors.New("raw cache: fetched blob sha256 mismatch")
 	}
 	if err := writeAtomic(c.root, path, body); err != nil {
+		return nil, err
+	}
+	if err := diskcache.PruneLRU(filepath.Join(c.root, "casc"), c.limitBytes, c.targetBytes); err != nil {
 		return nil, err
 	}
 	return body, nil

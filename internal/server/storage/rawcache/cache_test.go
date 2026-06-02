@@ -11,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestValidBlobHitAvoidsRemoteFetch(t *testing.T) {
@@ -217,6 +218,47 @@ func TestDifferentEncodingKeysRunConcurrently(t *testing.T) {
 
 	for err := range errs {
 		t.Fatalf("Get: %v", err)
+	}
+}
+
+func TestCachePrunesOldCASCFilesWhenDiskLimitExceeded(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	oldPath, err := Path(root, "cn", "wow", "old-build", "old-encoding")
+	if err != nil {
+		t.Fatalf("old path: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(oldPath), 0755); err != nil {
+		t.Fatalf("mkdir old path: %v", err)
+	}
+	if err := os.WriteFile(oldPath, bytes.Repeat([]byte("o"), 70), 0644); err != nil {
+		t.Fatalf("write old cache file: %v", err)
+	}
+	oldTime := time.Now().Add(-2 * time.Hour)
+	if err := os.Chtimes(oldPath, oldTime, oldTime); err != nil {
+		t.Fatalf("chtimes old cache file: %v", err)
+	}
+
+	body := bytes.Repeat([]byte("n"), 50)
+	cache := NewWithLimits(root, 100, 50)
+	got, err := cache.Get(ctx, "cn", "wow", "new-build", "new-encoding", testSHA256Hex(body), func(context.Context, string) ([]byte, error) {
+		return body, nil
+	})
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if !bytes.Equal(got, body) {
+		t.Fatalf("Get() = %q, want new body", got)
+	}
+	if _, err := os.Stat(oldPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("old cache file stat error = %v, want pruned", err)
+	}
+	newPath, err := Path(root, "cn", "wow", "new-build", "new-encoding")
+	if err != nil {
+		t.Fatalf("new path: %v", err)
+	}
+	if _, err := os.Stat(newPath); err != nil {
+		t.Fatalf("new cache file should remain after prune: %v", err)
 	}
 }
 

@@ -686,7 +686,9 @@ func StartBackground(ctx context.Context, cfg config.Config, db *sql.DB) error {
 }
 
 type ProductionDiscoverer struct {
-	CacheRoot string
+	CacheRoot       string
+	CASCLimitBytes  int64
+	CASCTargetBytes int64
 }
 
 func NewProductionDiscoverer(cfg config.Config) ProductionDiscoverer {
@@ -694,7 +696,11 @@ func NewProductionDiscoverer(cfg config.Config) ProductionDiscoverer {
 	if cacheRoot == "" {
 		cacheRoot = cfg.Cache.Root
 	}
-	return ProductionDiscoverer{CacheRoot: cacheRoot}
+	return ProductionDiscoverer{
+		CacheRoot:       cacheRoot,
+		CASCLimitBytes:  cfg.Cache.CASCDiskLimitMB * 1024 * 1024,
+		CASCTargetBytes: cfg.Cache.CASCDiskTargetMB * 1024 * 1024,
+	}
 }
 
 func (d ProductionDiscoverer) DiscoverBuild(_ context.Context, target config.PrepareTarget) (DiscoveredBuild, error) {
@@ -703,8 +709,11 @@ func (d ProductionDiscoverer) DiscoverBuild(_ context.Context, target config.Pre
 		return DiscoveredBuild{}, fmt.Errorf("unknown locale %q", target.Locale)
 	}
 	remote := casc.NewCASCRemote(target.Region)
+	remote.Products = httpServerDiscoveryProducts(target)
 	remote.Locale = locale
 	remote.CacheRoot = d.CacheRoot
+	remote.CacheLimitBytes = d.CASCLimitBytes
+	remote.CacheTargetBytes = d.CASCTargetBytes
 	if err := remote.Init(); err != nil {
 		return DiscoveredBuild{}, err
 	}
@@ -750,6 +759,10 @@ func (d ProductionDiscoverer) DiscoverBuild(_ context.Context, target config.Pre
 			return prepared, nil
 		},
 	}, nil
+}
+
+func httpServerDiscoveryProducts(target config.PrepareTarget) []string {
+	return []string{target.Product}
 }
 
 func persistResourceIndexes(ctx context.Context, db *sql.DB, indexes ResourceIndexes) error {

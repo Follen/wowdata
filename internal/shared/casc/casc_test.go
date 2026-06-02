@@ -203,6 +203,18 @@ func TestVersionConfigParsing(t *testing.T) {
 	}
 }
 
+func TestRemoteDefaultProductsExcludeClassicPTRUnlessOverridden(t *testing.T) {
+	remote := NewCASCRemote("cn")
+	if containsProduct(remote.products(), "wow_classic_ptr") {
+		t.Fatal("default remote products include wow_classic_ptr; want HTTP-only opt-in")
+	}
+
+	remote.Products = []string{"wow", "wow_classic_ptr"}
+	if !containsProduct(remote.products(), "wow_classic_ptr") {
+		t.Fatal("remote product override did not include wow_classic_ptr")
+	}
+}
+
 func TestCDNConfigParsing(t *testing.T) {
 	data := "# CDN Configuration\n"
 	data += "archives = archive1 archive2\n"
@@ -228,3 +240,12 @@ func TestCDNConfigInvalidHeader(t *testing.T) {
 }
 
 var _ = blte.NewReader
+
+func containsProduct(products []string, want string) bool {
+	for _, product := range products {
+		if product == want {
+			return true
+		}
+	}
+	return false
+}

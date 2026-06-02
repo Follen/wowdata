@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"wowdata/internal/shared/diskcache"
 )
 
 type CacheMeta struct {
@@ -18,16 +20,24 @@ type DataCache struct {
 	mu           sync.Mutex
 	root         string
 	key          string
+	limitBytes   int64
+	targetBytes  int64
 	manifestPath string
 	meta         CacheMeta
 	integrity    map[string]string
 }
 
 func NewDataCache(base string, key string) *DataCache {
+	return NewDataCacheWithLimits(base, key, 0, 0)
+}
+
+func NewDataCacheWithLimits(base string, key string, limitBytes int64, targetBytes int64) *DataCache {
 	root := filepath.Join(base, "casc", key)
 	dc := &DataCache{
 		root:         root,
 		key:          key,
+		limitBytes:   limitBytes,
+		targetBytes:  targetBytes,
 		manifestPath: filepath.Join(root, "build_manifest.json"),
 		meta:         CacheMeta{LastAccess: time.Now().UnixMilli()},
 		integrity:    make(map[string]string),
@@ -115,6 +125,9 @@ func (dc *DataCache) StoreFile(file string, data []byte, dir string) error {
 	}
 
 	dc.meta.LastAccess = time.Now().UnixMilli()
+	if err := diskcache.PruneLRU(filepath.Dir(dc.root), dc.limitBytes, dc.targetBytes); err != nil {
+		return err
+	}
 	dc.saveManifest()
 	dc.saveIntegrity()
 

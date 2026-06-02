@@ -16,11 +16,13 @@ type ServerConfig struct {
 }
 
 type CacheConfig struct {
-	Root       string `yaml:"root"`
-	MetadataDB string `yaml:"metadata_db"`
-	RawDir     string `yaml:"raw_dir"`
-	DB2Dir     string `yaml:"db2_dir"`
-	DuckDBPath string `yaml:"duckdb_path"`
+	Root             string `yaml:"root"`
+	MetadataDB       string `yaml:"metadata_db"`
+	RawDir           string `yaml:"raw_dir"`
+	DB2Dir           string `yaml:"db2_dir"`
+	DuckDBPath       string `yaml:"duckdb_path"`
+	CASCDiskLimitMB  int64  `yaml:"casc_disk_limit_mb"`
+	CASCDiskTargetMB int64  `yaml:"casc_disk_target_mb"`
 }
 
 type ArtifactsConfig struct {
@@ -99,11 +101,13 @@ func Default() Config {
 	return Config{
 		Server: ServerConfig{Host: "0.0.0.0", Port: 9788},
 		Cache: CacheConfig{
-			Root:       "/var/lib/wowdata/cache",
-			MetadataDB: "/var/lib/wowdata/cache/metadata.sqlite",
-			RawDir:     "/var/lib/wowdata/cache/raw",
-			DB2Dir:     "/var/lib/wowdata/cache/db2",
-			DuckDBPath: "/var/lib/wowdata/cache/duckdb/wowdata.duckdb",
+			Root:             "/var/lib/wowdata/cache",
+			MetadataDB:       "/var/lib/wowdata/cache/metadata.sqlite",
+			RawDir:           "/var/lib/wowdata/cache/raw",
+			DB2Dir:           "/var/lib/wowdata/cache/db2",
+			DuckDBPath:       "/var/lib/wowdata/cache/duckdb/wowdata.duckdb",
+			CASCDiskLimitMB:  61440,
+			CASCDiskTargetMB: 49152,
 		},
 		Artifacts: ArtifactsConfig{Root: "/var/lib/wowdata/artifacts"},
 		Prepare:   PrepareConfig{Targets: defaultTargets(), DefaultTables: defaultTables()},
@@ -125,27 +129,13 @@ func defaultTables() []string {
 func defaultTargets() []PrepareTarget {
 	return []PrepareTarget{
 		{Label: "CN Retail", Region: "cn", Product: "wow", Locale: "zhCN"},
-		{Label: "US Retail", Region: "us", Product: "wow", Locale: "enUS"},
-		{Label: "EU Retail", Region: "eu", Product: "wow", Locale: "enUS"},
-		{Label: "KR Retail", Region: "kr", Product: "wow", Locale: "koKR"},
-		{Label: "TW Retail", Region: "tw", Product: "wow", Locale: "zhTW"},
-
-		{Label: "CN PTR", Region: "cn", Product: "wowt", Locale: "zhCN"},
-		{Label: "US PTR", Region: "us", Product: "wowt", Locale: "enUS"},
-		{Label: "EU PTR", Region: "eu", Product: "wowt", Locale: "enUS"},
-
 		{Label: "CN Classic", Region: "cn", Product: "wow_classic", Locale: "zhCN"},
-		{Label: "US Classic", Region: "us", Product: "wow_classic", Locale: "enUS"},
-		{Label: "EU Classic", Region: "eu", Product: "wow_classic", Locale: "enUS"},
-		{Label: "KR Classic", Region: "kr", Product: "wow_classic", Locale: "koKR"},
-		{Label: "TW Classic", Region: "tw", Product: "wow_classic", Locale: "zhTW"},
-
-		{Label: "CN Classic Era", Region: "cn", Product: "wow_classic_era", Locale: "zhCN"},
-		{Label: "US Classic Era", Region: "us", Product: "wow_classic_era", Locale: "enUS"},
-		{Label: "EU Classic Era", Region: "eu", Product: "wow_classic_era", Locale: "enUS"},
-		{Label: "KR Classic Era", Region: "kr", Product: "wow_classic_era", Locale: "koKR"},
-		{Label: "TW Classic Era", Region: "tw", Product: "wow_classic_era", Locale: "zhTW"},
-
 		{Label: "CN Classic Titan", Region: "cn", Product: "wow_classic_titan", Locale: "zhCN"},
+		{Label: "CN Retail enUS", Region: "cn", Product: "wow", Locale: "enUS"},
+		{Label: "CN Classic enUS", Region: "cn", Product: "wow_classic", Locale: "enUS"},
+		{Label: "CN Retail PTR zhCN", Region: "cn", Product: "wowt", Locale: "zhCN"},
+		{Label: "CN Retail PTR enUS", Region: "cn", Product: "wowt", Locale: "enUS"},
+		{Label: "CN Classic PTR zhCN", Region: "cn", Product: "wow_classic_ptr", Locale: "zhCN"},
+		{Label: "CN Classic PTR enUS", Region: "cn", Product: "wow_classic_ptr", Locale: "enUS"},
 	}
 }

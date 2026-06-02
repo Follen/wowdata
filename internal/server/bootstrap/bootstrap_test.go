@@ -1273,6 +1273,18 @@ func TestPrepareStopsDiscoverRetryWhenContextCancelled(t *testing.T) {
 	}
 }
 
+func TestHTTPServerDiscoveryProductsOnlyIncludesRequestedTargetProduct(t *testing.T) {
+	products := httpServerDiscoveryProducts(config.PrepareTarget{Product: "wow_classic_ptr"})
+	if len(products) != 1 || products[0] != "wow_classic_ptr" {
+		t.Fatalf("products = %#v, want only requested target product", products)
+	}
+	for _, product := range products {
+		if product == "wowxptr" || product == "wow_classic_era" {
+			t.Fatalf("products include excluded default product %q", product)
+		}
+	}
+}
+
 type fakeDiscoverer struct {
 	builds map[string]DiscoveredBuild
 }

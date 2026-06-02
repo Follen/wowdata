@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestDefaultPrepareMatrixHasNineteenTargetsAndExcludesBetaForNow(t *testing.T) {
+func TestDefaultPrepareMatrixHasRequestedNineAllCNCDNTargetsAndExcludesExtras(t *testing.T) {
 	cfg := Default()
 	targets := cfg.Prepare.Targets
 	expected := expectedPrepareTargets()
@@ -19,6 +19,8 @@ func TestDefaultPrepareMatrixHasNineteenTargetsAndExcludesBetaForNow(t *testing.
 	assertNoDuplicateTargets(t, targets)
 	assertNoUnsupportedNonCNTitan(t, targets)
 	assertNoBetaTargets(t, targets)
+	assertNoClassicEraTargets(t, targets)
+	assertOnlyCNCDNTargets(t, targets)
 	if t.Failed() {
 		return
 	}
@@ -27,14 +29,14 @@ func TestDefaultPrepareMatrixHasNineteenTargetsAndExcludesBetaForNow(t *testing.
 	}
 }
 
-func TestSpecDocumentsNineteenTargetDefaultPrepareMatrixWithoutBeta(t *testing.T) {
+func TestSpecDocumentsRequestedNineTargetDefaultPrepareMatrix(t *testing.T) {
 	data, err := os.ReadFile("../../../docs/superpowers/specs/2026-06-02-wowdata-http-mcp-optimal-server-design.md")
 	if err != nil {
 		t.Fatalf("read design spec: %v", err)
 	}
 	spec := string(data)
-	if !strings.Contains(spec, "Total default prepare targets: 19.") {
-		t.Fatal("design spec must document 19 default prepare targets")
+	if !strings.Contains(spec, "Total default prepare targets: 9.") {
+		t.Fatal("design spec must document 9 default prepare targets")
 	}
 	matrixStart := strings.Index(spec, "The server discovers and prepares the latest configured builds for this default matrix:")
 	if matrixStart < 0 {
@@ -53,6 +55,11 @@ func TestSpecDocumentsNineteenTargetDefaultPrepareMatrixWithoutBeta(t *testing.T
 	if strings.Contains(matrix, "Beta:\n") || strings.Contains(matrix, "wowxptr") {
 		t.Fatal("design spec must not include Beta/wowxptr in the default prepare matrix")
 	}
+	for _, forbidden := range []string{"US /", "EU", "KR", "TW", "Classic Era"} {
+		if strings.Contains(matrix, forbidden) {
+			t.Fatalf("design spec matrix still includes unrequested target marker %q", forbidden)
+		}
+	}
 }
 
 func TestDefaultResourceLimitsFitTenGBServer(t *testing.T) {
@@ -68,6 +75,19 @@ func TestDefaultResourceLimitsFitTenGBServer(t *testing.T) {
 	}
 	if limits.MemorySoftLimitMB != 4096 || limits.MemoryHardLimitMB != 8192 {
 		t.Fatalf("memory limits = %d/%d, want 4096/8192", limits.MemorySoftLimitMB, limits.MemoryHardLimitMB)
+	}
+}
+
+func TestDefaultCASCDiskCacheLimitPrunesToLowerTarget(t *testing.T) {
+	cache := Default().Cache
+	if cache.CASCDiskLimitMB != 61440 {
+		t.Fatalf("CASC disk limit MB = %d, want 61440", cache.CASCDiskLimitMB)
+	}
+	if cache.CASCDiskTargetMB != 49152 {
+		t.Fatalf("CASC disk target MB = %d, want 49152", cache.CASCDiskTargetMB)
+	}
+	if cache.CASCDiskTargetMB >= cache.CASCDiskLimitMB {
+		t.Fatalf("CASC disk target MB must be below limit: target=%d limit=%d", cache.CASCDiskTargetMB, cache.CASCDiskLimitMB)
 	}
 }
 
@@ -142,11 +162,13 @@ func TestConfigStructsHaveSnakeCaseYAMLTags(t *testing.T) {
 		"EnableUpdateFixtures": "enable_update_fixtures",
 	})
 	assertYAMLTags(t, reflect.TypeOf(CacheConfig{}), map[string]string{
-		"Root":       "root",
-		"MetadataDB": "metadata_db",
-		"RawDir":     "raw_dir",
-		"DB2Dir":     "db2_dir",
-		"DuckDBPath": "duckdb_path",
+		"Root":             "root",
+		"MetadataDB":       "metadata_db",
+		"RawDir":           "raw_dir",
+		"DB2Dir":           "db2_dir",
+		"DuckDBPath":       "duckdb_path",
+		"CASCDiskLimitMB":  "casc_disk_limit_mb",
+		"CASCDiskTargetMB": "casc_disk_target_mb",
 	})
 	assertYAMLTags(t, reflect.TypeOf(ArtifactsConfig{}), map[string]string{
 		"Root":    "root",
@@ -261,6 +283,24 @@ func assertNoBetaTargets(t *testing.T, targets []PrepareTarget) {
 	}
 }
 
+func assertNoClassicEraTargets(t *testing.T, targets []PrepareTarget) {
+	t.Helper()
+	for _, target := range targets {
+		if target.Product == "wow_classic_era" {
+			t.Errorf("Classic Era target should not be in default prepare: %s/%s/%s (%s)", target.Region, target.Product, target.Locale, target.Label)
+		}
+	}
+}
+
+func assertOnlyCNCDNTargets(t *testing.T, targets []PrepareTarget) {
+	t.Helper()
+	for _, target := range targets {
+		if target.Region != "cn" {
+			t.Errorf("target must use CN CDN region: %s/%s/%s (%s)", target.Region, target.Product, target.Locale, target.Label)
+		}
+	}
+}
+
 func readExampleYAML(t *testing.T, out any) {
 	t.Helper()
 	data, err := os.ReadFile("../../../config/http-mcp.example.yaml")
@@ -275,23 +315,13 @@ func readExampleYAML(t *testing.T, out any) {
 func expectedPrepareTargets() []PrepareTarget {
 	return []PrepareTarget{
 		{Label: "CN Retail", Region: "cn", Product: "wow", Locale: "zhCN"},
-		{Label: "US Retail", Region: "us", Product: "wow", Locale: "enUS"},
-		{Label: "EU Retail", Region: "eu", Product: "wow", Locale: "enUS"},
-		{Label: "KR Retail", Region: "kr", Product: "wow", Locale: "koKR"},
-		{Label: "TW Retail", Region: "tw", Product: "wow", Locale: "zhTW"},
-		{Label: "CN PTR", Region: "cn", Product: "wowt", Locale: "zhCN"},
-		{Label: "US PTR", Region: "us", Product: "wowt", Locale: "enUS"},
-		{Label: "EU PTR", Region: "eu", Product: "wowt", Locale: "enUS"},
 		{Label: "CN Classic", Region: "cn", Product: "wow_classic", Locale: "zhCN"},
-		{Label: "US Classic", Region: "us", Product: "wow_classic", Locale: "enUS"},
-		{Label: "EU Classic", Region: "eu", Product: "wow_classic", Locale: "enUS"},
-		{Label: "KR Classic", Region: "kr", Product: "wow_classic", Locale: "koKR"},
-		{Label: "TW Classic", Region: "tw", Product: "wow_classic", Locale: "zhTW"},
-		{Label: "CN Classic Era", Region: "cn", Product: "wow_classic_era", Locale: "zhCN"},
-		{Label: "US Classic Era", Region: "us", Product: "wow_classic_era", Locale: "enUS"},
-		{Label: "EU Classic Era", Region: "eu", Product: "wow_classic_era", Locale: "enUS"},
-		{Label: "KR Classic Era", Region: "kr", Product: "wow_classic_era", Locale: "koKR"},
-		{Label: "TW Classic Era", Region: "tw", Product: "wow_classic_era", Locale: "zhTW"},
 		{Label: "CN Classic Titan", Region: "cn", Product: "wow_classic_titan", Locale: "zhCN"},
+		{Label: "CN Retail enUS", Region: "cn", Product: "wow", Locale: "enUS"},
+		{Label: "CN Classic enUS", Region: "cn", Product: "wow_classic", Locale: "enUS"},
+		{Label: "CN Retail PTR zhCN", Region: "cn", Product: "wowt", Locale: "zhCN"},
+		{Label: "CN Retail PTR enUS", Region: "cn", Product: "wowt", Locale: "enUS"},
+		{Label: "CN Classic PTR zhCN", Region: "cn", Product: "wow_classic_ptr", Locale: "zhCN"},
+		{Label: "CN Classic PTR enUS", Region: "cn", Product: "wow_classic_ptr", Locale: "enUS"},
 	}
 }

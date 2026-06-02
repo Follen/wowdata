@@ -1,10 +1,13 @@
 package casc
 
 import (
+	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDataCacheRoot(t *testing.T) {
@@ -125,5 +128,28 @@ func TestDataCacheSubdirStore(t *testing.T) {
 	}
 	if string(got) != string(data) {
 		t.Fatalf("data mismatch for subdir file")
+	}
+}
+
+func TestDataCachePrunesOldFilesWhenDiskLimitExceeded(t *testing.T) {
+	dir := t.TempDir()
+	dc := NewDataCacheWithLimits(dir, "build-a", 100, 50)
+
+	if err := dc.StoreFile("old.bin", bytes.Repeat([]byte("o"), 70), ""); err != nil {
+		t.Fatalf("StoreFile old: %v", err)
+	}
+	oldPath := dc.FilePath("old.bin", "")
+	oldTime := time.Now().Add(-2 * time.Hour)
+	if err := os.Chtimes(oldPath, oldTime, oldTime); err != nil {
+		t.Fatalf("chtimes old: %v", err)
+	}
+	if err := dc.StoreFile("new.bin", bytes.Repeat([]byte("n"), 50), ""); err != nil {
+		t.Fatalf("StoreFile new: %v", err)
+	}
+	if _, err := os.Stat(oldPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("old cache file stat error = %v, want pruned", err)
+	}
+	if _, err := dc.GetFile("new.bin", ""); err != nil {
+		t.Fatalf("new file should remain readable after prune: %v", err)
 	}
 }

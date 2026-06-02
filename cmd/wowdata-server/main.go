@@ -228,7 +228,7 @@ func newHTTPHandlerStrict(opts httpOptions, healthProvider health.Provider) (htt
 		}
 		assetService = service.NewAssetService(
 			metadataProvider.DB(),
-			rawcache.New(cfg.Cache.RawDir),
+			rawcache.NewWithLimits(cfg.Cache.RawDir, cfg.Cache.CASCDiskLimitMB*1024*1024, cfg.Cache.CASCDiskTargetMB*1024*1024),
 			artifacts.NewStore(artifacts.Config{Root: artifactRoot, BaseURL: artifactBaseURL(cfg, opts.BaseURL)}, metadataProvider.DB()),
 			nil,
 		)
