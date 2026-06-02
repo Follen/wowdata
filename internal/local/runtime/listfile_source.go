@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"wowdata/internal/casc"
 	"wowdata/internal/listfile"
+	"wowdata/internal/shared/casc"
 )
 
 type HTTPListfileSource struct {

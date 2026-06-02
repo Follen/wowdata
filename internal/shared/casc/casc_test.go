@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"wowdata/internal/blte"
+	"wowdata/internal/shared/blte"
 )
 
 func buildEncodingData(cKeys map[string]struct {

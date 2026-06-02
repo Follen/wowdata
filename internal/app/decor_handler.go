@@ -1,7 +1,7 @@
 package app
 
 import (
-	"wowdata/internal/wowdata"
+	"wowdata/internal/shared/wowdata"
 
 	"github.com/spf13/cobra"
 )

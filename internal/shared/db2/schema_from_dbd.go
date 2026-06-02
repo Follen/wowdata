@@ -3,7 +3,7 @@ package db2
 import (
 	"fmt"
 
-	"wowdata/internal/dbd"
+	"wowdata/internal/shared/dbd"
 )
 
 func SchemaFromDBD(entry *dbd.DBDEntry) ([]SchemaField, error) {

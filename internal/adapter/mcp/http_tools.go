@@ -11,11 +11,11 @@ import (
 	"strconv"
 	"strings"
 
-	"wowdata/internal/export"
 	appruntime "wowdata/internal/local/runtime"
-	"wowdata/internal/mcpserver"
 	httpservice "wowdata/internal/service/http"
-	"wowdata/internal/wowdata"
+	"wowdata/internal/shared/export"
+	"wowdata/internal/shared/mcpserver"
+	"wowdata/internal/shared/wowdata"
 )
 
 var httpDefaultToolNames = []string{

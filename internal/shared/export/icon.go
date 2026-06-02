@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"wowdata/internal/blp"
+	"wowdata/internal/shared/blp"
 )
 
 type IconExportResult struct {

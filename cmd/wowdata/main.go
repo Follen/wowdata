@@ -8,14 +8,14 @@ import (
 	"sync"
 
 	"wowdata/internal/app"
-	"wowdata/internal/blte"
-	"wowdata/internal/casc"
-	"wowdata/internal/dbd"
 	"wowdata/internal/diagnostics"
 	"wowdata/internal/listfile"
 	appruntime "wowdata/internal/local/runtime"
+	"wowdata/internal/shared/blte"
+	"wowdata/internal/shared/casc"
+	"wowdata/internal/shared/dbd"
+	"wowdata/internal/shared/wowdata"
 	"wowdata/internal/tact"
-	"wowdata/internal/wowdata"
 
 	"github.com/spf13/cobra"
 )

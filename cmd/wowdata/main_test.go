@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"wowdata/internal/app"
-	"wowdata/internal/casc"
+	"wowdata/internal/shared/casc"
 )
 
 func TestWarmupOptionsIncludeLocale(t *testing.T) {

@@ -9,6 +9,33 @@ import (
 	"testing"
 )
 
+func TestSpecDirectoryArchitecturePackagesExist(t *testing.T) {
+	packages := []string{
+		"./internal/shared/db2",
+		"./internal/shared/dbd",
+		"./internal/shared/casc",
+		"./internal/shared/blte",
+		"./internal/shared/blp",
+		"./internal/shared/export",
+		"./internal/shared/artifact",
+		"./internal/shared/wowdata",
+		"./internal/shared/mcpserver",
+		"./internal/local/cli",
+		"./internal/local/mcpstdio",
+		"./internal/local/diagnostics",
+		"./internal/local/cache",
+		"./internal/server/prune",
+	}
+	cmd := exec.Command(goToolPath(), append([]string{"list"}, packages...)...)
+	cmd.Dir = "../.."
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("go list spec architecture packages: %v\n%s", err, out.String())
+	}
+}
+
 func TestServerDoesNotImportLocalPackages(t *testing.T) {
 	cmd := exec.Command(goToolPath(), "list", "-deps", "./cmd/wowdata-server", "./internal/server/...")
 	cmd.Dir = "../.."
@@ -19,7 +46,20 @@ func TestServerDoesNotImportLocalPackages(t *testing.T) {
 		t.Fatalf("go list server deps: %v\n%s", err, out.String())
 	}
 	for _, dep := range strings.Fields(out.String()) {
-		if strings.Contains(dep, "/internal/local/") || strings.HasSuffix(dep, "/internal/app") || strings.HasSuffix(dep, "/internal/runtime") {
+		if strings.Contains(dep, "/internal/local/") ||
+			strings.Contains(dep, "/internal/service/http") ||
+			strings.Contains(dep, "/internal/app") ||
+			strings.Contains(dep, "/internal/adapter") ||
+			strings.Contains(dep, "/internal/db2") ||
+			strings.Contains(dep, "/internal/dbd") ||
+			strings.Contains(dep, "/internal/casc") ||
+			strings.Contains(dep, "/internal/blte") ||
+			strings.Contains(dep, "/internal/blp") ||
+			strings.Contains(dep, "/internal/export") ||
+			strings.Contains(dep, "/internal/artifact") ||
+			strings.Contains(dep, "/internal/wowdata") ||
+			strings.Contains(dep, "/internal/mcpserver") ||
+			strings.HasSuffix(dep, "/internal/runtime") {
 			t.Fatalf("server dependency imports local package: %s", dep)
 		}
 	}

@@ -1,6 +1,6 @@
 package item
 
-import "wowdata/internal/wowdata"
+import "wowdata/internal/shared/wowdata"
 
 type Service struct {
 	service *wowdata.ItemService

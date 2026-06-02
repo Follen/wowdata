@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"wowdata/internal/artifact"
 	"wowdata/internal/server/storage/metadata"
+	"wowdata/internal/shared/artifact"
 )
 
 type Config struct {

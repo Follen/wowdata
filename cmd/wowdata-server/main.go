@@ -10,7 +10,6 @@ import (
 	"os"
 	"time"
 
-	"wowdata/internal/mcpserver"
 	serverbootstrap "wowdata/internal/server/bootstrap"
 	"wowdata/internal/server/config"
 	"wowdata/internal/server/health"
@@ -19,6 +18,7 @@ import (
 	"wowdata/internal/server/service"
 	"wowdata/internal/server/storage/artifacts"
 	"wowdata/internal/server/storage/metadata"
+	"wowdata/internal/shared/mcpserver"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"

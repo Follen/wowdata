@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"wowdata/internal/mcpserver"
+	"wowdata/internal/shared/mcpserver"
 )
 
 var stdioToolNames = []string{

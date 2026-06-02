@@ -14,12 +14,12 @@ import (
 	"strings"
 
 	mcpadapter "wowdata/internal/adapter/mcp"
-	"wowdata/internal/artifact"
 	"wowdata/internal/config"
 	"wowdata/internal/listfile"
 	appruntime "wowdata/internal/local/runtime"
-	"wowdata/internal/mcpserver"
 	httpservice "wowdata/internal/service/http"
+	"wowdata/internal/shared/artifact"
+	"wowdata/internal/shared/mcpserver"
 
 	"github.com/spf13/cobra"
 )

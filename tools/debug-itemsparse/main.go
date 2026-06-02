@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"wowdata/internal/db2"
-	"wowdata/internal/dbd"
+	"wowdata/internal/shared/db2"
+	"wowdata/internal/shared/dbd"
 )
 
 func main() {

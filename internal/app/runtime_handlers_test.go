@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	appruntime "wowdata/internal/local/runtime"
-	"wowdata/internal/wowdata"
+	"wowdata/internal/shared/wowdata"
 )
 
 type fakeDB2Store struct{}

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"wowdata/internal/db2"
+	"wowdata/internal/shared/db2"
 )
 
 type memoryDB2Table struct {

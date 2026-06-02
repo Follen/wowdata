@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"wowdata/internal/casc"
 	"wowdata/internal/listfile"
+	"wowdata/internal/shared/casc"
 )
 
 type FileDataReader interface {

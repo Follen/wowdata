@@ -4,8 +4,8 @@ import (
 	"os"
 	"strings"
 
-	"wowdata/internal/export"
 	appruntime "wowdata/internal/local/runtime"
+	"wowdata/internal/shared/export"
 	"wowdata/internal/video"
 
 	"github.com/spf13/cobra"

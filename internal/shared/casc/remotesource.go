@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"wowdata/internal/blte"
+	"wowdata/internal/shared/blte"
 )
 
 const (

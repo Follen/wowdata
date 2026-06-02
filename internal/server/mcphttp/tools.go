@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"wowdata/internal/mcpserver"
 	"wowdata/internal/server/health"
 	"wowdata/internal/server/service"
+	"wowdata/internal/shared/mcpserver"
 )
 
 const defaultStreamLimit = 5000

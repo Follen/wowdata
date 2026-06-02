@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"wowdata/internal/mcpserver"
 	"wowdata/internal/server/health"
 	"wowdata/internal/server/service"
+	"wowdata/internal/shared/mcpserver"
 )
 
 func TestHTTPToolListIncludesDefaultServerTools(t *testing.T) {

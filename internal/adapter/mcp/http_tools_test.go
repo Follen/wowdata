@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	appruntime "wowdata/internal/local/runtime"
-	"wowdata/internal/mcpserver"
 	httpservice "wowdata/internal/service/http"
+	"wowdata/internal/shared/mcpserver"
 )
 
 func TestHTTPToolNamesDefaultExcludeWarmupAndIncludeHTTPTools(t *testing.T) {

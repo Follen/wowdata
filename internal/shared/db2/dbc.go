@@ -8,15 +8,15 @@ import (
 const dbcMagic = 0x43424457 // WDBC
 
 type DBCReader struct {
-	FileName         string
-	Schema           []SchemaField
-	BuildID          string
-	IsLoaded         bool
-	Data             []byte
-	RecordCount      uint32
-	FieldCount       uint32
-	RecordSize       uint32
-	StringBlockSize  uint32
+	FileName          string
+	Schema            []SchemaField
+	BuildID           string
+	IsLoaded          bool
+	Data              []byte
+	RecordCount       uint32
+	FieldCount        uint32
+	RecordSize        uint32
+	StringBlockSize   uint32
 	StringBlockOffset int64
 }
 

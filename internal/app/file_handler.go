@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"wowdata/internal/casc"
-	"wowdata/internal/export"
 	"wowdata/internal/listfile"
 	appruntime "wowdata/internal/local/runtime"
+	"wowdata/internal/shared/casc"
+	"wowdata/internal/shared/export"
 
 	"github.com/spf13/cobra"
 )

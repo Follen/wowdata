@@ -3,7 +3,7 @@ package runtime
 import (
 	"io"
 
-	"wowdata/internal/casc"
+	"wowdata/internal/shared/casc"
 )
 
 func cascDownloadProgressWriter() io.Writer {

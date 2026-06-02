@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"wowdata/internal/casc"
 	"wowdata/internal/listfile"
+	"wowdata/internal/shared/casc"
 )
 
 func TestIncompleteDB2RowsDoesNotReturnSuccess(t *testing.T) {

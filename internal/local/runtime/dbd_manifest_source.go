@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"wowdata/internal/dbd"
+	"wowdata/internal/shared/dbd"
 )
 
 type HTTPDBDManifestSource struct {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"wowdata/internal/casc"
 	"wowdata/internal/listfile"
+	"wowdata/internal/shared/casc"
 )
 
 type readByIDSource struct {

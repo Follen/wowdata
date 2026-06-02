@@ -3,7 +3,7 @@ package db2
 import (
 	"testing"
 
-	"wowdata/internal/dbd"
+	"wowdata/internal/shared/dbd"
 )
 
 func TestSchemaFromDBDConvertsDBDFieldRules(t *testing.T) {

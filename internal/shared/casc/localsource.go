@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"wowdata/internal/blte"
+	"wowdata/internal/shared/blte"
 )
 
 type CASCLocal struct {

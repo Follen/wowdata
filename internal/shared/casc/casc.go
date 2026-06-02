@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"wowdata/internal/blte"
+	"wowdata/internal/shared/blte"
 )
 
 const (

@@ -359,24 +359,24 @@ func buildWDC5TruncatedRelationshipData() []byte {
 	build := make([]byte, 128)
 	copy(build, []byte("WOWSTATIC_12_0_5"))
 	buf = append(buf, build...)
-	put32(1)  // recordCount
-	put32(2)  // fieldCount
-	put32(8)  // recordSize
-	put32(0)  // stringTableSize
-	put32(0)  // tableHash
-	put32(0)  // layoutHash
-	put32(1)  // minID
-	put32(1)  // maxID
-	put32(1)  // locale
-	put16(0)  // flags
-	put16(0)  // id field index
-	put32(2)  // total field count
-	put32(0)  // bitpackedDataOffset
-	put32(0)  // lookupColumnCount
-	put32(0)  // fieldStorageInfoSize
-	put32(0)  // commonDataSize
-	put32(0)  // palletDataSize
-	put32(1)  // sectionCount
+	put32(1) // recordCount
+	put32(2) // fieldCount
+	put32(8) // recordSize
+	put32(0) // stringTableSize
+	put32(0) // tableHash
+	put32(0) // layoutHash
+	put32(1) // minID
+	put32(1) // maxID
+	put32(1) // locale
+	put16(0) // flags
+	put16(0) // id field index
+	put32(2) // total field count
+	put32(0) // bitpackedDataOffset
+	put32(0) // lookupColumnCount
+	put32(0) // fieldStorageInfoSize
+	put32(0) // commonDataSize
+	put32(0) // palletDataSize
+	put32(1) // sectionCount
 
 	put64(0)
 	put32(0)  // fileOffset
