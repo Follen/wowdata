@@ -94,7 +94,7 @@ The MCP endpoint is /mcp. Health is available at /health.`,
 
 func runHTTPServer(opts httpOptions) error {
 	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
-	mux := newHTTPHandler(opts, defaultHealthProvider())
+	mux := newHTTPHandler(opts, nil)
 	fmt.Fprintf(os.Stderr, "wowdata-server MCP HTTP listening on http://%s/mcp\n", addr)
 	server := &http.Server{
 		Addr:              addr,
@@ -111,6 +111,12 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 			"error":   "config_unavailable",
 			"message": err.Error(),
 		})
+	}
+	if healthProvider == nil {
+		healthProvider = health.MetadataProvider{
+			Config:         cfg,
+			MetadataDBPath: opts.MetadataDBPath,
+		}
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
