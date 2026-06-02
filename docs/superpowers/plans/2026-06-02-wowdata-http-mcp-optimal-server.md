@@ -436,7 +436,15 @@ func TestDefaultPrepareMatrixHasTwentyThreeTargets(t *testing.T) {
 	assertTarget(t, targets, "CN Retail", "cn", "wow", "zhCN")
 	assertTarget(t, targets, "US PTR", "us", "wowt", "enUS")
 	assertTarget(t, targets, "EU PTR", "eu", "wowt", "enUS")
-	assertTarget(t, targets, "TW Classic Titan", "tw", "wow_classic_titan", "zhTW")
+	assertTarget(t, targets, "US Beta", "us", "wowxptr", "enUS")
+	assertTarget(t, targets, "EU Beta", "eu", "wowxptr", "enUS")
+	assertTarget(t, targets, "KR Beta", "kr", "wowxptr", "koKR")
+	assertTarget(t, targets, "TW Beta", "tw", "wowxptr", "zhTW")
+	assertTarget(t, targets, "CN Classic Titan", "cn", "wow_classic_titan", "zhCN")
+	assertNoTarget(t, targets, "US Classic Titan", "us", "wow_classic_titan", "enUS")
+	assertNoTarget(t, targets, "EU Classic Titan", "eu", "wow_classic_titan", "enUS")
+	assertNoTarget(t, targets, "KR Classic Titan", "kr", "wow_classic_titan", "koKR")
+	assertNoTarget(t, targets, "TW Classic Titan", "tw", "wow_classic_titan", "zhTW")
 }
 
 func TestDefaultResourceLimitsFitTenGBServer(t *testing.T) {
@@ -466,6 +474,15 @@ func assertTarget(t *testing.T, targets []PrepareTarget, label, region, product,
 		}
 	}
 	t.Fatalf("target %q not found in %#v", label, targets)
+}
+
+func assertNoTarget(t *testing.T, targets []PrepareTarget, label, region, product, locale string) {
+	t.Helper()
+	for _, target := range targets {
+		if target.Label == label || (target.Region == region && target.Product == product && target.Locale == locale) {
+			t.Fatalf("unsupported target remains: %#v", target)
+		}
+	}
 }
 ```
 
@@ -736,7 +753,7 @@ Create `internal/server/health/health.go` with concrete structs for `Snapshot`, 
 
 - [ ] **Step 3: Implement readiness calculation**
 
-Readiness is true only when every supported strict or default-required target is ready. `no_build` targets do not block unless strict.
+Readiness is true only when every supported strict or default-required target is ready. Custom-config `no_build` targets do not block unless strict; the default 23-target matrix must not include `no_build` entries.
 
 - [ ] **Step 4: Implement MCP status wrapper**
 

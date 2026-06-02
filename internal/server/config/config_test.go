@@ -16,6 +16,11 @@ func TestDefaultPrepareMatrixHasTwentyThreeTargets(t *testing.T) {
 		t.Fatalf("targets = %d, want %d", len(targets), len(expected))
 	}
 	assertNoDuplicateTargets(t, targets)
+	assertNoUnsupportedNonCNTitan(t, targets)
+	assertRequiredBetaTargets(t, targets)
+	if t.Failed() {
+		return
+	}
 	if !reflect.DeepEqual(targets, expected) {
 		t.Fatalf("targets = %#v, want %#v", targets, expected)
 	}
@@ -159,6 +164,35 @@ func assertNoDuplicateTargets(t *testing.T, targets []PrepareTarget) {
 	}
 }
 
+func assertNoUnsupportedNonCNTitan(t *testing.T, targets []PrepareTarget) {
+	t.Helper()
+	for _, target := range targets {
+		if target.Product == "wow_classic_titan" && target.Region != "cn" {
+			t.Errorf("unsupported non-CN Classic Titan target remains: %s/%s/%s (%s)", target.Region, target.Product, target.Locale, target.Label)
+		}
+	}
+}
+
+func assertRequiredBetaTargets(t *testing.T, targets []PrepareTarget) {
+	t.Helper()
+	required := []PrepareTarget{
+		{Label: "US Beta", Region: "us", Product: "wowxptr", Locale: "enUS"},
+		{Label: "EU Beta", Region: "eu", Product: "wowxptr", Locale: "enUS"},
+		{Label: "KR Beta", Region: "kr", Product: "wowxptr", Locale: "koKR"},
+		{Label: "TW Beta", Region: "tw", Product: "wowxptr", Locale: "zhTW"},
+	}
+	seen := map[string]bool{}
+	for _, target := range targets {
+		seen[target.Region+"/"+target.Product+"/"+target.Locale] = true
+	}
+	for _, target := range required {
+		key := target.Region + "/" + target.Product + "/" + target.Locale
+		if !seen[key] {
+			t.Errorf("missing required Beta target: %s (%s)", key, target.Label)
+		}
+	}
+}
+
 func readExampleYAML(t *testing.T, out any) {
 	t.Helper()
 	data, err := os.ReadFile("../../../config/http-mcp.example.yaml")
@@ -180,6 +214,10 @@ func expectedPrepareTargets() []PrepareTarget {
 		{Label: "CN PTR", Region: "cn", Product: "wowt", Locale: "zhCN"},
 		{Label: "US PTR", Region: "us", Product: "wowt", Locale: "enUS"},
 		{Label: "EU PTR", Region: "eu", Product: "wowt", Locale: "enUS"},
+		{Label: "US Beta", Region: "us", Product: "wowxptr", Locale: "enUS"},
+		{Label: "EU Beta", Region: "eu", Product: "wowxptr", Locale: "enUS"},
+		{Label: "KR Beta", Region: "kr", Product: "wowxptr", Locale: "koKR"},
+		{Label: "TW Beta", Region: "tw", Product: "wowxptr", Locale: "zhTW"},
 		{Label: "CN Classic", Region: "cn", Product: "wow_classic", Locale: "zhCN"},
 		{Label: "US Classic", Region: "us", Product: "wow_classic", Locale: "enUS"},
 		{Label: "EU Classic", Region: "eu", Product: "wow_classic", Locale: "enUS"},
@@ -191,9 +229,5 @@ func expectedPrepareTargets() []PrepareTarget {
 		{Label: "KR Classic Era", Region: "kr", Product: "wow_classic_era", Locale: "koKR"},
 		{Label: "TW Classic Era", Region: "tw", Product: "wow_classic_era", Locale: "zhTW"},
 		{Label: "CN Classic Titan", Region: "cn", Product: "wow_classic_titan", Locale: "zhCN"},
-		{Label: "US Classic Titan", Region: "us", Product: "wow_classic_titan", Locale: "enUS"},
-		{Label: "EU Classic Titan", Region: "eu", Product: "wow_classic_titan", Locale: "enUS"},
-		{Label: "KR Classic Titan", Region: "kr", Product: "wow_classic_titan", Locale: "koKR"},
-		{Label: "TW Classic Titan", Region: "tw", Product: "wow_classic_titan", Locale: "zhTW"},
 	}
 }

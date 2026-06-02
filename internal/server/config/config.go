@@ -97,6 +97,11 @@ func defaultTargets() []PrepareTarget {
 		{Label: "US PTR", Region: "us", Product: "wowt", Locale: "enUS"},
 		{Label: "EU PTR", Region: "eu", Product: "wowt", Locale: "enUS"},
 
+		{Label: "US Beta", Region: "us", Product: "wowxptr", Locale: "enUS"},
+		{Label: "EU Beta", Region: "eu", Product: "wowxptr", Locale: "enUS"},
+		{Label: "KR Beta", Region: "kr", Product: "wowxptr", Locale: "koKR"},
+		{Label: "TW Beta", Region: "tw", Product: "wowxptr", Locale: "zhTW"},
+
 		{Label: "CN Classic", Region: "cn", Product: "wow_classic", Locale: "zhCN"},
 		{Label: "US Classic", Region: "us", Product: "wow_classic", Locale: "enUS"},
 		{Label: "EU Classic", Region: "eu", Product: "wow_classic", Locale: "enUS"},
@@ -110,9 +115,5 @@ func defaultTargets() []PrepareTarget {
 		{Label: "TW Classic Era", Region: "tw", Product: "wow_classic_era", Locale: "zhTW"},
 
 		{Label: "CN Classic Titan", Region: "cn", Product: "wow_classic_titan", Locale: "zhCN"},
-		{Label: "US Classic Titan", Region: "us", Product: "wow_classic_titan", Locale: "enUS"},
-		{Label: "EU Classic Titan", Region: "eu", Product: "wow_classic_titan", Locale: "enUS"},
-		{Label: "KR Classic Titan", Region: "kr", Product: "wow_classic_titan", Locale: "koKR"},
-		{Label: "TW Classic Titan", Region: "tw", Product: "wow_classic_titan", Locale: "zhTW"},
 	}
 }

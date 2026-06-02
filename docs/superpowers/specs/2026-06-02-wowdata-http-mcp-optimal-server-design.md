@@ -132,6 +132,9 @@ Retail:
 PTR:
   CN / US / EU
 
+Beta:
+  US / EU / KR / TW
+
 Classic:
   CN / US / EU / KR / TW
 
@@ -139,7 +142,7 @@ Classic Era:
   CN / US / EU / KR / TW
 
 Classic Titan:
-  CN / US / EU / KR / TW
+  CN
 ```
 
 Total default prepare targets: 23.
@@ -154,7 +157,7 @@ KR -> koKR
 TW -> zhTW
 ```
 
-Unsupported region/product pairs are recorded as `no_build`. A `no_build` target does not block readiness unless the config marks that target as strict.
+The default matrix must contain only region/product pairs that the current Blizzard product discovery and the legacy Node oracle can resolve. Unsupported pairs are rejected from the default matrix instead of being counted as `no_build` skips.
 
 ## Request Classes
 
@@ -379,7 +382,7 @@ Health includes:
 - concurrency limits
 - recent refresh errors
 
-`readiness.ok` is true when all required supported targets are ready. `no_build` targets do not block readiness unless strict.
+`readiness.ok` is true when all required supported targets are ready. Custom-config `no_build` targets do not block readiness unless strict; the default 23-target matrix must not include `no_build` entries.
 
 ## Concurrency Model
 
