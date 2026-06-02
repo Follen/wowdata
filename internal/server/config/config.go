@@ -49,6 +49,7 @@ type LimitsConfig struct {
 }
 
 func (c *LimitsConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	existing := *c
 	type rawLimits LimitsConfig
 	var raw struct {
 		rawLimits `yaml:",inline"`
@@ -60,7 +61,26 @@ func (c *LimitsConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal(&raw); err != nil {
 		return err
 	}
-	*c = LimitsConfig(raw.rawLimits)
+	parsed := LimitsConfig(raw.rawLimits)
+	*c = existing
+	if parsed.MaxParallelContextPrepares != 0 {
+		c.MaxParallelContextPrepares = parsed.MaxParallelContextPrepares
+	}
+	if parsed.MaxParallelTableMaterializations != 0 {
+		c.MaxParallelTableMaterializations = parsed.MaxParallelTableMaterializations
+	}
+	if parsed.MaxParallelDownloads != 0 {
+		c.MaxParallelDownloads = parsed.MaxParallelDownloads
+	}
+	if parsed.MaxParallelQueries != 0 {
+		c.MaxParallelQueries = parsed.MaxParallelQueries
+	}
+	if parsed.MemorySoftLimitMB != 0 {
+		c.MemorySoftLimitMB = parsed.MemorySoftLimitMB
+	}
+	if parsed.MemoryHardLimitMB != 0 {
+		c.MemoryHardLimitMB = parsed.MemoryHardLimitMB
+	}
 	if c.MaxParallelContextPrepares == 0 {
 		c.MaxParallelContextPrepares = raw.MaxConcurrentPrepares
 	}

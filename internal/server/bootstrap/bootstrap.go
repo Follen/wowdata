@@ -147,13 +147,17 @@ func (r Runner) Prepare(ctx context.Context) error {
 		go func(item discoveredTarget) {
 			defer wg.Done()
 			defer func() { <-sem }()
+			fmt.Fprintf(os.Stderr, "wowdata-server prepare target materialization starting: %s %s/%s/%s build=%s\n", item.Target.Label, item.Target.Region, item.Target.Product, item.Target.Locale, item.Build.BuildKey)
 			if err := r.materializeTarget(ctx, item.Target, item.Build, materializer); err != nil {
+				fmt.Fprintf(os.Stderr, "wowdata-server prepare target materialization failed: %s %s/%s/%s build=%s: %v\n", item.Target.Label, item.Target.Region, item.Target.Product, item.Target.Locale, item.Build.BuildKey, err)
 				firstErrMu.Lock()
 				if firstErr == nil {
 					firstErr = err
 				}
 				firstErrMu.Unlock()
+				return
 			}
+			fmt.Fprintf(os.Stderr, "wowdata-server prepare target materialization finished: %s %s/%s/%s build=%s\n", item.Target.Label, item.Target.Region, item.Target.Product, item.Target.Locale, item.Build.BuildKey)
 		}(item)
 	}
 	wg.Wait()
@@ -231,6 +235,7 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 		if !sameActiveValid {
 			_ = metadata.MarkBuildPreparingMessage(ctx, r.DB, buildKey, "materializing "+tableName)
 		}
+		fmt.Fprintf(os.Stderr, "wowdata-server prepare materializing table: %s %s/%s/%s build=%s table=%s\n", target.Label, target.Region, target.Product, target.Locale, build.BuildKey, tableName)
 		if err := materializer.MaterializeTable(ctx, target, build, tableName); err != nil {
 			if sameActiveValid {
 				_ = restoreValidTables(ctx, r.DB, restoreTables)

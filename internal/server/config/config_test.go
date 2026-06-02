@@ -44,6 +44,7 @@ func TestDefaultResourceLimitsFitTenGBServer(t *testing.T) {
 
 func TestLimitsAcceptLegacyRemoteYAMLNames(t *testing.T) {
 	var cfg Config
+	cfg.Limits = LimitsConfig{MemorySoftLimitMB: 4096, MemoryHardLimitMB: 8192}
 	if err := yaml.Unmarshal([]byte(`
 limits:
   max_concurrent_prepares: 3
@@ -60,6 +61,9 @@ limits:
 	}
 	if cfg.Limits.MaxParallelQueries != 5 {
 		t.Fatalf("queries = %d, want 5 from max_concurrent_queries", cfg.Limits.MaxParallelQueries)
+	}
+	if cfg.Limits.MemorySoftLimitMB != 4096 || cfg.Limits.MemoryHardLimitMB != 8192 {
+		t.Fatalf("memory limits = %d/%d, want preserved 4096/8192", cfg.Limits.MemorySoftLimitMB, cfg.Limits.MemoryHardLimitMB)
 	}
 }
 
