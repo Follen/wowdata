@@ -226,6 +226,64 @@ func TestServerDefaultMCPHandlerAnswersTablesFromMetadata(t *testing.T) {
 	}
 }
 
+func TestServerDefaultMCPHandlerUsesConfigMetadataDB(t *testing.T) {
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db, err := metadata.Open(metadataPath)
+	if err != nil {
+		t.Fatalf("open metadata DB: %v", err)
+	}
+	ctx := context.Background()
+	if err := metadata.UpsertDiscoveredBuild(ctx, db, metadata.Build{
+		Key:       metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "active-build"},
+		BuildName: "active-build",
+		State:     metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert active build: %v", err)
+	}
+	if err := metadata.ActivateBuild(ctx, db, metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "active-build"}); err != nil {
+		t.Fatalf("activate build: %v", err)
+	}
+	if err := metadata.UpsertMaterializedTable(ctx, db, metadata.MaterializedTable{
+		Key:                 metadata.TableKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "active-build", TableName: "Item"},
+		DB2FileDataID:       1,
+		DBDHash:             "dbd-a",
+		DecoderVersion:      "decoder-1",
+		MaterializerVersion: "materializer-1",
+		ParquetPath:         "cache/db2/item.parquet",
+		RowCount:            1,
+		State:               metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert Item metadata: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close metadata DB: %v", err)
+	}
+	configPath := filepath.Join(t.TempDir(), "http-mcp.yaml")
+	configBody := "cache:\n  metadata_db: " + metadataPath + "\n"
+	if err := os.WriteFile(configPath, []byte(configBody), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	handler := newHTTPHandler(httpOptions{
+		ServiceName: "wowdata-server",
+		ConfigPath:  configPath,
+	}, &testHealthProvider{})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_query","arguments":{"mode":"tables","region":"us","product":"wow","locale":"enUS"}}}`))
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"name":"Item"`) {
+		t.Fatalf("mode=tables did not use configured metadata DB: %s", rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "query_engine_unavailable") {
+		t.Fatalf("mode=tables returned unavailable despite configured metadata DB: %s", rec.Body.String())
+	}
+}
+
 func TestServerFileRouteServesArtifacts(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "exports"), 0755); err != nil {

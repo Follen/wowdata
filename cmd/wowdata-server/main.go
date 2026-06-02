@@ -16,6 +16,7 @@ import (
 	"wowdata/internal/server/storage/artifacts"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 type httpOptions struct {
@@ -104,6 +105,13 @@ func runHTTPServer(opts httpOptions) error {
 }
 
 func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handler {
+	cfg, err := loadServerConfig(opts.ConfigPath)
+	if err != nil {
+		return errorHandler(http.StatusInternalServerError, map[string]interface{}{
+			"error":   "config_unavailable",
+			"message": err.Error(),
+		})
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		snapshot, err := mcphttp.HealthSnapshot(r.Context(), healthProvider)
@@ -120,7 +128,7 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 	if queryService == nil {
 		metadataDBPath := opts.MetadataDBPath
 		if metadataDBPath == "" {
-			metadataDBPath = config.Default().Cache.MetadataDB
+			metadataDBPath = cfg.Cache.MetadataDB
 		}
 		queryService = service.NewMetadataQueryService(metadataDBPath)
 	}
@@ -134,6 +142,27 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 		mux.Handle("/files/", artifacts.FileHandler(opts.ArtifactRoot))
 	}
 	return mux
+}
+
+func loadServerConfig(path string) (config.Config, error) {
+	cfg := config.Default()
+	if path == "" {
+		return cfg, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return cfg, err
+	}
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
+}
+
+func errorHandler(status int, payload interface{}) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, status, payload)
+	})
 }
 
 func defaultHealthProvider() health.Provider {

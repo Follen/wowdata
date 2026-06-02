@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"wowdata/internal/server/storage/metadata"
 )
@@ -28,11 +29,19 @@ func (s *MetadataQueryService) Tables(ctx context.Context, req TablesRequest) (T
 	if closeDB {
 		defer db.Close()
 	}
+	buildKey := req.Context.BuildKey
+	if buildKey == "" {
+		active, err := metadata.ActiveBuild(ctx, db, req.Context.Region, req.Context.Product, req.Context.Locale)
+		if err != nil {
+			return TableCatalog{}, fmt.Errorf("active build is required for %s/%s/%s: %w", req.Context.Region, req.Context.Product, req.Context.Locale, err)
+		}
+		buildKey = active.Key.BuildKey
+	}
 	tables, err := metadata.ListValidMaterializedTables(ctx, db, metadata.TableCatalogLookup{
 		Region:   req.Context.Region,
 		Product:  req.Context.Product,
 		Locale:   req.Context.Locale,
-		BuildKey: req.Context.BuildKey,
+		BuildKey: buildKey,
 	})
 	if err != nil {
 		return TableCatalog{}, err
