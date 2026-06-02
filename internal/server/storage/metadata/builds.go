@@ -50,6 +50,10 @@ func MarkBuildPreparing(ctx context.Context, db *sql.DB, key BuildKey) error {
 	return markBuildState(ctx, db, key, StatePreparing, "")
 }
 
+func MarkBuildPreparingMessage(ctx context.Context, db *sql.DB, key BuildKey, message string) error {
+	return markBuildState(ctx, db, key, StatePreparing, message)
+}
+
 func MarkBuildReady(ctx context.Context, db *sql.DB, key BuildKey) error {
 	return markBuildState(ctx, db, key, StateValid, "")
 }

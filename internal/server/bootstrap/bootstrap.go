@@ -34,13 +34,13 @@ const (
 type Config = config.Config
 
 type DiscoveredBuild struct {
-	BuildKey        string
-	BuildName       string
-	CASCBuildConfig string
-	CASCCDNConfig   string
-	NoBuild         bool
-	Error           string
-	FileReader      appruntime.FileDataReader
+	BuildKey         string
+	BuildName        string
+	CASCBuildConfig  string
+	CASCCDNConfig    string
+	NoBuild          bool
+	Error            string
+	FileReader       appruntime.FileDataReader
 	PrepareResources func(context.Context) (DiscoveredBuild, error)
 }
 
@@ -178,6 +178,9 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 	}
 	sameActiveValid := activeErr == nil && active.Key.BuildKey == build.BuildKey && active.State == metadata.StateValid
 	if build.PrepareResources != nil {
+		if !sameActiveValid {
+			_ = metadata.MarkBuildPreparingMessage(ctx, r.DB, buildKey, "resource preparation started")
+		}
 		prepared, err := build.PrepareResources(ctx)
 		if err != nil {
 			if sameActiveValid {
@@ -224,6 +227,9 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 	}
 
 	for _, tableName := range tablesToMaterialize {
+		if !sameActiveValid {
+			_ = metadata.MarkBuildPreparingMessage(ctx, r.DB, buildKey, "materializing "+tableName)
+		}
 		if err := materializer.MaterializeTable(ctx, target, build, tableName); err != nil {
 			if sameActiveValid {
 				_ = restoreValidTables(ctx, r.DB, restoreTables)

@@ -229,6 +229,31 @@ func TestNoBuildStatePersistsThroughMigrations(t *testing.T) {
 	}
 }
 
+func TestMarkBuildPreparingMessageUpdatesPreparingErrorText(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t)
+	key := BuildKey{Region: "us", Product: "wowxptr", Locale: "enUS", BuildKey: "beta-build"}
+	if err := UpsertDiscoveredBuild(ctx, db, Build{
+		Key:       key,
+		BuildName: "12.0.7.67808",
+		State:     StatePreparing,
+	}); err != nil {
+		t.Fatalf("upsert preparing build: %v", err)
+	}
+
+	if err := MarkBuildPreparingMessage(ctx, db, key, "resource preparation started"); err != nil {
+		t.Fatalf("mark preparing message: %v", err)
+	}
+
+	latest, err := LatestBuildForTarget(ctx, db, "us", "wowxptr", "enUS")
+	if err != nil {
+		t.Fatalf("latest build: %v", err)
+	}
+	if latest.State != StatePreparing || latest.Error != "resource preparation started" {
+		t.Fatalf("latest state/error = %q/%q, want preparing/resource preparation started", latest.State, latest.Error)
+	}
+}
+
 func TestOpenWithMigrationsConvertsLegacyFailedNoBuildRows(t *testing.T) {
 	ctx := context.Background()
 	migrationsDir := filepath.Join(t.TempDir(), "migrations", "server")
