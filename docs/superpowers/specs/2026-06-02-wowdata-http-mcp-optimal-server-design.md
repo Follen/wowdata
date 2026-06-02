@@ -228,6 +228,16 @@ SQLite stores:
 - state: preparing, valid, stale, failed
 - error text when failed
 
+The default server table set is the full DBD manifest table set for each active build target. In configuration this is represented by:
+
+```yaml
+prepare:
+  default_tables:
+    - "*"
+```
+
+The `*` sentinel is expanded at server startup into concrete manifest table names before health/readiness and background prepare use it.
+
 The HTTP `wow_query` tool must support:
 
 - schema

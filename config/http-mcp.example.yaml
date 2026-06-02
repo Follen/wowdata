@@ -103,21 +103,7 @@ prepare:
       product: wow_classic_titan
       locale: zhCN
   default_tables:
-    - SpellName
-    - Spell
-    - SpellEffect
-    - SpellMisc
-    - Item
-    - ItemSparse
-    - ItemEffect
-    - ItemModifiedAppearance
-    - ItemAppearance
-    - ItemDisplayInfo
-    - TextureFileData
-    - ModelFileData
-    - CreatureDisplayInfo
-    - CreatureModelData
-    - HouseDecor
+    - "*"
 
 refresh:
   product_check_interval_minutes: 30

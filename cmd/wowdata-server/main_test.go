@@ -715,6 +715,54 @@ func TestServerProductionWiringStartsBootstrapWithLoadedConfigDefaultTables(t *t
 	}
 }
 
+func TestServerProductionWiringExpandsManifestDefaultTables(t *testing.T) {
+	root := t.TempDir()
+	metadataPath := filepath.Join(root, "metadata.sqlite")
+	dbdCache := filepath.Join(root, "dbd")
+	if err := os.MkdirAll(dbdCache, 0755); err != nil {
+		t.Fatalf("mkdir dbd cache: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dbdCache, "dbd-manifest.json"), []byte(`[{"tableName":"Spell","db2FileDataID":1},{"tableName":"Item","db2FileDataID":2}]`), 0644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	configPath := filepath.Join(root, "http-mcp.yaml")
+	body := strings.Join([]string{
+		"cache:",
+		"  root: " + filepath.ToSlash(root),
+		"  metadata_db: " + filepath.ToSlash(metadataPath),
+		"prepare:",
+		"  targets:",
+		"    - label: US Retail",
+		"      region: us",
+		"      product: wow",
+		"      locale: enUS",
+		"  default_tables:",
+		`    - "*"`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(configPath, []byte(body), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	var gotTables []string
+	handler, err := newHTTPHandlerStrict(httpOptions{
+		ServiceName: "wowdata-server",
+		ConfigPath:  configPath,
+		Bootstrap: func(ctx context.Context, cfg serverbootstrap.Config, db *sql.DB) error {
+			gotTables = append([]string{}, cfg.Prepare.DefaultTables...)
+			return nil
+		},
+	}, nil)
+	if err != nil {
+		t.Fatalf("newHTTPHandlerStrict: %v", err)
+	}
+	if closer, ok := handler.(interface{ Close() error }); ok {
+		t.Cleanup(func() { _ = closer.Close() })
+	}
+	if strings.Join(gotTables, ",") != "Item,Spell" {
+		t.Fatalf("expanded default tables = %#v, want Item,Spell test manifest set", gotTables)
+	}
+}
+
 func TestServerFileRouteServesArtifacts(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "exports"), 0755); err != nil {
@@ -1071,6 +1119,10 @@ func writeHealthConfigWithDefaultTables(t *testing.T, metadataPath, label, regio
 		"  default_tables:",
 	}
 	for _, tableName := range defaultTables {
+		if tableName == "*" {
+			lines = append(lines, `    - "*"`)
+			continue
+		}
 		lines = append(lines, "    - "+tableName)
 	}
 	lines = append(lines, "")

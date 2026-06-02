@@ -119,23 +119,7 @@ func Default() Config {
 }
 
 func defaultTables() []string {
-	return []string{
-		"SpellName",
-		"Spell",
-		"SpellEffect",
-		"SpellMisc",
-		"Item",
-		"ItemSparse",
-		"ItemEffect",
-		"ItemModifiedAppearance",
-		"ItemAppearance",
-		"ItemDisplayInfo",
-		"TextureFileData",
-		"ModelFileData",
-		"CreatureDisplayInfo",
-		"CreatureModelData",
-		"HouseDecor",
-	}
+	return []string{"*"}
 }
 
 func defaultTargets() []PrepareTarget {

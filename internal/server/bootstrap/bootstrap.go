@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -51,6 +52,10 @@ type Discoverer interface {
 
 type TableMaterializer interface {
 	MaterializeTable(context.Context, config.PrepareTarget, DiscoveredBuild, string) error
+}
+
+type TableCatalogMaterializer interface {
+	AvailableTables(context.Context) ([]string, error)
 }
 
 type Runner struct {
@@ -165,9 +170,6 @@ func (r Runner) Prepare(ctx context.Context) error {
 }
 
 func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, materializer TableMaterializer) error {
-	if len(r.Config.Prepare.DefaultTables) == 0 {
-		return nil
-	}
 	if build.BuildName == "" {
 		build.BuildName = build.BuildKey
 	}
@@ -182,7 +184,14 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 		return activeErr
 	}
 	sameActiveValid := activeErr == nil && active.Key.BuildKey == build.BuildKey && active.State == metadata.StateValid
-	tablesToMaterialize := r.Config.Prepare.DefaultTables
+	requiredTables, err := ResolveRequiredTables(ctx, r.Config.Prepare.DefaultTables, materializer)
+	if err != nil {
+		return err
+	}
+	if len(requiredTables) == 0 {
+		return nil
+	}
+	tablesToMaterialize := requiredTables
 	var restoreTables []metadata.MaterializedTable
 	if sameActiveValid {
 		tables, err := metadata.ListValidMaterializedTables(ctx, r.DB, metadata.TableCatalogLookup{
@@ -195,7 +204,7 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 			return err
 		}
 		restoreTables = tables
-		tablesToMaterialize = missingDefaultTables(r.Config.Prepare.DefaultTables, tables)
+		tablesToMaterialize = missingDefaultTables(requiredTables, tables)
 		if len(tablesToMaterialize) == 0 {
 			return nil
 		}
@@ -252,6 +261,26 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 		return err
 	}
 	return metadata.ActivateBuild(ctx, r.DB, buildKey)
+}
+
+func ResolveRequiredTables(ctx context.Context, configured []string, materializer TableMaterializer) ([]string, error) {
+	if len(configured) > 0 && !isAllManifestTables(configured) {
+		return configured, nil
+	}
+	catalog, ok := materializer.(TableCatalogMaterializer)
+	if !ok {
+		return nil, nil
+	}
+	tables, err := catalog.AvailableTables(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(tables)
+	return tables, nil
+}
+
+func isAllManifestTables(configured []string) bool {
+	return len(configured) == 1 && configured[0] == "*"
 }
 
 func missingDefaultTables(defaultTables []string, validTables []metadata.MaterializedTable) []string {
@@ -550,6 +579,22 @@ func (m ProductionMaterializer) MaterializeTable(ctx context.Context, target con
 	}
 	_, err = serverparquet.NewMaterializer(m.DB, decoder, serverparquetRowWriter{}).Materialize(ctx, spec)
 	return err
+}
+
+func (m ProductionMaterializer) AvailableTables(ctx context.Context) ([]string, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+	if m.ManifestSource == nil {
+		return nil, errors.New("DBD manifest source is required")
+	}
+	manifest, err := m.ManifestSource.Manifest()
+	if err != nil {
+		return nil, err
+	}
+	return manifest.TableNames(), nil
 }
 
 type runtimeTableDecoder struct {

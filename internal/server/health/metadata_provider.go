@@ -184,6 +184,9 @@ func requiredTableProgress(required []string, tables []metadata.MaterializedTabl
 	if len(required) == 0 {
 		return 0, 0
 	}
+	if len(required) == 1 && required[0] == "*" {
+		return len(tables), len(tables)
+	}
 	validTables := make(map[string]bool, len(tables))
 	for _, table := range tables {
 		validTables[table.Key.TableName] = true

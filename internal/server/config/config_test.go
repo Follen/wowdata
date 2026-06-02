@@ -120,15 +120,10 @@ limits:
 	}
 }
 
-func TestDefaultPrepareDefaultTablesIncludeRequiredBusinessTables(t *testing.T) {
+func TestDefaultPrepareDefaultTablesUseFullManifestSentinel(t *testing.T) {
 	tables := Default().Prepare.DefaultTables
-	if len(tables) == 0 {
-		t.Fatal("Default().Prepare.DefaultTables is empty")
-	}
-	for _, want := range []string{"SpellName", "Item", "CreatureDisplayInfo", "HouseDecor"} {
-		if !containsString(tables, want) {
-			t.Fatalf("Default().Prepare.DefaultTables missing %q: %#v", want, tables)
-		}
+	if !reflect.DeepEqual(tables, []string{"*"}) {
+		t.Fatalf("Default().Prepare.DefaultTables = %#v, want full manifest sentinel", tables)
 	}
 }
 

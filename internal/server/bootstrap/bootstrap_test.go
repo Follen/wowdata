@@ -53,6 +53,31 @@ func TestPrepareActivatesBuildOnlyAfterEveryRequiredTableMaterializes(t *testing
 	}
 }
 
+func TestPrepareEmptyDefaultTablesMaterializesManifestTableSet(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"*"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "build-2", BuildName: "Build 2"},
+	}}
+	materializer := &fakeMaterializer{
+		db:              db,
+		availableTables: []string{"Achievement", "Item", "Spell"},
+	}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	if got := strings.Join(materializer.tables, ","); got != "Achievement,Item,Spell" {
+		t.Fatalf("materialized tables = %q, want manifest table set", got)
+	}
+	snapshot := healthSnapshot(t, ctx, db, cfg)
+	if snapshot.Contexts[0].PrepareCurrent != 3 || snapshot.Contexts[0].PrepareTotal != 3 {
+		t.Fatalf("prepare progress = %d/%d, want 3/3 manifest tables", snapshot.Contexts[0].PrepareCurrent, snapshot.Contexts[0].PrepareTotal)
+	}
+}
+
 func TestPrepareBootstrapsNewConfiguredTargetMissingFromMetadata(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
@@ -681,14 +706,19 @@ func (s *fakeRetrySleeper) Sleep(ctx context.Context, delay time.Duration) error
 }
 
 type fakeMaterializer struct {
-	db        *sql.DB
-	failTable string
-	err       error
-	mu        sync.Mutex
-	tables    []string
-	calls     int
-	during    func(string)
-	before    func(config.PrepareTarget, string)
+	db              *sql.DB
+	failTable       string
+	err             error
+	availableTables []string
+	mu              sync.Mutex
+	tables          []string
+	calls           int
+	during          func(string)
+	before          func(config.PrepareTarget, string)
+}
+
+func (m *fakeMaterializer) AvailableTables(context.Context) ([]string, error) {
+	return append([]string{}, m.availableTables...), nil
 }
 
 func (m *fakeMaterializer) MaterializeTable(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, tableName string) error {
