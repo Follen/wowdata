@@ -19,15 +19,11 @@ func TestCreatureAssemblerUsesBoundedQueries(t *testing.T) {
 		t.Fatalf("CreatureDisplay error = %v", err)
 	}
 
-	for _, want := range []businessQueryCall{
+	fake.assertExactBoundedCalls(t, []businessQueryCall{
 		{table: "CreatureDisplayInfo", idField: "ID"},
-		{table: "CreatureModelData", idField: "ID"},
 		{table: "CreatureDisplayInfoGeosetData", idField: "CreatureDisplayInfoID"},
-	} {
-		if !fake.sawBoundedCall(want.table, want.idField) {
-			t.Fatalf("missing bounded %s query by %s; calls: %#v", want.table, want.idField, fake.calls)
-		}
-	}
+		{table: "CreatureModelData", idField: "ID"},
+	})
 	if got.DisplayID != 100 || got.ModelID != 10 || got.FileDataID != 5000 || got.ModelFileDataID != 5000 {
 		t.Fatalf("CreatureDisplay = %#v, want display/model data", got)
 	}

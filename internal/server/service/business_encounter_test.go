@@ -20,9 +20,9 @@ func TestEncounterAssemblerUsesBoundedQueries(t *testing.T) {
 		t.Fatalf("EncounterInfo error = %v", err)
 	}
 
-	if !fake.sawBoundedCall("JournalEncounterSection", "JournalEncounterID") {
-		t.Fatalf("missing bounded JournalEncounterSection query by JournalEncounterID; calls: %#v", fake.calls)
-	}
+	fake.assertExactBoundedCalls(t, []businessQueryCall{
+		{table: "JournalEncounterSection", idField: "JournalEncounterID"},
+	})
 	if got.JournalEncounterID != 900 || got.SectionCount != 2 || got.SpellCount != 2 {
 		t.Fatalf("EncounterInfo = %#v, want encounter counts", got)
 	}

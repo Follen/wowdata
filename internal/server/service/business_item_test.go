@@ -18,14 +18,10 @@ func TestItemAssemblerUsesBoundedQueries(t *testing.T) {
 		t.Fatalf("ItemInfo error = %v", err)
 	}
 
-	for _, want := range []businessQueryCall{
+	fake.assertExactBoundedCalls(t, []businessQueryCall{
 		{table: "Item", idField: "ID"},
 		{table: "ItemSparse", idField: "ID"},
-	} {
-		if !fake.sawBoundedCall(want.table, want.idField) {
-			t.Fatalf("missing bounded %s query by %s; calls: %#v", want.table, want.idField, fake.calls)
-		}
-	}
+	})
 	if got.ID != 19019 || got.Name != "Thunderfury" || got.ClassID != 2 || got.SubclassID != 7 || got.Quality != 5 {
 		t.Fatalf("ItemInfo = %#v, want merged item summary", got)
 	}

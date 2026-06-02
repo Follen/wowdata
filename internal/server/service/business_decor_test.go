@@ -17,9 +17,9 @@ func TestDecorAssemblerUsesBoundedQueries(t *testing.T) {
 		t.Fatalf("DecorItem error = %v", err)
 	}
 
-	if !fake.sawBoundedCall("HouseDecor", "ID") {
-		t.Fatalf("missing bounded HouseDecor query by ID; calls: %#v", fake.calls)
-	}
+	fake.assertExactBoundedCalls(t, []businessQueryCall{
+		{table: "HouseDecor", idField: "ID"},
+	})
 	if got.ID != 77 || got.Name != "Banner" || got.ModelFileDataID != 888 || got.ThumbnailFileDataID != 999 || got.ItemID != 123 || got.GameObjectID != 456 {
 		t.Fatalf("DecorItem = %#v, want decor row payload", got)
 	}

@@ -110,6 +110,22 @@ func (s *boundedBusinessQueryService) sawBoundedCall(table, idField string) bool
 	return false
 }
 
+func (s *boundedBusinessQueryService) assertExactBoundedCalls(t *testing.T, want []businessQueryCall) {
+	t.Helper()
+	if len(s.calls) != len(want) {
+		t.Fatalf("query calls = %#v, want exactly %#v", s.calls, want)
+	}
+	for i, wantCall := range want {
+		got := s.calls[i]
+		if got.table != wantCall.table || got.idField != wantCall.idField {
+			t.Fatalf("query call %d = %#v, want %#v; all calls: %#v", i, got, wantCall, s.calls)
+		}
+		if len(got.ids) == 0 && got.filter == "" {
+			t.Fatalf("query call %d for %s was unbounded: %#v", i, got.table, got)
+		}
+	}
+}
+
 func (s *boundedBusinessQueryService) Schema(context.Context, SchemaRequest) (Schema, error) {
 	return Schema{}, nil
 }
