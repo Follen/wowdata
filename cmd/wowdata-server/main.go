@@ -113,10 +113,14 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 		})
 	}
 	if healthProvider == nil {
-		healthProvider = health.MetadataProvider{
-			Config:         cfg,
-			MetadataDBPath: opts.MetadataDBPath,
+		metadataHealthProvider, err := health.NewMetadataProvider(cfg, opts.MetadataDBPath)
+		if err != nil {
+			return errorHandler(http.StatusInternalServerError, map[string]interface{}{
+				"error":   "health_unavailable",
+				"message": err.Error(),
+			})
 		}
+		healthProvider = metadataHealthProvider
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

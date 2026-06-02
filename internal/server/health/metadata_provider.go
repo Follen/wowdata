@@ -4,15 +4,45 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 
 	"wowdata/internal/server/config"
 	"wowdata/internal/server/storage/metadata"
 )
 
+type metadataOpener func(string) (*sql.DB, error)
+
 type MetadataProvider struct {
 	Config         config.Config
 	MetadataDBPath string
+	db             *sql.DB
+}
+
+func NewMetadataProvider(cfg config.Config, metadataDBPath string) (MetadataProvider, error) {
+	return newMetadataProviderWithOpener(cfg, metadataDBPath, metadata.Open)
+}
+
+func newMetadataProviderWithOpener(cfg config.Config, metadataDBPath string, opener metadataOpener) (MetadataProvider, error) {
+	if metadataDBPath == "" {
+		metadataDBPath = cfg.Cache.MetadataDB
+	}
+	db, err := opener(metadataDBPath)
+	if err != nil {
+		return MetadataProvider{}, err
+	}
+	return MetadataProvider{
+		Config:         cfg,
+		MetadataDBPath: metadataDBPath,
+		db:             db,
+	}, nil
+}
+
+func (p MetadataProvider) Close() error {
+	if p.db == nil {
+		return nil
+	}
+	return p.db.Close()
 }
 
 func (p MetadataProvider) HealthSnapshot(ctx context.Context) (Snapshot, error) {
@@ -20,12 +50,9 @@ func (p MetadataProvider) HealthSnapshot(ctx context.Context) (Snapshot, error) 
 	if metadataDBPath == "" {
 		metadataDBPath = p.Config.Cache.MetadataDB
 	}
-
-	db, err := metadata.Open(metadataDBPath)
-	if err != nil {
-		return Snapshot{}, err
+	if p.db == nil {
+		return Snapshot{}, fmt.Errorf("metadata provider database is unavailable")
 	}
-	defer db.Close()
 
 	targets := make([]TargetInput, 0, len(p.Config.Prepare.Targets))
 	for _, target := range p.Config.Prepare.Targets {
@@ -38,11 +65,11 @@ func (p MetadataProvider) HealthSnapshot(ctx context.Context) (Snapshot, error) 
 			State:   StatePreparing,
 		}
 
-		active, err := metadata.ActiveBuild(ctx, db, target.Region, target.Product, target.Locale)
+		active, err := metadata.ActiveBuild(ctx, p.db, target.Region, target.Product, target.Locale)
 		if err == nil {
 			input.ActiveBuild = active.Key.BuildKey
 			if active.State == metadata.StateValid {
-				tables, err := metadata.ListValidMaterializedTables(ctx, db, metadata.TableCatalogLookup{
+				tables, err := metadata.ListValidMaterializedTables(ctx, p.db, metadata.TableCatalogLookup{
 					Region:   target.Region,
 					Product:  target.Product,
 					Locale:   target.Locale,
@@ -51,7 +78,8 @@ func (p MetadataProvider) HealthSnapshot(ctx context.Context) (Snapshot, error) 
 				if err != nil {
 					return Snapshot{}, err
 				}
-				if len(tables) > 0 {
+				input.PrepareCurrent, input.PrepareTotal = requiredTableProgress(p.Config.Prepare.DefaultTables, tables)
+				if requiredTablesReady(input.PrepareCurrent, input.PrepareTotal, len(tables)) {
 					input.State = StateReady
 					input.DB2Ready = true
 				}
@@ -78,4 +106,28 @@ func (p MetadataProvider) HealthSnapshot(ctx context.Context) (Snapshot, error) 
 		},
 		Storage: Storage{MetadataDBBytes: metadataDBBytes},
 	}), nil
+}
+
+func requiredTableProgress(required []string, tables []metadata.MaterializedTable) (int, int) {
+	if len(required) == 0 {
+		return 0, 0
+	}
+	validTables := make(map[string]bool, len(tables))
+	for _, table := range tables {
+		validTables[table.Key.TableName] = true
+	}
+	matched := 0
+	for _, tableName := range required {
+		if validTables[tableName] {
+			matched++
+		}
+	}
+	return matched, len(required)
+}
+
+func requiredTablesReady(current, total, validTableCount int) bool {
+	if total == 0 {
+		return validTableCount > 0
+	}
+	return current == total
 }

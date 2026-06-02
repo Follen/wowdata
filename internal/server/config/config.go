@@ -22,7 +22,8 @@ type CacheConfig struct {
 }
 
 type PrepareConfig struct {
-	Targets []PrepareTarget `yaml:"targets"`
+	Targets       []PrepareTarget `yaml:"targets"`
+	DefaultTables []string        `yaml:"default_tables"`
 }
 
 type PrepareTarget struct {

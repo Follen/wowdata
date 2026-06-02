@@ -132,7 +132,7 @@ func TestServerHealthUsesMetadataBackedProviderForReadyTarget(t *testing.T) {
 	handler := newHTTPHandler(httpOptions{
 		ServiceName: "wowdata-server",
 		ConfigPath:  configPath,
-	}, nil)
+	}, newTestMetadataHealthProvider(t, configPath, metadataPath))
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
@@ -159,6 +159,84 @@ func TestServerHealthUsesMetadataBackedProviderForReadyTarget(t *testing.T) {
 	}
 }
 
+func TestServerHealthRequiresAllConfiguredDefaultTables(t *testing.T) {
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	seedActiveMaterializedTables(t, metadataPath, metadata.BuildKey{
+		Region:   "us",
+		Product:  "wow",
+		Locale:   "enUS",
+		BuildKey: "active-build",
+	}, []string{"Item"})
+	configPath := writeHealthConfigWithDefaultTables(t, metadataPath, "US Retail", "us", "wow", "enUS", []string{"Item", "Spell"})
+	handler := newHTTPHandler(httpOptions{
+		ServiceName: "wowdata-server",
+		ConfigPath:  configPath,
+	}, newTestMetadataHealthProvider(t, configPath, metadataPath))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	var got health.Snapshot
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode health: %v\n%s", err, rec.Body.String())
+	}
+	if got.Readiness.OK || got.Readiness.RequiredTargetsReady != 0 || got.Readiness.RequiredTargetsTotal != 1 {
+		t.Fatalf("readiness = %#v, want 0/1 not ready", got.Readiness)
+	}
+	if got.Matrix.Ready != 0 || got.Matrix.Preparing != 1 {
+		t.Fatalf("matrix = %#v, want one preparing target", got.Matrix)
+	}
+	if len(got.Contexts) != 1 || got.Contexts[0].State != health.StatePreparing || got.Contexts[0].DB2Ready {
+		t.Fatalf("contexts = %#v, want preparing target without DB2Ready", got.Contexts)
+	}
+	if got.Contexts[0].PrepareCurrent != 1 || got.Contexts[0].PrepareTotal != 2 {
+		t.Fatalf("prepare progress = %d/%d, want 1/2", got.Contexts[0].PrepareCurrent, got.Contexts[0].PrepareTotal)
+	}
+}
+
+func TestServerHealthReadyWhenAllConfiguredDefaultTablesAreValid(t *testing.T) {
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	seedActiveMaterializedTables(t, metadataPath, metadata.BuildKey{
+		Region:   "us",
+		Product:  "wow",
+		Locale:   "enUS",
+		BuildKey: "active-build",
+	}, []string{"Item", "Spell"})
+	configPath := writeHealthConfigWithDefaultTables(t, metadataPath, "US Retail", "us", "wow", "enUS", []string{"Item", "Spell"})
+	handler := newHTTPHandler(httpOptions{
+		ServiceName: "wowdata-server",
+		ConfigPath:  configPath,
+	}, newTestMetadataHealthProvider(t, configPath, metadataPath))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	var got health.Snapshot
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode health: %v\n%s", err, rec.Body.String())
+	}
+	if !got.Readiness.OK || got.Readiness.RequiredTargetsReady != 1 || got.Readiness.RequiredTargetsTotal != 1 {
+		t.Fatalf("readiness = %#v, want 1/1 ready", got.Readiness)
+	}
+	if got.Matrix.Ready != 1 || got.Matrix.Preparing != 0 {
+		t.Fatalf("matrix = %#v, want one ready target", got.Matrix)
+	}
+	if len(got.Contexts) != 1 || got.Contexts[0].State != health.StateReady || !got.Contexts[0].DB2Ready {
+		t.Fatalf("contexts = %#v, want ready target with DB2Ready", got.Contexts)
+	}
+	if got.Contexts[0].PrepareCurrent != 2 || got.Contexts[0].PrepareTotal != 2 {
+		t.Fatalf("prepare progress = %d/%d, want 2/2", got.Contexts[0].PrepareCurrent, got.Contexts[0].PrepareTotal)
+	}
+}
+
 func TestServerWowStatusReportsConfiguredTargetPreparingWithoutActiveMetadata(t *testing.T) {
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
 	db, err := metadata.Open(metadataPath)
@@ -172,7 +250,7 @@ func TestServerWowStatusReportsConfiguredTargetPreparingWithoutActiveMetadata(t 
 	handler := newHTTPHandler(httpOptions{
 		ServiceName: "wowdata-server",
 		ConfigPath:  configPath,
-	}, nil)
+	}, newTestMetadataHealthProvider(t, configPath, metadataPath))
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_status","arguments":{}}}`))
@@ -253,7 +331,7 @@ func TestServerHealthKeepsActiveNonValidBuildPreparingDespiteValidTable(t *testi
 	handler := newHTTPHandler(httpOptions{
 		ServiceName: "wowdata-server",
 		ConfigPath:  configPath,
-	}, nil)
+	}, newTestMetadataHealthProvider(t, configPath, metadataPath))
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
@@ -484,7 +562,30 @@ func (p *testHealthProvider) HealthSnapshot(context.Context) (health.Snapshot, e
 	return p.snapshot, nil
 }
 
+func newTestMetadataHealthProvider(t *testing.T, configPath, metadataPath string) health.Provider {
+	t.Helper()
+	cfg, err := loadServerConfig(configPath)
+	if err != nil {
+		t.Fatalf("load server config: %v", err)
+	}
+	provider, err := health.NewMetadataProvider(cfg, metadataPath)
+	if err != nil {
+		t.Fatalf("new metadata health provider: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := provider.Close(); err != nil {
+			t.Fatalf("close metadata health provider: %v", err)
+		}
+	})
+	return provider
+}
+
 func seedActiveMaterializedTable(t *testing.T, metadataPath string, buildKey metadata.BuildKey, tableName string) {
+	t.Helper()
+	seedActiveMaterializedTables(t, metadataPath, buildKey, []string{tableName})
+}
+
+func seedActiveMaterializedTables(t *testing.T, metadataPath string, buildKey metadata.BuildKey, tableNames []string) {
 	t.Helper()
 	db, err := metadata.Open(metadataPath)
 	if err != nil {
@@ -503,23 +604,25 @@ func seedActiveMaterializedTable(t *testing.T, metadataPath string, buildKey met
 	if err := metadata.ActivateBuild(ctx, db, buildKey); err != nil {
 		t.Fatalf("activate build: %v", err)
 	}
-	if err := metadata.UpsertMaterializedTable(ctx, db, metadata.MaterializedTable{
-		Key: metadata.TableKey{
-			Region:    buildKey.Region,
-			Product:   buildKey.Product,
-			Locale:    buildKey.Locale,
-			BuildKey:  buildKey.BuildKey,
-			TableName: tableName,
-		},
-		DB2FileDataID:       1,
-		DBDHash:             "dbd-a",
-		DecoderVersion:      "decoder-1",
-		MaterializerVersion: "materializer-1",
-		ParquetPath:         "cache/db2/item.parquet",
-		RowCount:            1,
-		State:               metadata.StateValid,
-	}); err != nil {
-		t.Fatalf("upsert materialized table: %v", err)
+	for index, tableName := range tableNames {
+		if err := metadata.UpsertMaterializedTable(ctx, db, metadata.MaterializedTable{
+			Key: metadata.TableKey{
+				Region:    buildKey.Region,
+				Product:   buildKey.Product,
+				Locale:    buildKey.Locale,
+				BuildKey:  buildKey.BuildKey,
+				TableName: tableName,
+			},
+			DB2FileDataID:       index + 1,
+			DBDHash:             "dbd-a",
+			DecoderVersion:      "decoder-1",
+			MaterializerVersion: "materializer-1",
+			ParquetPath:         "cache/db2/" + strings.ToLower(tableName) + ".parquet",
+			RowCount:            1,
+			State:               metadata.StateValid,
+		}); err != nil {
+			t.Fatalf("upsert materialized table %s: %v", tableName, err)
+		}
 	}
 }
 
@@ -538,6 +641,30 @@ func writeHealthConfig(t *testing.T, metadataPath, label, region, product, local
 		"",
 	}, "\n")
 	if err := os.WriteFile(configPath, []byte(body), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	return configPath
+}
+
+func writeHealthConfigWithDefaultTables(t *testing.T, metadataPath, label, region, product, locale string, defaultTables []string) string {
+	t.Helper()
+	configPath := filepath.Join(t.TempDir(), "http-mcp.yaml")
+	lines := []string{
+		"cache:",
+		"  metadata_db: " + metadataPath,
+		"prepare:",
+		"  targets:",
+		"    - label: " + label,
+		"      region: " + region,
+		"      product: " + product,
+		"      locale: " + locale,
+		"  default_tables:",
+	}
+	for _, tableName := range defaultTables {
+		lines = append(lines, "    - "+tableName)
+	}
+	lines = append(lines, "")
+	if err := os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	return configPath
