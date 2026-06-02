@@ -88,7 +88,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeJSONHTTP(w, http.StatusMethodNotAllowed, map[string]interface{}{
 				"error":     "SSE transport is not supported on this endpoint",
 				"transport": "streamable_http",
-				"endpoint":  "/mcp",
+				"endpoint":  "/wowdata",
 			})
 			return
 		}

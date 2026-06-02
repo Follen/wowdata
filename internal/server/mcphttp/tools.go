@@ -17,9 +17,16 @@ import (
 const defaultStreamLimit = 5000
 
 type Options struct {
-	HealthProvider health.Provider
-	QueryService   service.QueryService
-	AssetService   service.AssetService
+	HealthProvider   health.Provider
+	QueryService     service.QueryService
+	AssetService     service.AssetService
+	SupportedTargets []SupportedTarget
+}
+
+type SupportedTarget struct {
+	Region  string
+	Product string
+	Locale  string
 }
 
 func HTTPTools(opts Options) []mcpserver.Tool {
@@ -31,19 +38,19 @@ func HTTPTools(opts Options) []mcpserver.Tool {
 	return []mcpserver.Tool{
 		statusTool(opts.HealthProvider),
 		buildsTool(opts.HealthProvider),
-		queryTool(queryService),
-		itemTool(queryService),
-		spellTool(queryService),
-		fileTool(opts.AssetService),
-		iconTool(opts.AssetService),
-		creatureTool(queryService),
-		encounterTool(queryService),
-		decorTool(queryService),
-		capabilityTool("wow_video", "Process video container data.", "video"),
+		queryTool(queryService, opts.SupportedTargets),
+		itemTool(queryService, opts.SupportedTargets),
+		spellTool(queryService, opts.SupportedTargets),
+		fileTool(opts.AssetService, opts.SupportedTargets),
+		iconTool(opts.AssetService, opts.SupportedTargets),
+		creatureTool(queryService, opts.SupportedTargets),
+		encounterTool(queryService, opts.SupportedTargets),
+		decorTool(queryService, opts.SupportedTargets),
+		capabilityTool("wow_video", "Process video container data.", "video", opts.SupportedTargets),
 	}
 }
 
-func fileTool(assetService service.AssetService) mcpserver.Tool {
+func fileTool(assetService service.AssetService, supportedTargets []SupportedTarget) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_file",
 		Description: "Query and export CASC files.",
@@ -52,6 +59,10 @@ func fileTool(assetService service.AssetService) mcpserver.Tool {
 			args, err := parseArgs(raw)
 			if err != nil {
 				return nil, err
+			}
+			rc, err := validateSupportedTarget(args, supportedTargets)
+			if err != nil {
+				return errorEnvelope("file", "unsupported_target", err.Error()), nil
 			}
 			if assetService == nil {
 				return errorEnvelope("file", "capability_unavailable", "file is unavailable in the HTTP service"), nil
@@ -74,7 +85,7 @@ func fileTool(assetService service.AssetService) mcpserver.Tool {
 				return okEnvelope("file lookup", map[string]interface{}{"result": assetRecordMap(record)}), nil
 			case "exists":
 				result, err := assetService.FileExists(ctx, service.FileExistsRequest{
-					Context:    requestContextFromArgs(args),
+					Context:    rc,
 					FileDataID: fileDataID,
 					Filename:   filename,
 				})
@@ -84,7 +95,7 @@ func fileTool(assetService service.AssetService) mcpserver.Tool {
 				return okEnvelope("file exists", map[string]interface{}{"result": result}), nil
 			case "get", "export":
 				record, err := assetService.FileExport(ctx, service.FileExportRequest{
-					Context:    requestContextFromArgs(args),
+					Context:    rc,
 					FileDataID: fileDataID,
 					Filename:   filename,
 					MIMEType:   stringArg(args, "mimeType", ""),
@@ -100,7 +111,7 @@ func fileTool(assetService service.AssetService) mcpserver.Tool {
 	}
 }
 
-func iconTool(assetService service.AssetService) mcpserver.Tool {
+func iconTool(assetService service.AssetService, supportedTargets []SupportedTarget) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_icon",
 		Description: "Export BLP icons.",
@@ -109,6 +120,10 @@ func iconTool(assetService service.AssetService) mcpserver.Tool {
 			args, err := parseArgs(raw)
 			if err != nil {
 				return nil, err
+			}
+			rc, err := validateSupportedTarget(args, supportedTargets)
+			if err != nil {
+				return errorEnvelope("icon", "unsupported_target", err.Error()), nil
 			}
 			if assetService == nil {
 				return errorEnvelope("icon", "capability_unavailable", "icon is unavailable in the HTTP service"), nil
@@ -126,7 +141,7 @@ func iconTool(assetService service.AssetService) mcpserver.Tool {
 				return errorEnvelope("icon export", "invalid_request", err.Error()), nil
 			}
 			record, err := assetService.IconExport(ctx, service.IconExportRequest{
-				Context:    requestContextFromArgs(args),
+				Context:    rc,
 				FileDataID: fileDataID,
 				Format:     stringArg(args, "format", "png"),
 				Mipmap:     mipmap,
@@ -208,7 +223,7 @@ func statusTool(provider health.Provider) mcpserver.Tool {
 	}
 }
 
-func queryTool(queryService service.QueryService) mcpserver.Tool {
+func queryTool(queryService service.QueryService, supportedTargets []SupportedTarget) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_query",
 		Description: "Query DB2 tables through the HTTP service.",
@@ -218,11 +233,15 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 			if err != nil {
 				return nil, err
 			}
+			rc, err := validateSupportedTarget(args, supportedTargets)
+			if err != nil {
+				return errorEnvelope("query", "unsupported_target", err.Error()), nil
+			}
 
 			switch mode := stringArg(args, "mode", "rows"); mode {
 			case "tables":
 				catalog, err := queryService.Tables(ctx, service.TablesRequest{
-					Context: requestContextFromArgs(args),
+					Context: rc,
 				})
 				if err != nil {
 					return errorEnvelopeFromError("query tables", "query_engine_unavailable", err), nil
@@ -234,7 +253,7 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 					return errorEnvelope("query", "invalid_request", "table is required"), nil
 				}
 				schema, err := queryService.Schema(ctx, service.SchemaRequest{
-					Context: requestContextFromArgs(args),
+					Context: rc,
 					Table:   table,
 				})
 				if err != nil {
@@ -264,7 +283,7 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 					return errorEnvelope("query rows", "invalid_request", err.Error()), nil
 				}
 				rows, err := queryService.Rows(ctx, service.QueryRowsRequest{
-					Context: requestContextFromArgs(args),
+					Context: rc,
 					Table:   table,
 					IDs:     ids,
 					IDField: stringArg(args, "field", "ID"),
@@ -287,7 +306,7 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 					return errorEnvelope("query search", "invalid_request", err.Error()), nil
 				}
 				rows, err := queryService.Search(ctx, service.SearchRequest{
-					Context: requestContextFromArgs(args),
+					Context: rc,
 					Table:   table,
 					Field:   stringArg(args, "field", ""),
 					Query:   stringArg(args, "query", ""),
@@ -307,7 +326,7 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 					return errorEnvelope("query foreign-key", "invalid_request", err.Error()), nil
 				}
 				rows, err := queryService.ForeignKey(ctx, service.ForeignKeyRequest{
-					Context: requestContextFromArgs(args),
+					Context: rc,
 					Table:   table,
 					Field:   stringArg(args, "field", ""),
 					Value:   args["value"],
@@ -331,7 +350,7 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 					return errorEnvelope("query stream", "invalid_request", err.Error()), nil
 				}
 				rows, err := queryService.Stream(ctx, service.StreamRequest{
-					Context: requestContextFromArgs(args),
+					Context: rc,
 					Table:   table,
 					Limit:   limit,
 					Offset:  offset,
@@ -347,21 +366,22 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 	}
 }
 
-func itemTool(queryService service.QueryService) mcpserver.Tool {
-	return businessTool("wow_item", "Query item metadata and assets.", "item", func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+func itemTool(queryService service.QueryService, supportedTargets []SupportedTarget) mcpserver.Tool {
+	return businessTool("wow_item", "Query item metadata and assets.", "item", supportedTargets, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 		itemID, err := requiredUint32Arg(args, "itemID", "id")
 		if err != nil {
 			return nil, err
 		}
+		rc := requestContextFromArgs(args)
 		return service.ItemInfo(ctx, queryService, service.ItemInfoRequest{
-			Context: requestContextFromArgs(args),
+			Context: rc,
 			ItemID:  itemID,
 		})
 	})
 }
 
-func spellTool(queryService service.QueryService) mcpserver.Tool {
-	return businessTool("wow_spell", "Inspect spell relationships.", "spell", func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+func spellTool(queryService service.QueryService, supportedTargets []SupportedTarget) mcpserver.Tool {
+	return businessTool("wow_spell", "Inspect spell relationships.", "spell", supportedTargets, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 		spellIDs, err := requiredUint32ListArg(args, "spellID", "spellIDs")
 		if err != nil {
 			return nil, err
@@ -370,16 +390,17 @@ func spellTool(queryService service.QueryService) mcpserver.Tool {
 		if err != nil {
 			return nil, invalidRequest(err)
 		}
+		rc := requestContextFromArgs(args)
 		return service.SpellInfo(ctx, queryService, service.SpellInfoRequest{
-			Context:  requestContextFromArgs(args),
+			Context:  rc,
 			SpellIDs: spellIDs,
 			MaxDepth: maxDepth,
 		})
 	})
 }
 
-func creatureTool(queryService service.QueryService) mcpserver.Tool {
-	return businessTool("wow_creature", "Query creature displays and models.", "creature", func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+func creatureTool(queryService service.QueryService, supportedTargets []SupportedTarget) mcpserver.Tool {
+	return businessTool("wow_creature", "Query creature displays and models.", "creature", supportedTargets, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 		displayID, hasDisplayID, err := optionalUint32Arg(args, "displayID")
 		if err != nil {
 			return nil, err
@@ -391,29 +412,31 @@ func creatureTool(queryService service.QueryService) mcpserver.Tool {
 		if !hasDisplayID && !hasFileDataID {
 			return nil, invalidRequest(fmt.Errorf("displayID or fileDataID is required"))
 		}
+		rc := requestContextFromArgs(args)
 		return service.CreatureDisplay(ctx, queryService, service.CreatureDisplayRequest{
-			Context:    requestContextFromArgs(args),
+			Context:    rc,
 			DisplayID:  displayID,
 			FileDataID: fileDataID,
 		})
 	})
 }
 
-func encounterTool(queryService service.QueryService) mcpserver.Tool {
-	return businessTool("wow_encounter", "Query JournalEncounter data.", "encounter", func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+func encounterTool(queryService service.QueryService, supportedTargets []SupportedTarget) mcpserver.Tool {
+	return businessTool("wow_encounter", "Query JournalEncounter data.", "encounter", supportedTargets, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 		encounterID, err := requiredUint32Arg(args, "journalEncounterID", "encounterID")
 		if err != nil {
 			return nil, err
 		}
+		rc := requestContextFromArgs(args)
 		return service.EncounterInfo(ctx, queryService, service.EncounterInfoRequest{
-			Context:            requestContextFromArgs(args),
+			Context:            rc,
 			JournalEncounterID: encounterID,
 		})
 	})
 }
 
-func decorTool(queryService service.QueryService) mcpserver.Tool {
-	return businessTool("wow_decor", "Query decor data.", "decor", func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+func decorTool(queryService service.QueryService, supportedTargets []SupportedTarget) mcpserver.Tool {
+	return businessTool("wow_decor", "Query decor data.", "decor", supportedTargets, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 		id, hasID, err := optionalUint32Arg(args, "id")
 		if err != nil {
 			return nil, err
@@ -425,15 +448,16 @@ func decorTool(queryService service.QueryService) mcpserver.Tool {
 		if !hasID && !hasModelFileDataID {
 			return nil, invalidRequest(fmt.Errorf("id or modelFileDataID is required"))
 		}
+		rc := requestContextFromArgs(args)
 		return service.DecorItem(ctx, queryService, service.DecorItemRequest{
-			Context:         requestContextFromArgs(args),
+			Context:         rc,
 			ID:              id,
 			ModelFileDataID: modelFileDataID,
 		})
 	})
 }
 
-func businessTool(name, description, command string, run func(context.Context, map[string]interface{}) (interface{}, error)) mcpserver.Tool {
+func businessTool(name, description, command string, supportedTargets []SupportedTarget, run func(context.Context, map[string]interface{}) (interface{}, error)) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        name,
 		Description: description,
@@ -443,6 +467,11 @@ func businessTool(name, description, command string, run func(context.Context, m
 			if err != nil {
 				return nil, err
 			}
+			rc, err := validateSupportedTarget(args, supportedTargets)
+			if err != nil {
+				return errorEnvelope(command, "unsupported_target", err.Error()), nil
+			}
+			args = argsWithContext(args, rc)
 			result, err := run(ctx, args)
 			if err != nil {
 				var invalid invalidRequestError
@@ -475,12 +504,19 @@ func invalidRequest(err error) error {
 	return invalidRequestError{err: err}
 }
 
-func capabilityTool(name, description, command string) mcpserver.Tool {
+func capabilityTool(name, description, command string, supportedTargets []SupportedTarget) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        name,
 		Description: description,
 		InputSchema: objectSchema(),
 		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
+			args, err := parseArgs(raw)
+			if err != nil {
+				return nil, err
+			}
+			if _, err := validateSupportedTarget(args, supportedTargets); err != nil {
+				return errorEnvelope(command, "unsupported_target", err.Error()), nil
+			}
 			return errorEnvelope(command, "capability_unavailable", command+" is unavailable in the HTTP service"), nil
 		},
 	}
@@ -531,6 +567,41 @@ func requestContextFromArgs(args map[string]interface{}) service.RequestContext 
 		Locale:   stringArg(args, "locale", ""),
 		BuildKey: stringArg(args, "buildKey", ""),
 	}
+}
+
+func validateSupportedTarget(args map[string]interface{}, supportedTargets []SupportedTarget) (service.RequestContext, error) {
+	rc := requestContextFromArgs(args)
+	if len(supportedTargets) == 0 {
+		return rc, nil
+	}
+	region := stringArg(args, "region", "cn")
+	product := stringArg(args, "product", "wow")
+	locale := stringArg(args, "locale", "zhCN")
+	rc.Region = region
+	rc.Product = product
+	rc.Locale = locale
+	for _, target := range supportedTargets {
+		if strings.EqualFold(target.Region, region) &&
+			target.Product == product &&
+			strings.EqualFold(target.Locale, locale) {
+			return rc, nil
+		}
+	}
+	return rc, fmt.Errorf("target %s/%s/%s is not supported by this HTTP MCP service", region, product, locale)
+}
+
+func argsWithContext(args map[string]interface{}, rc service.RequestContext) map[string]interface{} {
+	out := make(map[string]interface{}, len(args)+4)
+	for key, value := range args {
+		out[key] = value
+	}
+	out["region"] = rc.Region
+	out["product"] = rc.Product
+	out["locale"] = rc.Locale
+	if rc.BuildKey != "" {
+		out["buildKey"] = rc.BuildKey
+	}
+	return out
 }
 
 func okEnvelope(command string, data interface{}) map[string]interface{} {

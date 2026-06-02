@@ -131,11 +131,7 @@ func defaultTargets() []PrepareTarget {
 		{Label: "CN Retail", Region: "cn", Product: "wow", Locale: "zhCN"},
 		{Label: "CN Classic", Region: "cn", Product: "wow_classic", Locale: "zhCN"},
 		{Label: "CN Classic Titan", Region: "cn", Product: "wow_classic_titan", Locale: "zhCN"},
-		{Label: "CN Retail enUS", Region: "cn", Product: "wow", Locale: "enUS"},
-		{Label: "CN Classic enUS", Region: "cn", Product: "wow_classic", Locale: "enUS"},
 		{Label: "CN Retail PTR zhCN", Region: "cn", Product: "wowt", Locale: "zhCN"},
-		{Label: "CN Retail PTR enUS", Region: "cn", Product: "wowt", Locale: "enUS"},
 		{Label: "CN Classic PTR zhCN", Region: "cn", Product: "wow_classic_ptr", Locale: "zhCN"},
-		{Label: "CN Classic PTR enUS", Region: "cn", Product: "wow_classic_ptr", Locale: "enUS"},
 	}
 }

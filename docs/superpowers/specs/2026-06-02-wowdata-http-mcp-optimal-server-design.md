@@ -62,6 +62,8 @@ MCP:
 
 The rename applies to CLI, stdio MCP, HTTP MCP, help text, README examples, release docs, performance docs, and tests. No legacy `wowdata db2 ...` command or `wow_db2` MCP tool is kept for compatibility.
 
+The HTTP MCP JSON-RPC endpoint path is `/wowdata`. The server must not register `/mcp` as a compatibility alias.
+
 Internal packages, storage paths, and type names may still use `DB2` where they refer to the actual WoW DB2 file/table format, such as DB2 decoder code, DB2 metadata, and DB2 Parquet cache paths.
 
 ## File Architecture
@@ -128,31 +130,29 @@ The server discovers and prepares the latest configured builds for this default 
 ```text
 CN CDN:
   Retail zhCN
-  Retail enUS
-  Retail PTR zhCN
-  Retail PTR enUS
   Classic zhCN
-  Classic enUS
-  Classic PTR zhCN
-  Classic PTR enUS
   Classic Titan zhCN
+  Retail PTR zhCN
+  Classic PTR zhCN
 ```
 
-Total default prepare targets: 9.
+Total default prepare targets: 5.
 
-Beta (`wowxptr`), Classic Era (`wow_classic_era`), non-CN CDN region targets, and unlisted locales are intentionally excluded from default prepare. They may be handled only by an explicit custom configuration or later spec revision; the default server must not discover, prepare, count, or block readiness on excluded targets.
+Beta (`wowxptr`), Classic Era (`wow_classic_era`), non-CN CDN region targets, English locales, and all other unlisted locales are intentionally excluded. HTTP MCP must not expose them through custom configuration; supporting any excluded target requires a later spec revision. The default server must not discover, prepare, count, or block readiness on excluded targets.
 
 Default locale mapping:
 
 ```text
-CN CDN Retail -> zhCN, enUS
-CN CDN Retail PTR -> zhCN, enUS
-CN CDN Classic -> zhCN, enUS
-CN CDN Classic PTR -> zhCN, enUS
+CN CDN Retail -> zhCN
+CN CDN Retail PTR -> zhCN
+CN CDN Classic -> zhCN
+CN CDN Classic PTR -> zhCN
 CN CDN Classic Titan -> zhCN
 ```
 
 The default matrix must contain only region/product pairs that the current Blizzard product discovery and the legacy Node oracle can resolve. Unsupported pairs are rejected from the default matrix instead of being counted as `no_build` skips.
+
+HTTP MCP user-facing tools support only the 5 default targets listed above. Requests for any other region, product, locale, or build target return an `unsupported_target` error before query, asset lookup/export, prepare, download, or materialization work begins.
 
 ## Request Classes
 
@@ -176,6 +176,8 @@ File/artifact request
 ```
 
 User requests must not trigger full build prepare, full table materialization, full listfile indexing, or full CASC index construction. If a requested target is not ready, return `context_not_ready`, `build_not_ready`, or `table_not_ready`.
+
+If a requested target is outside the supported 5-target matrix, return `unsupported_target`; do not treat it as merely not ready.
 
 The HTTP MCP server must enforce a CASC raw disk cache capacity. The default configuration limits CASC raw/cache data to 60 GiB and prunes least-recently-modified cache files down to 48 GiB when a write pushes the cache over the threshold. This limit applies to HTTP MCP server CASC preload and artifact/raw file cache paths; local CLI and stdio MCP behavior is unchanged unless they explicitly opt into the same lower-level cache limit APIs.
 
@@ -219,6 +221,9 @@ SQLite stores:
 - build key
 - table name
 - DB2 FileDataID
+- DB2 fingerprint
+- encoding key
+- source size
 - DBD hash
 - decoder version
 - materializer version
@@ -236,6 +241,8 @@ prepare:
 ```
 
 The `*` sentinel is expanded at server startup into concrete manifest table names before health/readiness and background prepare use it.
+
+Incremental refresh must avoid full-table rematerialization when Blizzard CDN publishes data that does not change a table. For each target/build/table, SQLite stores a DB2 fingerprint made from at least the DB2 FileDataID, CASC encoding key, source size, DBD hash, decoder version, and materializer version. During refresh, the server first checks the target build/config identity, then compares the saved fingerprint for every required DB2 table. Only DB2 tables whose fingerprint changes are marked dirty, downloaded again when needed, and rematerialized. Unchanged tables stay valid and keep serving their existing Parquet results.
 
 The HTTP `wow_query` tool must support:
 
@@ -308,6 +315,12 @@ cache/casc/<region>/<product>/<buildKey>/data/<encodingKey>
 Raw cache integrity must be verified before reuse. Remote fetch happens only when local cache is missing, corrupt, pruned, or the build changed.
 
 Different CASC blobs may download concurrently. The same blob must use singleflight to avoid duplicate downloads. Large range downloads may use bounded chunk concurrency.
+
+Raw CASC cache pruning is LRU based. When configured capacity is exceeded, the server prunes least-recently-modified raw CASC blobs down to the lower configured target capacity. The server should preserve raw CASC cache when possible because it reduces later incremental refresh downloads.
+
+Prepared DB2 and listfile cache are managed separately from raw CASC data. After a target is ready and restart reuse has proven metadata-backed service, configurable completion cleanup may remove old `db2/`, `listfile/`, and temporary raw staging files that are no longer needed. This cleanup must never remove `metadata.sqlite` or `metadata.sqlite-wal`, and must treat `raw/casc/` as cautious-retention data rather than ordinary disposable output.
+
+Layered cache management must include DB2/listfile retention controls, such as "drop after successful prepare" or "keep N builds per target", without weakening restart reuse for active metadata. WAL checkpoint policy and monitoring are required so long-running writes do not leave `metadata.sqlite-wal` growing without bound.
 
 ## Artifact Store
 
@@ -386,11 +399,12 @@ Health includes:
 - CASC index readiness
 - memory stats
 - storage usage
+- storage usage by layer: metadata, WAL, DB2, raw CASC, listfile, artifacts, and temporary files
 - artifact settings
 - concurrency limits
 - recent refresh errors
 
-`readiness.ok` is true when all required supported targets are ready. Custom-config `no_build` targets do not block readiness unless strict; the default 9-target matrix must not include `no_build` entries.
+`readiness.ok` is true when all required supported targets are ready. Custom-config `no_build` targets do not block readiness unless strict; the default 5-target matrix must not include `no_build` entries.
 
 ## Concurrency Model
 
@@ -402,7 +416,7 @@ The server must not globally lock all users while one user queries or downloads 
 User A: CN Retail
 User B: CN Classic
 User C: CN Classic Titan
-User D: CN Retail PTR enUS
+User D: CN Classic PTR
 ```
 
 Locks and singleflight are resource-scoped:
@@ -466,6 +480,8 @@ All implementation must be test-driven. Each feature or behavior change requires
 - Server config validates default matrix, locale mapping, strict/no_build behavior, and resource limits.
 - Health model reports liveness, readiness, matrix summary, per-target state, memory, storage, artifacts, and errors.
 - `wow_status` and `/health` use the same health source.
+- HTTP MCP is served at `/wowdata`, and `/mcp` is not registered.
+- HTTP MCP tools reject requests outside the supported 5-target matrix with `unsupported_target` before calling query or asset services.
 - DB2 metadata records transition through preparing, valid, stale, and failed.
 - DB2 materializer reuses valid Parquet without decoding or downloading again.
 - DB2 materializer marks stale on invalid Parquet metadata.
@@ -477,6 +493,11 @@ All implementation must be test-driven. Each feature or behavior change requires
 - Artifact store returns downloadable `/files/...` URLs and serves bytes directly.
 - Refresh candidate success atomically activates a new build.
 - Refresh candidate failure preserves the old active build.
+- Refresh candidate compares DB2 fingerprints and marks only changed tables dirty.
+- Unchanged DB2 fingerprints keep existing Parquet valid without download or materialization.
+- Completion cleanup removes only configured disposable DB2/listfile/temp cache after ready restart reuse.
+- Cache accounting reports storage usage by layer, including metadata, WAL, DB2, raw CASC, listfile, artifacts, and temporary files.
+- WAL checkpoint monitoring exposes oversized WAL state before it can grow without bound.
 - Same-resource singleflight deduplicates work.
 - Different-build and different-blob operations can run concurrently.
 
@@ -496,11 +517,11 @@ Build the server image on the remote Docker host. The image must contain `wowdat
 
 ### Remote Node-Parity Full Data Test
 
-Against the remote HTTP endpoint, run a generated parity test against the legacy Node implementation for all 19 default configured build targets. This replaces the historical fixed-denominator matrix check and is the authoritative business-equivalence gate for DB2 data.
+Against the remote HTTP endpoint, run a generated parity test against the legacy Node implementation for all 5 default configured build targets. This replaces the historical fixed-denominator matrix check and is the authoritative business-equivalence gate for DB2 data.
 
 Required coverage:
 
-- all 19 default configured build targets; a target that cannot be resolved by either the server or the legacy Node oracle is a parity failure, not a skipped pass
+- all 5 default configured build targets; a target that cannot be resolved by either the server or the legacy Node oracle is a parity failure, not a skipped pass
 - the exact active build key for each target; the Node oracle must report its resolved build key and the test must fail if it differs from the server target build key
 - every DB2 table that the legacy Node implementation can read for each target build; this is the full table set discovered from the Node oracle, not the old sampled smoke set and not a handpicked list
 - every row in every compared table
@@ -509,9 +530,9 @@ Required coverage:
 - row equality: row count and deterministic row identity/order
 - value equality: canonical JSON value for every scalar, array, localized string, null, and numeric field
 
-The legacy Node implementation is the oracle for this acceptance test. The table list must be discovered by running the old Node implementation for the same region/product/locale/build target, not by asking the new Go code, not by reading the Go materialized cache, and not by reusing a static checked-in list. Before comparing tables, the harness must verify `node.build.buildKey == serverTarget.buildKey`; if the legacy Node implementation resolves a different build, or cannot resolve a build for one of the 19 default configured targets, that target fails before any table hash is accepted. A Go HTTP result is a failure if it is missing any Node-readable table, missing any Node-emitted field, has a different field order, has a different row count, or has a different canonical value. Go-only extra tables must be reported as extras and fail the parity test until deliberately reviewed in a later spec revision.
+The legacy Node implementation is the oracle for this acceptance test. The table list must be discovered by running the old Node implementation for the same region/product/locale/build target, not by asking the new Go code, not by reading the Go materialized cache, and not by reusing a static checked-in list. Before comparing tables, the harness must verify `node.build.buildKey == serverTarget.buildKey`; if the legacy Node implementation resolves a different build, or cannot resolve a build for one of the 5 default configured targets, that target fails before any table hash is accepted. A Go HTTP result is a failure if it is missing any Node-readable table, missing any Node-emitted field, has a different field order, has a different row count, or has a different canonical value. Go-only extra tables must be reported as extras and fail the parity test until deliberately reviewed in a later spec revision.
 
-The test must not hard-code `93/93`, `92/92`, or any other stale denominator. It must compute the total from the 19 default configured targets and the full table list discovered from the legacy Node implementation for each target. The only acceptable final denominator is the runtime sum of all Node-readable DB2 tables across the 19 default targets. If a target has zero Node-readable tables, that target must fail with a diagnostic explaining why the Node oracle produced no table list. A table-level pass is only valid when every row and every field emitted by Node has been included in the canonical hash input.
+The test must not hard-code `93/93`, `92/92`, or any other stale denominator. It must compute the total from the 5 default configured targets and the full table list discovered from the legacy Node implementation for each target. The only acceptable final denominator is the runtime sum of all Node-readable DB2 tables across the 5 default targets. If a target has zero Node-readable tables, that target must fail with a diagnostic explaining why the Node oracle produced no table list. A table-level pass is only valid when every row and every field emitted by Node has been included in the canonical hash input.
 
 The comparison may use streaming canonical hashes to avoid loading all rows into memory, but the hash input must include every field of every row. Hashing is only a fast equality proof; on mismatch, the harness must perform or retain enough row-level comparison state to print concrete diffs. For each target/table it must report:
 
@@ -588,15 +609,26 @@ Required assertions:
 - failed candidate does not replace old active
 - changed listfile source reindexes SQLite listfile records
 - changed CASC index updates SQLite CASC index state
-- changed DB2 fingerprint rematerializes affected Parquet tables
+- changed DB2 fingerprint marks affected Parquet tables dirty and rematerializes only those tables
 - unaffected tables remain valid and are not rematerialized
 - `/health` and `wow_status` expose refresh state and errors
+
+### Remote Completion Cleanup and Cache Accounting Test
+
+After all 5 default targets are ready and restart reuse confirms `metadata.sqlite` can serve without full prepare, run configurable cleanup in a test mode and assert:
+
+- old inactive `db2/` build outputs, listfile outputs, and temporary raw staging files selected by policy are removed
+- active metadata, `metadata.sqlite`, and `metadata.sqlite-wal` are not removed
+- cautious raw CASC retention remains enabled unless the raw CASC LRU threshold is exceeded
+- DB2/listfile retention follows the configured "drop after successful prepare" or "keep N builds per target" policy
+- WAL checkpoint state is reported and bounded
+- `/health` and `wow_status` expose storage usage by layer before and after cleanup
 
 ### Performance and Memory Test
 
 After preparing the configured matrix:
 
-- concurrent read queries across Retail, Retail PTR, Classic, Classic PTR, and Classic Titan must run without global runtime serialization
+- concurrent read queries across the 5 default targets must run without global runtime serialization
 - different raw-cache blobs must download concurrently
 - same raw-cache blob must singleflight
 - idle RSS must stay under `memory_soft_limit_mb` or the test must fail with diagnostics
@@ -612,10 +644,12 @@ The rewrite is complete only when all of these are true:
 - Server unit tests pass.
 - Remote Docker deployment succeeds.
 - `/health` and `wow_status` report the same health state.
-- The remote Node-parity full data test reports full pass across the prepared 19-build default matrix, every comparable table, every row, and every field.
+- The remote Node-parity full data test reports full pass across the prepared 5-target default matrix, every comparable table, every row, and every field.
 - Remote artifact URLs are downloadable.
 - Remote restart proves valid DB2/Listfile/CASC data is reused.
 - Remote update-flow tests prove successful candidate activation and failed candidate rollback.
+- Remote update-flow tests prove DB2 fingerprint changes rematerialize only affected tables.
+- Remote cleanup/cache tests prove configured disposable DB2/listfile/temp cache can be removed while metadata and active service remain reusable.
 - Memory and concurrency tests pass under configured limits.
 - No Python gateway or nginx-dependent artifact serving is required for pure HTTP/IP deployment.
 

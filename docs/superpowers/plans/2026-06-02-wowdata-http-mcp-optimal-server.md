@@ -505,15 +505,17 @@ package config
 
 import "testing"
 
-func TestDefaultPrepareMatrixHasNineteenTargetsAndExcludesBetaForNow(t *testing.T) {
+func TestDefaultPrepareMatrixHasRequestedFiveCNZhCNTargetsAndExcludesExtras(t *testing.T) {
 	cfg := Default()
 	targets := cfg.Prepare.Targets
-	if len(targets) != 19 {
-		t.Fatalf("targets = %d, want 19", len(targets))
+	if len(targets) != 5 {
+		t.Fatalf("targets = %d, want 5", len(targets))
 	}
 	assertTarget(t, targets, "CN Retail", "cn", "wow", "zhCN")
-	assertTarget(t, targets, "US PTR", "us", "wowt", "enUS")
-	assertTarget(t, targets, "EU PTR", "eu", "wowt", "enUS")
+	assertTarget(t, targets, "CN Classic", "cn", "wow_classic", "zhCN")
+	assertTarget(t, targets, "CN Classic Titan", "cn", "wow_classic_titan", "zhCN")
+	assertTarget(t, targets, "CN Retail PTR zhCN", "cn", "wowt", "zhCN")
+	assertTarget(t, targets, "CN Classic PTR zhCN", "cn", "wow_classic_ptr", "zhCN")
 	assertNoTarget(t, targets, "US Beta", "us", "wowxptr", "enUS")
 	assertNoTarget(t, targets, "EU Beta", "eu", "wowxptr", "enUS")
 	assertNoTarget(t, targets, "KR Beta", "kr", "wowxptr", "koKR")
@@ -523,6 +525,10 @@ func TestDefaultPrepareMatrixHasNineteenTargetsAndExcludesBetaForNow(t *testing.
 	assertNoTarget(t, targets, "EU Classic Titan", "eu", "wow_classic_titan", "enUS")
 	assertNoTarget(t, targets, "KR Classic Titan", "kr", "wow_classic_titan", "koKR")
 	assertNoTarget(t, targets, "TW Classic Titan", "tw", "wow_classic_titan", "zhTW")
+	assertNoTarget(t, targets, "CN Retail enUS", "cn", "wow", "enUS")
+	assertNoTarget(t, targets, "CN Classic enUS", "cn", "wow_classic", "enUS")
+	assertNoTarget(t, targets, "CN Retail PTR enUS", "cn", "wowt", "enUS")
+	assertNoTarget(t, targets, "CN Classic PTR enUS", "cn", "wow_classic_ptr", "enUS")
 }
 
 func TestDefaultResourceLimitsFitTenGBServer(t *testing.T) {
@@ -644,7 +650,7 @@ func Default() Config {
 }
 ```
 
-Add `defaultTargets()` in the same file with all 19 explicit targets from the spec. Do not include Beta (`wowxptr`) in the default prepare matrix.
+Add `defaultTargets()` in the same file with the 5 explicit `cn/*/zhCN` targets from the spec. Do not include Beta (`wowxptr`), Classic Era (`wow_classic_era`), non-CN CDN targets, or `enUS` in the default prepare matrix.
 
 - [ ] **Step 3: Verify config tests**
 
@@ -658,7 +664,7 @@ Expected: PASS.
 
 - [ ] **Step 4: Update example YAML**
 
-Update `config/http-mcp.example.yaml` to include the 19 target matrix, no Beta (`wowxptr`) targets, and the five resource limit fields. Keep public base URL example as `http://211.154.18.253:11223`.
+Update `config/http-mcp.example.yaml` to include the 5-target `cn/*/zhCN` matrix, no Beta (`wowxptr`) targets, no `enUS` targets, and the five resource limit fields. Keep public base URL example as `http://211.154.18.253:11223`.
 
 - [ ] **Step 5: Commit**
 
@@ -831,7 +837,7 @@ Create `internal/server/health/health.go` with concrete structs for `Snapshot`, 
 
 - [ ] **Step 3: Implement readiness calculation**
 
-Readiness is true only when every supported strict or default-required target is ready. Custom-config `no_build` targets do not block unless strict; the default 19-target matrix must not include `no_build` entries.
+Readiness is true only when every supported strict or default-required target is ready. Custom-config `no_build` targets do not block unless strict; the default 5-target matrix must not include `no_build` entries.
 
 - [ ] **Step 4: Implement MCP status wrapper**
 
@@ -1193,6 +1199,8 @@ func TestRefreshListfileSourceHashChangeMarksListfileStale(t *testing.T)
 func TestRefreshCASCIndexVersionChangeMarksCASCStale(t *testing.T)
 func TestRefreshDB2FingerprintChangeMarksOnlyAffectedTableStale(t *testing.T)
 func TestRefreshUnaffectedTableRemainsValid(t *testing.T)
+func TestRefreshUnchangedDB2FingerprintDoesNotRematerializeTable(t *testing.T)
+func TestRefreshChangedDB2FingerprintStoresDirtyReason(t *testing.T)
 ```
 
 The tests must use fixture discoverers/materializers. No test in this package may download real Blizzard data.
@@ -1207,7 +1215,7 @@ Expected: FAIL.
 
 - [ ] **Step 4: Implement refresh workflow**
 
-Implement candidate prepare and atomic activation using metadata repository transactions. Failed candidates must preserve old active builds.
+Implement candidate prepare and atomic activation using metadata repository transactions. Failed candidates must preserve old active builds. Refresh must compare each table's DB2 fingerprint, including encoding key, source size, DBD hash, decoder version, and materializer version. Unchanged fingerprints must keep existing Parquet valid without download or materialization; changed fingerprints must mark only the affected table dirty before rematerializing it.
 
 - [ ] **Step 5: Verify prepare and refresh tests**
 
@@ -1283,7 +1291,21 @@ Implement tools against server service interfaces. Do not import `internal/app` 
 
 - [ ] **Step 4: Wire MCP HTTP endpoint in `wowdata-server`**
 
-Expose `/mcp`, `/health`, and `/files/`.
+Expose `/wowdata`, `/health`, and `/files/`. Do not register `/mcp` as a compatibility alias. Add failing tests first proving `/wowdata` handles `tools/list`, `/wowdata/` also works, and `/mcp` returns 404.
+
+- [ ] **Step 4A: Enforce supported HTTP MCP target matrix**
+
+Write failing tests in `internal/server/mcphttp/tools_test.go` proving every user-facing HTTP MCP tool rejects non-5-target requests with `unsupported_target` before calling query or asset services. Cover at least `wow_query`, one business tool, `wow_file`, and `wow_icon`. Then implement a target guard using the configured 5 prepare targets:
+
+```text
+cn/wow/zhCN
+cn/wow_classic/zhCN
+cn/wow_classic_titan/zhCN
+cn/wowt/zhCN
+cn/wow_classic_ptr/zhCN
+```
+
+Requests with no explicit region/product/locale use `cn/wow/zhCN`. Requests for any other region, product, locale, or build target must return `unsupported_target` before query, asset lookup/export, prepare, download, or materialization work begins.
 
 - [ ] **Step 5: Verify MCP tests**
 
@@ -1481,8 +1503,8 @@ Create `.local/wowdata/test-http-node-parity.ps1`. It must:
 
 - call `/health`
 - call MCP `wow_status`
-- derive the complete 19-target default matrix from server status and fail if any configured target is missing
-- require all 19 default configured targets to be server-ready and Node-resolvable; a target reported as no-build, missing, stale, failed, or preparing is a parity failure unless the script is explicitly run with a diagnostic `-AllowNotReady` flag
+- derive the complete 5-target default matrix from server status and fail if any configured target is missing
+- require all 5 default configured targets to be server-ready and Node-resolvable; a target reported as no-build, missing, stale, failed, or preparing is a parity failure unless the script is explicitly run with a diagnostic `-AllowNotReady` flag
 - call the legacy Node implementation for each target and discover that target's full Node-readable DB2 table list from Node output
 - require the legacy Node oracle to print its resolved build key for every target, and fail before comparison if that build key differs from the server target's active build key
 - call the new Go HTTP MCP implementation for each target
@@ -1510,7 +1532,7 @@ first_mismatch_kind=<schema|row_count|field_value|missing_table|extra_table>
 
 and at least 20 concrete row/field diffs when 20 are available. A hash-only mismatch report is incomplete and must fail review.
 
-The denominator `y` must be computed at runtime as the sum of every Node-readable DB2 table across all 19 default configured targets. The script must not contain `93`, `92`, or any other historical fixed denominator except inside comments explaining that those values are obsolete. A run that only proves a fixed smoke set, a bounded business-query set, compares fewer than 19 targets, or uses the old matrix denominator is a failure even if it prints `x == y`.
+The denominator `y` must be computed at runtime as the sum of every Node-readable DB2 table across all 5 default configured targets. The script must not contain `93`, `92`, or any other historical fixed denominator except inside comments explaining that those values are obsolete. A run that only proves a fixed smoke set, a bounded business-query set, compares fewer than 5 targets, or uses the old matrix denominator is a failure even if it prints `x == y`.
 
 - [ ] **Step 2: Write update-flow script**
 
@@ -1524,11 +1546,36 @@ UpdateListfileSourceHashChange
 UpdateCASCIndexVersionChange
 UpdateDB2FingerprintChange
 UpdateUnaffectedTableStillValid
+UpdateUnchangedFingerprintSkipsRematerialization
+UpdateChangedFingerprintDirtyReason
 ```
 
 It must print `REMOTE_UPDATE_PASS=x/y` and exit 1 unless `x == y`.
 
-- [ ] **Step 3: Confirm scripts are untracked**
+- [ ] **Step 3: Write completion cleanup and cache accounting script**
+
+Create `.local/wowdata/test-http-cache-cleanup.ps1`. It must run only after the 5 default targets are ready and restart reuse has been verified. It must exercise configurable cleanup in a fixture or admin test mode and print:
+
+```text
+REMOTE_CACHE_CLEANUP_PASS=x/y
+```
+
+The checks must prove:
+
+```text
+CacheCleanupDropsConfiguredOldDB2
+CacheCleanupDropsConfiguredListfile
+CacheCleanupDropsTemporaryRawStaging
+CacheCleanupKeepsMetadataSQLite
+CacheCleanupKeepsMetadataWAL
+CacheCleanupKeepsRawCASCUnlessLRUThresholdExceeded
+CacheAccountingReportsMetadataWALDB2RawCASCListfileArtifactsTemp
+WALCheckpointStateIsReportedAndBounded
+```
+
+Exit 1 unless `x == y`.
+
+- [ ] **Step 4: Confirm scripts are untracked**
 
 Run:
 
@@ -1538,7 +1585,7 @@ git status --short --ignored .local/wowdata
 
 Expected: scripts appear under ignored files, not staged tracked files.
 
-- [ ] **Step 4: Run local full tests before remote**
+- [ ] **Step 5: Run local full tests before remote**
 
 Run:
 
@@ -1548,7 +1595,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit docs or ignore changes only**
+- [ ] **Step 6: Commit docs or ignore changes only**
 
 Run:
 
@@ -1600,9 +1647,9 @@ REMOTE_NODE_PARITY_PASS=x/y
 x equals y
 ```
 
-The script must fail if fewer than the 19 default configured targets are compared, unless it is explicitly running in diagnostic `-AllowNotReady` mode. It must fail if any target is no-build/missing/stale/failed/preparing, if the legacy Node oracle cannot resolve that target's build, if any Node-readable table is missing, if any Go-only table appears, if any schema field differs, if any field order differs, if any row count differs, or if any canonical full-data hash differs from the legacy Node oracle.
+The script must fail if fewer than the 5 default configured targets are compared, unless it is explicitly running in diagnostic `-AllowNotReady` mode. It must fail if any target is no-build/missing/stale/failed/preparing, if the legacy Node oracle cannot resolve that target's build, if any Node-readable table is missing, if any Go-only table appears, if any schema field differs, if any field order differs, if any row count differs, or if any canonical full-data hash differs from the legacy Node oracle.
 
-The denominator in `REMOTE_NODE_PARITY_PASS=x/y` must be the runtime full-table denominator discovered from the legacy Node implementation across all 19 default targets. A result shaped like the old smoke test, such as `REMOTE_NODE_PARITY_PASS=93/93`, is not acceptable unless the Node oracle genuinely discovered exactly 93 total DB2 tables across all 19 default targets and the log shows each target/table discovery line proving that number. The log must also show, for every target, that the Node oracle build key equals the server active build key; otherwise the comparison is invalid even if hashes match.
+The denominator in `REMOTE_NODE_PARITY_PASS=x/y` must be the runtime full-table denominator discovered from the legacy Node implementation across all 5 default targets. A result shaped like the old smoke test, such as `REMOTE_NODE_PARITY_PASS=93/93`, is not acceptable unless the Node oracle genuinely discovered exactly 93 total DB2 tables across all 5 default targets and the log shows each target/table discovery line proving that number. The log must also show, for every target, that the Node oracle build key equals the server active build key; otherwise the comparison is invalid even if hashes match.
 
 - [ ] **Step 3: Run remote update-flow test**
 
@@ -1636,7 +1683,24 @@ reuse test reports no full rematerialization
 idle RSS is below configured memory budget
 ```
 
-- [ ] **Step 5: Run final local verification**
+- [ ] **Step 5: Run remote completion cleanup and cache accounting test**
+
+Run:
+
+```powershell
+.\.local\wowdata\test-http-cache-cleanup.ps1 -BaseUrl 'http://211.154.18.253:11223'
+```
+
+Expected:
+
+```text
+REMOTE_CACHE_CLEANUP_PASS=x/y
+x equals y
+metadata.sqlite and metadata.sqlite-wal remain present
+health and wow_status expose storage usage by layer
+```
+
+- [ ] **Step 6: Run final local verification**
 
 Run:
 
@@ -1652,7 +1716,7 @@ Only intentional tracked docs/source changes appear before commit
 go test ./... exits 0
 ```
 
-- [ ] **Step 6: Commit docs and final adjustments**
+- [ ] **Step 7: Commit docs and final adjustments**
 
 Run:
 
@@ -1668,7 +1732,7 @@ Expected: commit succeeds.
 - [x] Public naming is covered by Task 1.
 - [x] local/server dependency isolation is covered by Task 2.
 - [x] strict spec directory architecture migration is covered by Task 2A.
-- [x] 19-target default matrix with Beta excluded is covered by Task 3.
+- [x] 5-target CN zhCN default matrix with Beta, Classic Era, non-CN CDN, and enUS excluded is covered by Task 3.
 - [x] SQLite metadata, listfile, CASC index, artifacts, and refresh state are covered by Tasks 4, 7, 8, 9, and 10.
 - [x] Health and `wow_status` shared state is covered by Task 5.
 - [x] Parquet/DuckDB query path is covered by Task 6.
@@ -1676,5 +1740,6 @@ Expected: commit succeeds.
 - [x] server file/icon artifact tools are covered by Task 11A.
 - [x] Bounded business assemblers are covered by Task 12.
 - [x] Remote Node-parity full-data comparison, artifact download, restart reuse, and update-flow tests are covered by Tasks 13 and 14.
+- [x] Incremental DB2 fingerprint dirty marking, completion cleanup, layered cache accounting, and WAL checkpoint monitoring are covered by Tasks 10, 13, and 14.
 - [x] Checkbox discipline is defined in "Progress Discipline".
 - [x] No source implementation is part of this plan-writing task.

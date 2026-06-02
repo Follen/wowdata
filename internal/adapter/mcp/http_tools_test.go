@@ -111,9 +111,9 @@ func TestHTTPDB2HandlerInvokesEnsureTableAndReturnsMaterializerError(t *testing.
 	svc := &fakeHTTPService{
 		ensureErr: errors.New("materializer unavailable"),
 	}
-	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{}), "wow_query")
+	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{SupportedTargets: supportedHTTPMCPTargetsForTest()}), "wow_query")
 
-	result, err := tool.Handler(context.Background(), json.RawMessage(`{"table":"SpellName","region":"eu","product":"wowt","locale":"enUS"}`))
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{"table":"SpellName","region":"cn","product":"wow","locale":"zhCN"}`))
 	if err != nil {
 		t.Fatalf("wow_query handler should return an envelope, not handler error: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestHTTPDB2HandlerInvokesEnsureTableAndReturnsMaterializerError(t *testing.
 	if svc.lastTable != "SpellName" {
 		t.Fatalf("EnsureTable table = %q, want SpellName", svc.lastTable)
 	}
-	if svc.lastContext != (httpservice.RequestContext{Region: "eu", Product: "wowt", Locale: "enUS"}) {
+	if svc.lastContext != (httpservice.RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"}) {
 		t.Fatalf("EnsureTable context = %#v", svc.lastContext)
 	}
 	got := result.(map[string]interface{})
@@ -132,6 +132,77 @@ func TestHTTPDB2HandlerInvokesEnsureTableAndReturnsMaterializerError(t *testing.
 	}
 	if code := got["error"].(map[string]interface{})["code"]; code != "materializer_unavailable" {
 		t.Fatalf("error code = %#v, want materializer_unavailable", code)
+	}
+}
+
+func TestHTTPToolsRejectUnsupportedTargetsBeforeServiceWork(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		raw  json.RawMessage
+	}{
+		{
+			name: "wow_query",
+			raw:  json.RawMessage(`{"table":"SpellName","region":"us","product":"wow","locale":"enUS"}`),
+		},
+		{
+			name: "wow_file",
+			raw:  json.RawMessage(`{"mode":"lookup","region":"cn","product":"wow","locale":"enUS","fileDataID":1}`),
+		},
+		{
+			name: "wow_icon",
+			raw:  json.RawMessage(`{"region":"cn","product":"wowt","locale":"enUS","fileDataID":1}`),
+		},
+		{
+			name: "wow_item",
+			raw:  json.RawMessage(`{"region":"eu","product":"wow","locale":"zhCN","itemID":1}`),
+		},
+		{
+			name: "wow_video",
+			raw:  json.RawMessage(`{"region":"cn","product":"wow_classic_era","locale":"zhCN"}`),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &fakeHTTPService{}
+			assets := &fakeAssetProvider{fileStore: fakeAssetFileStore{data: []byte("asset")}}
+			tool := findTool(t, HTTPTools(svc, HTTPToolOptions{
+				SupportedTargets: supportedHTTPMCPTargetsForTest(),
+				Assets:           assets,
+			}), tc.name)
+
+			result, err := tool.Handler(context.Background(), tc.raw)
+			if err != nil {
+				t.Fatalf("%s handler: %v", tc.name, err)
+			}
+			if svc.ensureCalls != 0 || svc.capabilityCalls != 0 || svc.queryCalls != 0 || svc.schemaCalls != 0 {
+				t.Fatalf("%s called service before rejecting unsupported target: %#v", tc.name, svc)
+			}
+			got := result.(map[string]interface{})
+			if got["ok"] != false {
+				t.Fatalf("%s should reject unsupported target, got %#v", tc.name, got)
+			}
+			if code := got["error"].(map[string]interface{})["code"]; code != "unsupported_target" {
+				t.Fatalf("%s error code = %#v, want unsupported_target; envelope=%#v", tc.name, code, got)
+			}
+		})
+	}
+}
+
+func TestHTTPToolsNormalizeEmptyContextToDefaultSupportedTarget(t *testing.T) {
+	svc := &fakeHTTPService{queryRows: []map[string]interface{}{}}
+	tool := findTool(t, HTTPTools(svc, HTTPToolOptions{SupportedTargets: supportedHTTPMCPTargetsForTest()}), "wow_query")
+
+	if _, err := tool.Handler(context.Background(), json.RawMessage(`{"table":"SpellName"}`)); err != nil {
+		t.Fatalf("wow_query handler: %v", err)
+	}
+
+	if svc.ensureCalls != 1 {
+		t.Fatalf("EnsureTable calls = %d, want 1", svc.ensureCalls)
+	}
+	if svc.lastContext != (httpservice.RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"}) {
+		t.Fatalf("EnsureTable context = %#v, want default supported target", svc.lastContext)
+	}
+	if svc.lastQuery.RequestContext != (httpservice.RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"}) {
+		t.Fatalf("QueryDB2 context = %#v, want default supported target", svc.lastQuery.RequestContext)
 	}
 }
 
@@ -561,4 +632,14 @@ func findTool(t *testing.T, tools []mcpserver.Tool, name string) mcpserver.Tool 
 	}
 	t.Fatalf("tool %s not found", name)
 	return mcpserver.Tool{}
+}
+
+func supportedHTTPMCPTargetsForTest() []SupportedTarget {
+	return []SupportedTarget{
+		{Region: "cn", Product: "wow", Locale: "zhCN"},
+		{Region: "cn", Product: "wow_classic", Locale: "zhCN"},
+		{Region: "cn", Product: "wow_classic_titan", Locale: "zhCN"},
+		{Region: "cn", Product: "wowt", Locale: "zhCN"},
+		{Region: "cn", Product: "wow_classic_ptr", Locale: "zhCN"},
+	}
 }

@@ -24,13 +24,13 @@ func newMCPHTTPCommand(rt *Runtime) *cobra.Command {
 		Long: `Serve MCP tools over Streamable HTTP.
 
 Use this for remote deployments with a domain, TLS, reverse proxy, or shared service.
-The MCP endpoint is /mcp. Health and agent-readable setup guidance are available at /health and /help.
+The MCP endpoint is /wowdata. Health and agent-readable setup guidance are available at /health and /help.
 
 Codex CLI:
-  codex mcp add wowdata --url https://mcp.example.com:9443/mcp
+  codex mcp add wowdata --url https://mcp.example.com:9443/wowdata
 
 Claude Code:
-  claude mcp add --transport http wowdata https://mcp.example.com:9443/mcp
+  claude mcp add --transport http wowdata https://mcp.example.com:9443/wowdata
 
 Claude Code stdio fallback:
   claude mcp add --transport stdio wowdata -- wowdata mcp stdio
@@ -38,11 +38,11 @@ Claude Code stdio fallback:
 cc-switch custom MCP:
   {
     "type": "http",
-    "url": "https://mcp.example.com:9443/mcp"
+    "url": "https://mcp.example.com:9443/wowdata"
   }
 
 Compatibility notes:
-  The HTTP server accepts GET, HEAD, OPTIONS, and POST on /mcp.
+  The HTTP server accepts GET, HEAD, OPTIONS, and POST on /wowdata.
   JSON-RPC notifications such as notifications/initialized return HTTP 202 with no JSON-RPC error.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			loaded, err := config.LoadHTTPConfig(configPath)
@@ -80,7 +80,7 @@ Compatibility notes:
 				Handler:           mux,
 				ReadHeaderTimeout: 10 * time.Second,
 			}
-			fmt.Fprintf(cmd.ErrOrStderr(), "wowdata MCP HTTP listening on http://%s/mcp\n", addr)
+			fmt.Fprintf(cmd.ErrOrStderr(), "wowdata MCP HTTP listening on http://%s/wowdata\n", addr)
 			return httpServer.ListenAndServe()
 		},
 	}

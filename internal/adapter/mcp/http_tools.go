@@ -95,9 +95,16 @@ type RuntimeAssetProvider interface {
 }
 
 type HTTPToolOptions struct {
-	ExposeAdmin bool
-	Artifacts   ArtifactReserver
-	Assets      RuntimeAssetProvider
+	ExposeAdmin      bool
+	Artifacts        ArtifactReserver
+	Assets           RuntimeAssetProvider
+	SupportedTargets []SupportedTarget
+}
+
+type SupportedTarget struct {
+	Region  string
+	Product string
+	Locale  string
 }
 
 func HTTPToolNames(exposeAdmin bool) []string {
@@ -112,21 +119,21 @@ func HTTPTools(svc HTTPService, opts HTTPToolOptions) []mcpserver.Tool {
 	tools := []mcpserver.Tool{
 		httpBuildsTool(svc),
 		httpStatusTool(svc),
-		httpDB2Tool(svc),
-		httpItemTool(svc),
-		httpSpellTool(svc),
-		httpFileTool(svc, opts.Assets, opts.Artifacts),
-		httpIconTool(svc, opts.Assets, opts.Artifacts),
-		httpCreatureTool(svc),
-		httpEncounterTool(svc),
-		httpDecorTool(svc),
-		httpCapabilityTool(svc, "wow_video", "Process video container data.", "video", "video_query"),
+		httpDB2Tool(svc, opts.SupportedTargets),
+		httpItemTool(svc, opts.SupportedTargets),
+		httpSpellTool(svc, opts.SupportedTargets),
+		httpFileTool(svc, opts.Assets, opts.Artifacts, opts.SupportedTargets),
+		httpIconTool(svc, opts.Assets, opts.Artifacts, opts.SupportedTargets),
+		httpCreatureTool(svc, opts.SupportedTargets),
+		httpEncounterTool(svc, opts.SupportedTargets),
+		httpDecorTool(svc, opts.SupportedTargets),
+		httpCapabilityTool(svc, "wow_video", "Process video container data.", "video", "video_query", opts.SupportedTargets),
 	}
 	if opts.ExposeAdmin {
 		tools = append(tools,
-			httpCapabilityTool(svc, "wow_refresh_builds", "Refresh known build metadata.", "refresh_builds", "refresh_builds"),
-			httpCapabilityTool(svc, "wow_prepare", "Prepare cached data for a build context.", "prepare", "prepare"),
-			httpCapabilityTool(svc, "wow_prune_cache", "Prune old cache artifacts.", "prune_cache", "prune_cache"),
+			httpCapabilityTool(svc, "wow_refresh_builds", "Refresh known build metadata.", "refresh_builds", "refresh_builds", opts.SupportedTargets),
+			httpCapabilityTool(svc, "wow_prepare", "Prepare cached data for a build context.", "prepare", "prepare", opts.SupportedTargets),
+			httpCapabilityTool(svc, "wow_prune_cache", "Prune old cache artifacts.", "prune_cache", "prune_cache", opts.SupportedTargets),
 		)
 	}
 	return tools
@@ -158,7 +165,7 @@ func httpDB2Tool(svc interface {
 	TableEnsurer
 	DB2Querier
 	DB2SchemaQuerier
-}) mcpserver.Tool {
+}, supported []SupportedTarget) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_query",
 		Description: "Query DB2 tables through the HTTP service.",
@@ -172,7 +179,10 @@ func httpDB2Tool(svc interface {
 			if table == "" {
 				return errorEnvelope("query", "invalid_request", "table is required"), nil
 			}
-			rc := requestContextFromArgs(args)
+			rc, err := validateSupportedTarget(requestContextFromArgs(args), supported)
+			if err != nil {
+				return errorEnvelope("query", "unsupported_target", err.Error()), nil
+			}
 			if err := svc.EnsureTable(ctx, rc, table); err != nil {
 				return errorEnvelopeFromError("query", "materializer_unavailable", err), nil
 			}
@@ -225,7 +235,7 @@ func httpDB2Tool(svc interface {
 	}
 }
 
-func httpFileTool(svc CapabilityProvider, assets RuntimeAssetProvider, artifacts ArtifactReserver) mcpserver.Tool {
+func httpFileTool(svc CapabilityProvider, assets RuntimeAssetProvider, artifacts ArtifactReserver, supported []SupportedTarget) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_file",
 		Description: "Query and export CASC files.",
@@ -236,14 +246,18 @@ func httpFileTool(svc CapabilityProvider, assets RuntimeAssetProvider, artifacts
 				return nil, err
 			}
 			mode := stringArg(args, "mode", "lookup")
+			rc, err := validateSupportedTarget(requestContextFromArgs(args), supported)
+			if err != nil {
+				return errorEnvelope("file "+mode, "unsupported_target", err.Error()), nil
+			}
 			needsListfile := mode == "lookup" || mode == "search" || mode == "extension" || stringArg(args, "filename", "") != ""
 			if assets == nil {
-				if err := svc.RequireCapability(ctx, requestContextFromArgs(args), "file_query"); err != nil {
+				if err := svc.RequireCapability(ctx, rc, "file_query"); err != nil {
 					return errorEnvelopeFromError("file "+mode, "query_engine_unavailable", err), nil
 				}
 				return errorEnvelope("file "+mode, "query_engine_unavailable", "file query engine is unavailable in the HTTP service"), nil
 			}
-			store, err := assets.FileStore(ctx, requestContextFromArgs(args), needsListfile)
+			store, err := assets.FileStore(ctx, rc, needsListfile)
 			if err != nil {
 				return errorEnvelopeFromError("file "+mode, "query_engine_unavailable", err), nil
 			}
@@ -303,7 +317,7 @@ func httpFileTool(svc CapabilityProvider, assets RuntimeAssetProvider, artifacts
 	}
 }
 
-func httpIconTool(svc CapabilityProvider, assets RuntimeAssetProvider, artifacts ArtifactReserver) mcpserver.Tool {
+func httpIconTool(svc CapabilityProvider, assets RuntimeAssetProvider, artifacts ArtifactReserver, supported []SupportedTarget) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_icon",
 		Description: "Export BLP icons.",
@@ -313,16 +327,20 @@ func httpIconTool(svc CapabilityProvider, assets RuntimeAssetProvider, artifacts
 			if err != nil {
 				return nil, err
 			}
+			rc, err := validateSupportedTarget(requestContextFromArgs(args), supported)
+			if err != nil {
+				return errorEnvelope("icon export", "unsupported_target", err.Error()), nil
+			}
 			artifactPath := stringArg(args, "path", "")
 			mimeType := stringArg(args, "mimeType", "image/png")
 			if artifactPath == "" {
 				if assets == nil || artifacts == nil {
-					if err := svc.RequireCapability(ctx, requestContextFromArgs(args), "icon_export"); err != nil {
+					if err := svc.RequireCapability(ctx, rc, "icon_export"); err != nil {
 						return errorEnvelopeFromError("icon export", "export_engine_unavailable", err), nil
 					}
 					return errorEnvelope("icon export", "export_engine_unavailable", "icon export engine is unavailable in the HTTP service"), nil
 				}
-				return exportHTTPIcon(ctx, assets, artifacts, requestContextFromArgs(args), args)
+				return exportHTTPIcon(ctx, assets, artifacts, rc, args)
 			}
 			if artifacts == nil {
 				return errorEnvelope("icon export", "artifact_link_unavailable", "artifact manager is unavailable in the HTTP service"), nil
@@ -338,7 +356,7 @@ func httpIconTool(svc CapabilityProvider, assets RuntimeAssetProvider, artifacts
 	}
 }
 
-func httpCapabilityTool(svc CapabilityProvider, name, description, command, capability string) mcpserver.Tool {
+func httpCapabilityTool(svc CapabilityProvider, name, description, command, capability string, supported []SupportedTarget) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        name,
 		Description: description,
@@ -348,7 +366,11 @@ func httpCapabilityTool(svc CapabilityProvider, name, description, command, capa
 			if err != nil {
 				return nil, err
 			}
-			if err := svc.RequireCapability(ctx, requestContextFromArgs(args), capability); err != nil {
+			rc, err := validateSupportedTarget(requestContextFromArgs(args), supported)
+			if err != nil {
+				return errorEnvelope(command, "unsupported_target", err.Error()), nil
+			}
+			if err := svc.RequireCapability(ctx, rc, capability); err != nil {
 				return errorEnvelopeFromError(command, "query_engine_unavailable", err), nil
 			}
 			return errorEnvelope(command, "query_engine_unavailable", capability+" is unavailable in the HTTP service"), nil
@@ -361,7 +383,7 @@ type BusinessQuerier interface {
 	DB2Querier
 }
 
-func httpItemTool(svc BusinessQuerier) mcpserver.Tool {
+func httpItemTool(svc BusinessQuerier, supported []SupportedTarget) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_item",
 		Description: "Query item metadata and assets.",
@@ -371,7 +393,10 @@ func httpItemTool(svc BusinessQuerier) mcpserver.Tool {
 			if err != nil {
 				return nil, err
 			}
-			rc := requestContextFromArgs(args)
+			rc, err := validateSupportedTarget(requestContextFromArgs(args), supported)
+			if err != nil {
+				return errorEnvelope("item "+stringArg(args, "mode", "get"), "unsupported_target", err.Error()), nil
+			}
 			if err := ensureBusinessTables(ctx, svc, rc, "Item", "ItemSparse", "ItemEffect", "ItemModifiedAppearance", "ItemAppearance", "ItemDisplayInfo", "ItemDisplayInfoMaterialRes", "ModelFileData", "TextureFileData", "ComponentModelFileData", "HelmetGeosetData"); err != nil {
 				return errorEnvelopeFromError("item "+stringArg(args, "mode", "get"), "query_engine_unavailable", err), nil
 			}
@@ -407,7 +432,7 @@ func httpItemTool(svc BusinessQuerier) mcpserver.Tool {
 	}
 }
 
-func httpSpellTool(svc BusinessQuerier) mcpserver.Tool {
+func httpSpellTool(svc BusinessQuerier, supported []SupportedTarget) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_spell",
 		Description: "Inspect spell relationships.",
@@ -417,7 +442,10 @@ func httpSpellTool(svc BusinessQuerier) mcpserver.Tool {
 			if err != nil {
 				return nil, err
 			}
-			rc := requestContextFromArgs(args)
+			rc, err := validateSupportedTarget(requestContextFromArgs(args), supported)
+			if err != nil {
+				return errorEnvelope("spell "+stringArg(args, "mode", "info"), "unsupported_target", err.Error()), nil
+			}
 			if err := ensureBusinessTables(ctx, svc, rc, "SpellName", "Spell", "SpellEffect", "SpellMisc", "SpellCastTimes", "SpellDuration", "SpellRange"); err != nil {
 				return errorEnvelopeFromError("spell "+stringArg(args, "mode", "info"), "query_engine_unavailable", err), nil
 			}
@@ -444,7 +472,7 @@ func httpSpellTool(svc BusinessQuerier) mcpserver.Tool {
 	}
 }
 
-func httpEncounterTool(svc BusinessQuerier) mcpserver.Tool {
+func httpEncounterTool(svc BusinessQuerier, supported []SupportedTarget) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_encounter",
 		Description: "Query JournalEncounter data.",
@@ -454,7 +482,10 @@ func httpEncounterTool(svc BusinessQuerier) mcpserver.Tool {
 			if err != nil {
 				return nil, err
 			}
-			rc := requestContextFromArgs(args)
+			rc, err := validateSupportedTarget(requestContextFromArgs(args), supported)
+			if err != nil {
+				return errorEnvelope("encounter get", "unsupported_target", err.Error()), nil
+			}
 			if err := ensureBusinessTables(ctx, svc, rc, "JournalEncounterSection", "SpellName"); err != nil {
 				return errorEnvelopeFromError("encounter get", "query_engine_unavailable", err), nil
 			}
@@ -464,7 +495,7 @@ func httpEncounterTool(svc BusinessQuerier) mcpserver.Tool {
 	}
 }
 
-func httpCreatureTool(svc BusinessQuerier) mcpserver.Tool {
+func httpCreatureTool(svc BusinessQuerier, supported []SupportedTarget) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_creature",
 		Description: "Query creature displays and models.",
@@ -474,7 +505,10 @@ func httpCreatureTool(svc BusinessQuerier) mcpserver.Tool {
 			if err != nil {
 				return nil, err
 			}
-			rc := requestContextFromArgs(args)
+			rc, err := validateSupportedTarget(requestContextFromArgs(args), supported)
+			if err != nil {
+				return errorEnvelope("creature "+stringArg(args, "mode", "display"), "unsupported_target", err.Error()), nil
+			}
 			if err := ensureBusinessTables(ctx, svc, rc, "CreatureDisplayInfo", "CreatureModelData", "CreatureDisplayInfoGeosetData"); err != nil {
 				return errorEnvelopeFromError("creature "+stringArg(args, "mode", "display"), "query_engine_unavailable", err), nil
 			}
@@ -503,7 +537,7 @@ func httpCreatureTool(svc BusinessQuerier) mcpserver.Tool {
 	}
 }
 
-func httpDecorTool(svc BusinessQuerier) mcpserver.Tool {
+func httpDecorTool(svc BusinessQuerier, supported []SupportedTarget) mcpserver.Tool {
 	return mcpserver.Tool{
 		Name:        "wow_decor",
 		Description: "Query decor data.",
@@ -513,7 +547,10 @@ func httpDecorTool(svc BusinessQuerier) mcpserver.Tool {
 			if err != nil {
 				return nil, err
 			}
-			rc := requestContextFromArgs(args)
+			rc, err := validateSupportedTarget(requestContextFromArgs(args), supported)
+			if err != nil {
+				return errorEnvelope("decor "+stringArg(args, "mode", "list"), "unsupported_target", err.Error()), nil
+			}
 			if err := ensureBusinessTables(ctx, svc, rc, "HouseDecor"); err != nil {
 				return errorEnvelopeFromError("decor "+stringArg(args, "mode", "list"), "query_engine_unavailable", err), nil
 			}
@@ -729,6 +766,31 @@ func requestContextFromArgs(args map[string]interface{}) httpservice.RequestCont
 		Product: stringArg(args, "product", ""),
 		Locale:  stringArg(args, "locale", ""),
 	}
+}
+
+func validateSupportedTarget(rc httpservice.RequestContext, supported []SupportedTarget) (httpservice.RequestContext, error) {
+	if len(supported) == 0 {
+		return rc, nil
+	}
+	defaultTarget := supported[0]
+	region := normalizedTargetPart(rc.Region, defaultTarget.Region)
+	product := normalizedTargetPart(rc.Product, defaultTarget.Product)
+	locale := normalizedTargetPart(rc.Locale, defaultTarget.Locale)
+	normalized := httpservice.RequestContext{Region: region, Product: product, Locale: locale}
+	for _, target := range supported {
+		if strings.EqualFold(region, target.Region) && product == target.Product && locale == target.Locale {
+			return normalized, nil
+		}
+	}
+	return normalized, fmt.Errorf("HTTP MCP only supports cn/wow/zhCN, cn/wow_classic/zhCN, cn/wow_classic_titan/zhCN, cn/wowt/zhCN, and cn/wow_classic_ptr/zhCN; got %s/%s/%s", region, product, locale)
+}
+
+func normalizedTargetPart(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	return value
 }
 
 func okEnvelope(command string, data interface{}) map[string]interface{} {

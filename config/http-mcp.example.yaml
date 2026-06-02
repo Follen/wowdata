@@ -40,30 +40,14 @@ prepare:
       region: cn
       product: wow_classic_titan
       locale: zhCN
-    - label: CN Retail enUS
-      region: cn
-      product: wow
-      locale: enUS
-    - label: CN Classic enUS
-      region: cn
-      product: wow_classic
-      locale: enUS
     - label: CN Retail PTR zhCN
       region: cn
       product: wowt
       locale: zhCN
-    - label: CN Retail PTR enUS
-      region: cn
-      product: wowt
-      locale: enUS
     - label: CN Classic PTR zhCN
       region: cn
       product: wow_classic_ptr
       locale: zhCN
-    - label: CN Classic PTR enUS
-      region: cn
-      product: wow_classic_ptr
-      locale: enUS
   default_tables:
     - "*"
 

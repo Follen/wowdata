@@ -176,6 +176,222 @@ func TestWowQueryModesDispatchToQueryService(t *testing.T) {
 	}
 }
 
+func TestHTTPToolsRejectUnsupportedTargetBeforeCallingServices(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		tool string
+		raw  json.RawMessage
+	}{
+		{
+			name: "query rejects enUS",
+			tool: "wow_query",
+			raw:  json.RawMessage(`{"mode":"tables","region":"cn","product":"wow","locale":"enUS"}`),
+		},
+		{
+			name: "item rejects us",
+			tool: "wow_item",
+			raw:  json.RawMessage(`{"itemID":19019,"region":"us","product":"wow","locale":"enUS"}`),
+		},
+		{
+			name: "file export rejects beta",
+			tool: "wow_file",
+			raw:  json.RawMessage(`{"mode":"export","fileDataID":10,"region":"cn","product":"wowxptr","locale":"zhCN"}`),
+		},
+		{
+			name: "icon rejects classic era",
+			tool: "wow_icon",
+			raw:  json.RawMessage(`{"fileDataID":10,"region":"cn","product":"wow_classic_era","locale":"zhCN"}`),
+		},
+		{
+			name: "video rejects us",
+			tool: "wow_video",
+			raw:  json.RawMessage(`{"region":"us","product":"wow","locale":"enUS"}`),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			query := &fakeQueryService{}
+			assets := &recordingAssetService{}
+			tool := findTool(t, HTTPTools(Options{
+				QueryService:     query,
+				AssetService:     assets,
+				SupportedTargets: defaultSupportedTargetsForTest(),
+			}), tt.tool)
+
+			result, err := tool.Handler(context.Background(), tt.raw)
+			if err != nil {
+				t.Fatalf("%s handler: %v", tt.tool, err)
+			}
+			envelope := resultEnvelope(t, result)
+			if envelope["ok"] != false {
+				t.Fatalf("ok = %v, want false; result=%#v", envelope["ok"], envelope)
+			}
+			errInfo, ok := envelope["error"].(map[string]interface{})
+			if !ok {
+				t.Fatalf("error = %T, want map", envelope["error"])
+			}
+			if errInfo["code"] != "unsupported_target" {
+				t.Fatalf("error code = %v, want unsupported_target; result=%#v", errInfo["code"], envelope)
+			}
+			if query.called != "" {
+				t.Fatalf("query service was called for unsupported target: %q", query.called)
+			}
+			if assets.called != "" {
+				t.Fatalf("asset service was called for unsupported target: %q", assets.called)
+			}
+		})
+	}
+}
+
+func TestHTTPAssetToolsRejectUnsupportedTargetBeforeCapabilityUnavailable(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		raw  json.RawMessage
+	}{
+		{
+			name: "wow_file",
+			raw:  json.RawMessage(`{"mode":"exists","fileDataID":10,"region":"us","product":"wow","locale":"enUS"}`),
+		},
+		{
+			name: "wow_icon",
+			raw:  json.RawMessage(`{"fileDataID":10,"region":"us","product":"wow","locale":"enUS"}`),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			tool := findTool(t, HTTPTools(Options{
+				QueryService:     service.UnavailableQueryService{},
+				SupportedTargets: defaultSupportedTargetsForTest(),
+			}), tt.name)
+
+			result, err := tool.Handler(context.Background(), tt.raw)
+			if err != nil {
+				t.Fatalf("%s handler: %v", tt.name, err)
+			}
+			envelope := resultEnvelope(t, result)
+			errInfo, ok := envelope["error"].(map[string]interface{})
+			if !ok {
+				t.Fatalf("error = %T, want map", envelope["error"])
+			}
+			if errInfo["code"] != "unsupported_target" {
+				t.Fatalf("error code = %v, want unsupported_target; result=%#v", errInfo["code"], envelope)
+			}
+		})
+	}
+}
+
+func TestHTTPToolsAllowsConfiguredFiveTargets(t *testing.T) {
+	for _, target := range defaultSupportedTargetsForTest() {
+		t.Run(target.Region+"/"+target.Product+"/"+target.Locale, func(t *testing.T) {
+			fake := &fakeQueryService{}
+			tool := findTool(t, HTTPTools(Options{
+				QueryService:     fake,
+				SupportedTargets: defaultSupportedTargetsForTest(),
+			}), "wow_query")
+			raw, err := json.Marshal(map[string]interface{}{
+				"mode":    "tables",
+				"region":  target.Region,
+				"product": target.Product,
+				"locale":  target.Locale,
+			})
+			if err != nil {
+				t.Fatalf("marshal args: %v", err)
+			}
+
+			result, err := tool.Handler(context.Background(), raw)
+			if err != nil {
+				t.Fatalf("wow_query handler: %v", err)
+			}
+			envelope := resultEnvelope(t, result)
+			if envelope["ok"] != true {
+				t.Fatalf("result = %#v, want ok true", envelope)
+			}
+			if fake.called != "tables" {
+				t.Fatalf("query service called = %q, want tables", fake.called)
+			}
+		})
+	}
+}
+
+func TestHTTPToolsNormalizeEmptyContextToDefaultSupportedTarget(t *testing.T) {
+	want := service.RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"}
+
+	t.Run("query", func(t *testing.T) {
+		fake := &fakeQueryService{}
+		tool := findTool(t, HTTPTools(Options{
+			QueryService:     fake,
+			SupportedTargets: defaultSupportedTargetsForTest(),
+		}), "wow_query")
+
+		if _, err := tool.Handler(context.Background(), json.RawMessage(`{"mode":"tables"}`)); err != nil {
+			t.Fatalf("wow_query handler: %v", err)
+		}
+		req, ok := fake.lastRequest.(service.TablesRequest)
+		if !ok {
+			t.Fatalf("lastRequest = %T, want TablesRequest", fake.lastRequest)
+		}
+		if req.Context != want {
+			t.Fatalf("query context = %#v, want %#v", req.Context, want)
+		}
+	})
+
+	t.Run("file", func(t *testing.T) {
+		assets := &recordingAssetService{}
+		tool := findTool(t, HTTPTools(Options{
+			QueryService:     service.UnavailableQueryService{},
+			AssetService:     assets,
+			SupportedTargets: defaultSupportedTargetsForTest(),
+		}), "wow_file")
+
+		if _, err := tool.Handler(context.Background(), json.RawMessage(`{"mode":"exists","fileDataID":10}`)); err != nil {
+			t.Fatalf("wow_file handler: %v", err)
+		}
+		req, ok := assets.lastRequest.(service.FileExistsRequest)
+		if !ok {
+			t.Fatalf("lastRequest = %T, want FileExistsRequest", assets.lastRequest)
+		}
+		if req.Context != want {
+			t.Fatalf("file context = %#v, want %#v", req.Context, want)
+		}
+	})
+
+	t.Run("icon", func(t *testing.T) {
+		assets := &recordingAssetService{}
+		tool := findTool(t, HTTPTools(Options{
+			QueryService:     service.UnavailableQueryService{},
+			AssetService:     assets,
+			SupportedTargets: defaultSupportedTargetsForTest(),
+		}), "wow_icon")
+
+		if _, err := tool.Handler(context.Background(), json.RawMessage(`{"fileDataID":10}`)); err != nil {
+			t.Fatalf("wow_icon handler: %v", err)
+		}
+		req, ok := assets.lastRequest.(service.IconExportRequest)
+		if !ok {
+			t.Fatalf("lastRequest = %T, want IconExportRequest", assets.lastRequest)
+		}
+		if req.Context != want {
+			t.Fatalf("icon context = %#v, want %#v", req.Context, want)
+		}
+	})
+
+	t.Run("business", func(t *testing.T) {
+		fake := newFakeBusinessQueryService()
+		tool := findTool(t, HTTPTools(Options{
+			QueryService:     fake,
+			SupportedTargets: defaultSupportedTargetsForTest(),
+		}), "wow_item")
+
+		if _, err := tool.Handler(context.Background(), json.RawMessage(`{"itemID":19019}`)); err != nil {
+			t.Fatalf("wow_item handler: %v", err)
+		}
+		if len(fake.calls) == 0 {
+			t.Fatal("business tool made no query calls")
+		}
+		if fake.calls[0].context != want {
+			t.Fatalf("business context = %#v, want %#v", fake.calls[0].context, want)
+		}
+	})
+}
+
 func TestWowQueryInvalidModeMentionsTables(t *testing.T) {
 	fake := &fakeQueryService{}
 	tool := findTool(t, HTTPTools(Options{QueryService: fake}), "wow_query")
@@ -573,6 +789,7 @@ func (f *fakeQueryService) Stream(ctx context.Context, req service.StreamRequest
 type businessToolCall struct {
 	table   string
 	idField string
+	context service.RequestContext
 }
 
 type fakeBusinessQueryService struct {
@@ -605,7 +822,7 @@ func (f *fakeBusinessQueryService) Tables(context.Context, service.TablesRequest
 }
 
 func (f *fakeBusinessQueryService) Rows(_ context.Context, req service.QueryRowsRequest) ([]map[string]interface{}, error) {
-	f.calls = append(f.calls, businessToolCall{table: req.Table, idField: req.IDField})
+	f.calls = append(f.calls, businessToolCall{table: req.Table, idField: req.IDField, context: req.Context})
 	if len(req.IDs) == 0 {
 		return nil, nil
 	}
@@ -707,6 +924,45 @@ func (f *fakeAssetService) FileExport(context.Context, service.FileExportRequest
 
 func (f *fakeAssetService) IconExport(context.Context, service.IconExportRequest) (service.AssetRecord, error) {
 	return f.iconExport, nil
+}
+
+type recordingAssetService struct {
+	called      string
+	lastRequest interface{}
+}
+
+func (f *recordingAssetService) FileLookup(_ context.Context, req service.FileLookupRequest) (service.AssetRecord, error) {
+	f.called = "lookup"
+	f.lastRequest = req
+	return service.AssetRecord{}, nil
+}
+
+func (f *recordingAssetService) FileExists(_ context.Context, req service.FileExistsRequest) (service.FileExistsResult, error) {
+	f.called = "exists"
+	f.lastRequest = req
+	return service.FileExistsResult{}, nil
+}
+
+func (f *recordingAssetService) FileExport(_ context.Context, req service.FileExportRequest) (service.AssetRecord, error) {
+	f.called = "export"
+	f.lastRequest = req
+	return service.AssetRecord{}, nil
+}
+
+func (f *recordingAssetService) IconExport(_ context.Context, req service.IconExportRequest) (service.AssetRecord, error) {
+	f.called = "icon"
+	f.lastRequest = req
+	return service.AssetRecord{}, nil
+}
+
+func defaultSupportedTargetsForTest() []SupportedTarget {
+	return []SupportedTarget{
+		{Region: "cn", Product: "wow", Locale: "zhCN"},
+		{Region: "cn", Product: "wow_classic", Locale: "zhCN"},
+		{Region: "cn", Product: "wow_classic_titan", Locale: "zhCN"},
+		{Region: "cn", Product: "wowt", Locale: "zhCN"},
+		{Region: "cn", Product: "wow_classic_ptr", Locale: "zhCN"},
+	}
 }
 
 func toolNames(tools []mcpserver.Tool) []string {

@@ -55,15 +55,26 @@ func newMCPServerForRuntimeWithArtifacts(rt *Runtime, artifacts artifactConfig) 
 
 func newMCPHTTPServerForService(svc *httpservice.Service, rt *Runtime, artifacts artifactConfig) *mcpserver.Server {
 	return mcpserver.NewServer("wowdata", mcpadapter.HTTPTools(svc, mcpadapter.HTTPToolOptions{
-		ExposeAdmin: svc.ToolPolicy().ExposeAdminTools,
-		Artifacts:   newMCPArtifactReserver(artifacts),
-		Assets:      httpRuntimeAssets{rt: rt, svc: svc},
+		ExposeAdmin:      svc.ToolPolicy().ExposeAdminTools,
+		Artifacts:        newMCPArtifactReserver(artifacts),
+		Assets:           httpRuntimeAssets{rt: rt, svc: svc},
+		SupportedTargets: mcpHTTPSupportedTargets(),
 	}))
 }
 
+func mcpHTTPSupportedTargets() []mcpadapter.SupportedTarget {
+	return []mcpadapter.SupportedTarget{
+		{Region: "cn", Product: "wow", Locale: "zhCN"},
+		{Region: "cn", Product: "wow_classic", Locale: "zhCN"},
+		{Region: "cn", Product: "wow_classic_titan", Locale: "zhCN"},
+		{Region: "cn", Product: "wowt", Locale: "zhCN"},
+		{Region: "cn", Product: "wow_classic_ptr", Locale: "zhCN"},
+	}
+}
+
 func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseURL, cacheRoot, artifactRoot string) {
-	mux.Handle("/mcp", server)
-	mux.Handle("/mcp/", server)
+	mux.Handle("/wowdata", server)
+	mux.Handle("/wowdata/", server)
 	if artifactRoot != "" {
 		mux.HandleFunc("/files/", artifactFileHandler(artifactRoot))
 	}
@@ -71,7 +82,7 @@ func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseU
 		writeHelpJSON(w, http.StatusOK, map[string]interface{}{
 			"ok":        true,
 			"service":   "wowdata-mcp",
-			"endpoint":  publicURL(baseURL, "/mcp"),
+			"endpoint":  publicURL(baseURL, "/wowdata"),
 			"transport": "streamable_http",
 			"cacheRoot": filepath.ToSlash(cacheRoot),
 		})
@@ -84,7 +95,7 @@ func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseU
 			writeHelpHTML(w, http.StatusOK, mcpHelpHTML(baseURL))
 			return
 		}
-		writeHelpJSON(w, http.StatusNotFound, map[string]interface{}{"error": "not found", "help": "/help", "endpoint": "/mcp"})
+		writeHelpJSON(w, http.StatusNotFound, map[string]interface{}{"error": "not found", "help": "/help", "endpoint": "/wowdata"})
 	})
 }
 
@@ -160,7 +171,7 @@ func writeHelpHTML(w http.ResponseWriter, code int, text string) {
 }
 
 func mcpHelpHTML(baseURL string) string {
-	endpoint := publicURL(baseURL, "/mcp")
+	endpoint := publicURL(baseURL, "/wowdata")
 	escapedEndpoint := htmltemplate.HTMLEscapeString(endpoint)
 	jsonEndpoint, _ := json.Marshal(endpoint)
 	escapedJSONEndpoint := htmltemplate.HTMLEscapeString(string(jsonEndpoint))

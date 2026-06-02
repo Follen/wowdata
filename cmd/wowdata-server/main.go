@@ -93,7 +93,7 @@ func newMCPHTTPCommand(rt *serverruntime.Runtime, runHTTP httpRunner) *cobra.Com
 		Long: `Serve MCP tools over Streamable HTTP.
 
 Use this for remote deployments with a domain, TLS, reverse proxy, or shared service.
-The MCP endpoint is /mcp. Health is available at /health.`,
+The MCP endpoint is /wowdata. Health is available at /health.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if rt.ServiceName == "" {
 				return fmt.Errorf("server runtime name is empty")
@@ -133,7 +133,7 @@ func runHTTPServer(opts httpOptions) error {
 	if closeable {
 		defer closer.Close()
 	}
-	fmt.Fprintf(os.Stderr, "wowdata-server MCP HTTP listening on http://%s/mcp\n", addr)
+	fmt.Fprintf(os.Stderr, "wowdata-server MCP HTTP listening on http://%s/wowdata\n", addr)
 	server := &http.Server{
 		Addr:              addr,
 		Handler:           mux,
@@ -234,12 +234,13 @@ func newHTTPHandlerStrict(opts httpOptions, healthProvider health.Provider) (htt
 		)
 	}
 	mcpServer := mcpserver.NewServer("wowdata", mcphttp.HTTPTools(mcphttp.Options{
-		HealthProvider: healthProvider,
-		QueryService:   queryService,
-		AssetService:   assetService,
+		HealthProvider:   healthProvider,
+		QueryService:     queryService,
+		AssetService:     assetService,
+		SupportedTargets: supportedMCPTargets(),
 	}))
-	mux.Handle("/mcp", mcpServer)
-	mux.Handle("/mcp/", mcpServer)
+	mux.Handle("/wowdata", mcpServer)
+	mux.Handle("/wowdata/", mcpServer)
 	artifactRoot := opts.ArtifactRoot
 	if artifactRoot == "" {
 		artifactRoot = cfg.Artifacts.Root
@@ -254,6 +255,19 @@ func newHTTPHandlerStrict(opts httpOptions, healthProvider health.Provider) (htt
 		return closeableHandler{Handler: mux, close: sharedMetadataDB.Close}, nil
 	}
 	return mux, nil
+}
+
+func supportedMCPTargets() []mcphttp.SupportedTarget {
+	defaultCfg := config.Default()
+	targets := make([]mcphttp.SupportedTarget, 0, len(defaultCfg.Prepare.Targets))
+	for _, target := range defaultCfg.Prepare.Targets {
+		targets = append(targets, mcphttp.SupportedTarget{
+			Region:  target.Region,
+			Product: target.Product,
+			Locale:  target.Locale,
+		})
+	}
+	return targets
 }
 
 func updateFlowFixtureHandler(w http.ResponseWriter, r *http.Request) {

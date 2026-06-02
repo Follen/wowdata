@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestDefaultPrepareMatrixHasRequestedNineAllCNCDNTargetsAndExcludesExtras(t *testing.T) {
+func TestDefaultPrepareMatrixHasRequestedFiveCNZhCNTargetsAndExcludesExtras(t *testing.T) {
 	cfg := Default()
 	targets := cfg.Prepare.Targets
 	expected := expectedPrepareTargets()
@@ -21,6 +21,7 @@ func TestDefaultPrepareMatrixHasRequestedNineAllCNCDNTargetsAndExcludesExtras(t 
 	assertNoBetaTargets(t, targets)
 	assertNoClassicEraTargets(t, targets)
 	assertOnlyCNCDNTargets(t, targets)
+	assertOnlyZhCNTargets(t, targets)
 	if t.Failed() {
 		return
 	}
@@ -29,14 +30,14 @@ func TestDefaultPrepareMatrixHasRequestedNineAllCNCDNTargetsAndExcludesExtras(t 
 	}
 }
 
-func TestSpecDocumentsRequestedNineTargetDefaultPrepareMatrix(t *testing.T) {
+func TestSpecDocumentsRequestedFiveTargetDefaultPrepareMatrix(t *testing.T) {
 	data, err := os.ReadFile("../../../docs/superpowers/specs/2026-06-02-wowdata-http-mcp-optimal-server-design.md")
 	if err != nil {
 		t.Fatalf("read design spec: %v", err)
 	}
 	spec := string(data)
-	if !strings.Contains(spec, "Total default prepare targets: 9.") {
-		t.Fatal("design spec must document 9 default prepare targets")
+	if !strings.Contains(spec, "Total default prepare targets: 5.") {
+		t.Fatal("design spec must document 5 default prepare targets")
 	}
 	matrixStart := strings.Index(spec, "The server discovers and prepares the latest configured builds for this default matrix:")
 	if matrixStart < 0 {
@@ -58,6 +59,41 @@ func TestSpecDocumentsRequestedNineTargetDefaultPrepareMatrix(t *testing.T) {
 	for _, forbidden := range []string{"US /", "EU", "KR", "TW", "Classic Era"} {
 		if strings.Contains(matrix, forbidden) {
 			t.Fatalf("design spec matrix still includes unrequested target marker %q", forbidden)
+		}
+	}
+	if strings.Contains(matrix, "enUS") {
+		t.Fatal("design spec matrix must not include enUS in the default prepare matrix")
+	}
+	for _, required := range []string{
+		"Retail zhCN",
+		"Classic zhCN",
+		"Classic Titan zhCN",
+		"Retail PTR zhCN",
+		"Classic PTR zhCN",
+	} {
+		if !strings.Contains(matrix, required) {
+			t.Fatalf("design spec matrix missing required target %q", required)
+		}
+	}
+}
+
+func TestSpecDocumentsIncrementalRefreshAndLayeredCacheManagement(t *testing.T) {
+	data, err := os.ReadFile("../../../docs/superpowers/specs/2026-06-02-wowdata-http-mcp-optimal-server-design.md")
+	if err != nil {
+		t.Fatalf("read design spec: %v", err)
+	}
+	spec := string(data)
+	for _, required := range []string{
+		"DB2 fingerprint",
+		"encoding key",
+		"Only DB2 tables whose fingerprint changes are marked dirty",
+		"completion cleanup",
+		"DB2/listfile",
+		"WAL checkpoint",
+		"storage usage by layer",
+	} {
+		if !strings.Contains(spec, required) {
+			t.Fatalf("design spec missing incremental/cache requirement %q", required)
 		}
 	}
 }
@@ -301,6 +337,15 @@ func assertOnlyCNCDNTargets(t *testing.T, targets []PrepareTarget) {
 	}
 }
 
+func assertOnlyZhCNTargets(t *testing.T, targets []PrepareTarget) {
+	t.Helper()
+	for _, target := range targets {
+		if target.Locale != "zhCN" {
+			t.Errorf("target must use zhCN locale: %s/%s/%s (%s)", target.Region, target.Product, target.Locale, target.Label)
+		}
+	}
+}
+
 func readExampleYAML(t *testing.T, out any) {
 	t.Helper()
 	data, err := os.ReadFile("../../../config/http-mcp.example.yaml")
@@ -317,11 +362,7 @@ func expectedPrepareTargets() []PrepareTarget {
 		{Label: "CN Retail", Region: "cn", Product: "wow", Locale: "zhCN"},
 		{Label: "CN Classic", Region: "cn", Product: "wow_classic", Locale: "zhCN"},
 		{Label: "CN Classic Titan", Region: "cn", Product: "wow_classic_titan", Locale: "zhCN"},
-		{Label: "CN Retail enUS", Region: "cn", Product: "wow", Locale: "enUS"},
-		{Label: "CN Classic enUS", Region: "cn", Product: "wow_classic", Locale: "enUS"},
 		{Label: "CN Retail PTR zhCN", Region: "cn", Product: "wowt", Locale: "zhCN"},
-		{Label: "CN Retail PTR enUS", Region: "cn", Product: "wowt", Locale: "enUS"},
 		{Label: "CN Classic PTR zhCN", Region: "cn", Product: "wow_classic_ptr", Locale: "zhCN"},
-		{Label: "CN Classic PTR enUS", Region: "cn", Product: "wow_classic_ptr", Locale: "enUS"},
 	}
 }

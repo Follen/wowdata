@@ -26,7 +26,7 @@ Exact stdio tool list:
 
 ## HTTP transport
 
-The Streamable HTTP transport exposes MCP at `/mcp`.
+The Streamable HTTP transport exposes MCP at `/wowdata`.
 
 Exact default HTTP tool list:
 
