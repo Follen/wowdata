@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	serverbootstrap "wowdata/internal/server/bootstrap"
 	"wowdata/internal/server/health"
 	"wowdata/internal/server/storage/metadata"
 )
@@ -523,6 +525,56 @@ func TestServerDefaultMCPHandlerUsesConfigMetadataDB(t *testing.T) {
 	}
 	if strings.Contains(rec.Body.String(), "query_engine_unavailable") {
 		t.Fatalf("mode=tables returned unavailable despite configured metadata DB: %s", rec.Body.String())
+	}
+}
+
+func TestServerProductionWiringStartsBootstrapWithLoadedConfigDefaultTables(t *testing.T) {
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	configPath := writeHealthConfigWithDefaultTables(t, metadataPath, "US Retail", "us", "wow", "enUS", []string{"Item", "Spell"})
+	var gotCfgTable string
+	var gotTables []string
+	var gotTarget string
+	called := false
+
+	handler := newHTTPHandler(httpOptions{
+		ServiceName: "wowdata-server",
+		ConfigPath:  configPath,
+		Bootstrap: func(ctx context.Context, cfg serverbootstrap.Config, db *sql.DB) error {
+			called = true
+			if db == nil {
+				t.Fatal("bootstrap db is nil")
+			}
+			gotCfgTable = cfg.Cache.MetadataDB
+			gotTables = append([]string{}, cfg.Prepare.DefaultTables...)
+			if len(cfg.Prepare.Targets) == 1 {
+				target := cfg.Prepare.Targets[0]
+				gotTarget = target.Region + "/" + target.Product + "/" + target.Locale
+			}
+			return nil
+		},
+	}, nil)
+	if closer, ok := handler.(interface{ Close() error }); ok {
+		t.Cleanup(func() { _ = closer.Close() })
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	handler.ServeHTTP(rec, req)
+
+	if !called {
+		t.Fatal("bootstrap hook was not called")
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	if gotCfgTable != metadataPath {
+		t.Fatalf("bootstrap metadata db = %q, want %q", gotCfgTable, metadataPath)
+	}
+	if strings.Join(gotTables, ",") != "Item,Spell" {
+		t.Fatalf("bootstrap tables = %#v, want Item,Spell", gotTables)
+	}
+	if gotTarget != "us/wow/enUS" {
+		t.Fatalf("bootstrap target = %q, want us/wow/enUS", gotTarget)
 	}
 }
 

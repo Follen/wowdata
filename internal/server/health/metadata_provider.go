@@ -23,6 +23,17 @@ func NewMetadataProvider(cfg config.Config, metadataDBPath string) (MetadataProv
 	return newMetadataProviderWithOpener(cfg, metadataDBPath, metadata.Open)
 }
 
+func NewMetadataProviderWithDB(cfg config.Config, metadataDBPath string, db *sql.DB) MetadataProvider {
+	if metadataDBPath == "" {
+		metadataDBPath = cfg.Cache.MetadataDB
+	}
+	return MetadataProvider{
+		Config:         cfg,
+		MetadataDBPath: metadataDBPath,
+		db:             db,
+	}
+}
+
 func newMetadataProviderWithOpener(cfg config.Config, metadataDBPath string, opener metadataOpener) (MetadataProvider, error) {
 	if metadataDBPath == "" {
 		metadataDBPath = cfg.Cache.MetadataDB
@@ -43,6 +54,10 @@ func (p MetadataProvider) Close() error {
 		return nil
 	}
 	return p.db.Close()
+}
+
+func (p MetadataProvider) DB() *sql.DB {
+	return p.db
 }
 
 func (p MetadataProvider) HealthSnapshot(ctx context.Context) (Snapshot, error) {

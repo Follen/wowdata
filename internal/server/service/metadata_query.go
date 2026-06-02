@@ -41,6 +41,18 @@ func NewMetadataQueryServiceWithRuntime(metadataDBPath string, duckDBPath string
 	}
 }
 
+func NewMetadataQueryServiceWithDBAndRuntime(db *sql.DB, duckDBPath string, trustedRoot string) *MetadataQueryService {
+	if trustedRoot == "" {
+		trustedRoot = "."
+	}
+	return &MetadataQueryService{
+		db:           db,
+		trustedRoot:  trustedRoot,
+		queryBuilder: storageduckdb.NewQueryBuilder(trustedRoot),
+		queryEngine:  cacheduckdb.NewEngine(duckDBPath),
+	}
+}
+
 func NewMetadataQueryServiceWithDB(db *sql.DB) *MetadataQueryService {
 	return NewMetadataQueryServiceForTest(db, ".", nil)
 }

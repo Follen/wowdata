@@ -1,19 +1,24 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"time"
 
 	"wowdata/internal/mcpserver"
+	serverbootstrap "wowdata/internal/server/bootstrap"
 	"wowdata/internal/server/config"
 	"wowdata/internal/server/health"
 	"wowdata/internal/server/mcphttp"
 	serverruntime "wowdata/internal/server/runtime"
 	"wowdata/internal/server/service"
 	"wowdata/internal/server/storage/artifacts"
+	"wowdata/internal/server/storage/metadata"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -28,9 +33,11 @@ type httpOptions struct {
 	ArtifactRoot   string
 	MetadataDBPath string
 	QueryService   service.QueryService
+	Bootstrap      prepareBootstrap
 }
 
 type httpRunner func(httpOptions) error
+type prepareBootstrap func(context.Context, serverbootstrap.Config, *sql.DB) error
 
 func main() {
 	cmd := newRootCommand()
@@ -94,14 +101,21 @@ The MCP endpoint is /mcp. Health is available at /health.`,
 
 func runHTTPServer(opts httpOptions) error {
 	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
 	mux := newHTTPHandler(opts, nil)
+	if closer, ok := mux.(interface{ Close() error }); ok {
+		defer closer.Close()
+	}
 	fmt.Fprintf(os.Stderr, "wowdata-server MCP HTTP listening on http://%s/mcp\n", addr)
 	server := &http.Server{
 		Addr:              addr,
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	return server.ListenAndServe()
+	return server.Serve(listener)
 }
 
 func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handler {
@@ -112,15 +126,31 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 			"message": err.Error(),
 		})
 	}
+	var sharedMetadataDB *sql.DB
 	if healthProvider == nil {
-		metadataHealthProvider, err := health.NewMetadataProvider(cfg, opts.MetadataDBPath)
+		metadataDBPath := opts.MetadataDBPath
+		if metadataDBPath == "" {
+			metadataDBPath = cfg.Cache.MetadataDB
+		}
+		metadataDB, err := metadata.Open(metadataDBPath)
 		if err != nil {
 			return errorHandler(http.StatusInternalServerError, map[string]interface{}{
 				"error":   "health_unavailable",
 				"message": err.Error(),
 			})
 		}
-		healthProvider = metadataHealthProvider
+		sharedMetadataDB = metadataDB
+		healthProvider = health.NewMetadataProviderWithDB(cfg, metadataDBPath, metadataDB)
+		startBootstrap := opts.Bootstrap
+		if startBootstrap == nil {
+			startBootstrap = serverbootstrap.StartBackground
+		}
+		if err := startBootstrap(context.Background(), cfg, metadataDB); err != nil {
+			return errorHandler(http.StatusInternalServerError, map[string]interface{}{
+				"error":   "prepare_unavailable",
+				"message": err.Error(),
+			})
+		}
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -136,11 +166,15 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 	})
 	queryService := opts.QueryService
 	if queryService == nil {
-		metadataDBPath := opts.MetadataDBPath
-		if metadataDBPath == "" {
-			metadataDBPath = cfg.Cache.MetadataDB
+		if metadataProvider, ok := healthProvider.(health.MetadataProvider); ok {
+			queryService = service.NewMetadataQueryServiceWithDBAndRuntime(metadataProvider.DB(), cfg.Cache.DuckDBPath, cfg.Cache.Root)
+		} else {
+			metadataDBPath := opts.MetadataDBPath
+			if metadataDBPath == "" {
+				metadataDBPath = cfg.Cache.MetadataDB
+			}
+			queryService = service.NewMetadataQueryServiceWithRuntime(metadataDBPath, cfg.Cache.DuckDBPath, cfg.Cache.Root)
 		}
-		queryService = service.NewMetadataQueryServiceWithRuntime(metadataDBPath, cfg.Cache.DuckDBPath, cfg.Cache.Root)
 	}
 	mcpServer := mcpserver.NewServer("wowdata", mcphttp.HTTPTools(mcphttp.Options{
 		HealthProvider: healthProvider,
@@ -151,7 +185,22 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 	if opts.ArtifactRoot != "" {
 		mux.Handle("/files/", artifacts.FileHandler(opts.ArtifactRoot))
 	}
+	if sharedMetadataDB != nil {
+		return closeableHandler{Handler: mux, close: sharedMetadataDB.Close}
+	}
 	return mux
+}
+
+type closeableHandler struct {
+	http.Handler
+	close func() error
+}
+
+func (h closeableHandler) Close() error {
+	if h.close == nil {
+		return nil
+	}
+	return h.close()
 }
 
 func loadServerConfig(path string) (config.Config, error) {
