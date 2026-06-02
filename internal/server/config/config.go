@@ -54,9 +54,9 @@ func (c *LimitsConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var raw struct {
 		rawLimits `yaml:",inline"`
 
-		MaxConcurrentPrepares         int `yaml:"max_concurrent_prepares"`
-		MaxConcurrentMaterializations int `yaml:"max_concurrent_materializations"`
-		MaxConcurrentQueries          int `yaml:"max_concurrent_queries"`
+		MaxConcurrentPrepares         *int `yaml:"max_concurrent_prepares"`
+		MaxConcurrentMaterializations *int `yaml:"max_concurrent_materializations"`
+		MaxConcurrentQueries          *int `yaml:"max_concurrent_queries"`
 	}
 	if err := unmarshal(&raw); err != nil {
 		return err
@@ -81,14 +81,14 @@ func (c *LimitsConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if parsed.MemoryHardLimitMB != 0 {
 		c.MemoryHardLimitMB = parsed.MemoryHardLimitMB
 	}
-	if c.MaxParallelContextPrepares == 0 {
-		c.MaxParallelContextPrepares = raw.MaxConcurrentPrepares
+	if raw.MaxConcurrentPrepares != nil {
+		c.MaxParallelContextPrepares = *raw.MaxConcurrentPrepares
 	}
-	if c.MaxParallelTableMaterializations == 0 {
-		c.MaxParallelTableMaterializations = raw.MaxConcurrentMaterializations
+	if raw.MaxConcurrentMaterializations != nil {
+		c.MaxParallelTableMaterializations = *raw.MaxConcurrentMaterializations
 	}
-	if c.MaxParallelQueries == 0 {
-		c.MaxParallelQueries = raw.MaxConcurrentQueries
+	if raw.MaxConcurrentQueries != nil {
+		c.MaxParallelQueries = *raw.MaxConcurrentQueries
 	}
 	return nil
 }

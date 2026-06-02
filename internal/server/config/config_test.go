@@ -67,6 +67,30 @@ limits:
 	}
 }
 
+func TestLimitsLegacyRemoteYAMLNamesOverrideDefaults(t *testing.T) {
+	cfg := Default()
+	if err := yaml.Unmarshal([]byte(`
+limits:
+  max_concurrent_prepares: 1
+  max_concurrent_materializations: 3
+  max_concurrent_queries: 8
+`), &cfg); err != nil {
+		t.Fatalf("unmarshal legacy limits into defaults: %v", err)
+	}
+	if cfg.Limits.MaxParallelContextPrepares != 1 {
+		t.Fatalf("context prepares = %d, want 1 from max_concurrent_prepares", cfg.Limits.MaxParallelContextPrepares)
+	}
+	if cfg.Limits.MaxParallelTableMaterializations != 3 {
+		t.Fatalf("table materializations = %d, want 3 from max_concurrent_materializations", cfg.Limits.MaxParallelTableMaterializations)
+	}
+	if cfg.Limits.MaxParallelQueries != 8 {
+		t.Fatalf("queries = %d, want 8 from max_concurrent_queries", cfg.Limits.MaxParallelQueries)
+	}
+	if cfg.Limits.MemorySoftLimitMB != 4096 || cfg.Limits.MemoryHardLimitMB != 8192 {
+		t.Fatalf("memory limits = %d/%d, want preserved defaults 4096/8192", cfg.Limits.MemorySoftLimitMB, cfg.Limits.MemoryHardLimitMB)
+	}
+}
+
 func TestDefaultPrepareDefaultTablesIncludeRequiredBusinessTables(t *testing.T) {
 	tables := Default().Prepare.DefaultTables
 	if len(tables) == 0 {
