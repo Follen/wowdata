@@ -48,6 +48,31 @@ type LimitsConfig struct {
 	MemoryHardLimitMB                int `yaml:"memory_hard_limit_mb"`
 }
 
+func (c *LimitsConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawLimits LimitsConfig
+	var raw struct {
+		rawLimits `yaml:",inline"`
+
+		MaxConcurrentPrepares         int `yaml:"max_concurrent_prepares"`
+		MaxConcurrentMaterializations int `yaml:"max_concurrent_materializations"`
+		MaxConcurrentQueries          int `yaml:"max_concurrent_queries"`
+	}
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+	*c = LimitsConfig(raw.rawLimits)
+	if c.MaxParallelContextPrepares == 0 {
+		c.MaxParallelContextPrepares = raw.MaxConcurrentPrepares
+	}
+	if c.MaxParallelTableMaterializations == 0 {
+		c.MaxParallelTableMaterializations = raw.MaxConcurrentMaterializations
+	}
+	if c.MaxParallelQueries == 0 {
+		c.MaxParallelQueries = raw.MaxConcurrentQueries
+	}
+	return nil
+}
+
 func Default() Config {
 	return Config{
 		Server: ServerConfig{Host: "0.0.0.0", Port: 9788},

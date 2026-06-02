@@ -42,6 +42,27 @@ func TestDefaultResourceLimitsFitTenGBServer(t *testing.T) {
 	}
 }
 
+func TestLimitsAcceptLegacyRemoteYAMLNames(t *testing.T) {
+	var cfg Config
+	if err := yaml.Unmarshal([]byte(`
+limits:
+  max_concurrent_prepares: 3
+  max_concurrent_materializations: 4
+  max_concurrent_queries: 5
+`), &cfg); err != nil {
+		t.Fatalf("unmarshal legacy limits: %v", err)
+	}
+	if cfg.Limits.MaxParallelContextPrepares != 3 {
+		t.Fatalf("context prepares = %d, want 3 from max_concurrent_prepares", cfg.Limits.MaxParallelContextPrepares)
+	}
+	if cfg.Limits.MaxParallelTableMaterializations != 4 {
+		t.Fatalf("table materializations = %d, want 4 from max_concurrent_materializations", cfg.Limits.MaxParallelTableMaterializations)
+	}
+	if cfg.Limits.MaxParallelQueries != 5 {
+		t.Fatalf("queries = %d, want 5 from max_concurrent_queries", cfg.Limits.MaxParallelQueries)
+	}
+}
+
 func TestDefaultPrepareDefaultTablesIncludeRequiredBusinessTables(t *testing.T) {
 	tables := Default().Prepare.DefaultTables
 	if len(tables) == 0 {
