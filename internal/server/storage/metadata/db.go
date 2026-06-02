@@ -82,6 +82,10 @@ func migrate(db *sql.DB, dir string) error {
 			continue
 		}
 
+		apply, err := shouldApplyMigration(db, name)
+		if err != nil {
+			return err
+		}
 		body, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
 			return err
@@ -90,9 +94,11 @@ func migrate(db *sql.DB, dir string) error {
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(string(body)); err != nil {
-			_ = tx.Rollback()
-			return fmt.Errorf("apply migration %s: %w", name, err)
+		if apply {
+			if _, err := tx.Exec(string(body)); err != nil {
+				_ = tx.Rollback()
+				return fmt.Errorf("apply migration %s: %w", name, err)
+			}
 		}
 		if _, err := tx.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES (?, CURRENT_TIMESTAMP)`, name); err != nil {
 			_ = tx.Rollback()
@@ -103,6 +109,13 @@ func migrate(db *sql.DB, dir string) error {
 		}
 	}
 	return nil
+}
+
+func shouldApplyMigration(db *sql.DB, name string) (bool, error) {
+	if name != "0009_no_build_state.sql" {
+		return true, nil
+	}
+	return tableExists(db, "server_builds")
 }
 
 func ensureSchemaMigrations(db *sql.DB) error {
@@ -138,6 +151,14 @@ func ensureSchemaMigrations(db *sql.DB) error {
 	}
 	err = tx.Commit()
 	return err
+}
+
+func tableExists(db *sql.DB, table string) (bool, error) {
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func tableColumns(db *sql.DB, table string) (map[string]bool, error) {
