@@ -187,6 +187,43 @@ func TestRefreshActiveCandidateWithOmittedFingerprintsDoesNotNoOp(t *testing.T) 
 	assertCASCIndexState(t, ctx, db, sourceKey, "root-encoding-archive", metadata.StateValid)
 }
 
+func TestRefreshActiveCandidateWithPartialTableFingerprintsDoesNotNoOp(t *testing.T) {
+	ctx := context.Background()
+	db := openRefreshTestDB(t)
+	seedActiveBuild(t, ctx, db, "build-1")
+	seedValidTable(t, ctx, db, "Spell", "dbd-a", "decoder-1", "materializer-1")
+	seedValidTable(t, ctx, db, "Item", "dbd-a", "decoder-1", "materializer-1")
+
+	var prepareCalls int32
+	workflow := Workflow{
+		DB: db,
+		Discoverer: fixtureDiscoverer{candidate: BuildCandidate{
+			Region:    "us",
+			Product:   "wow",
+			Locale:    "enUS",
+			BuildKey:  "build-1",
+			BuildName: "build one",
+			Tables: []TableFingerprint{
+				{TableName: "Spell", DB2FileDataID: 123, DBDHash: "dbd-a", DecoderVersion: "decoder-1", MaterializerVersion: "materializer-1"},
+			},
+		}},
+		Preparer: fixturePreparer{calls: &prepareCalls},
+	}
+	result, err := workflow.RefreshTarget(ctx, Target{Region: "us", Product: "wow", Locale: "enUS"})
+	if err != nil {
+		t.Fatalf("refresh partial-table active candidate: %v", err)
+	}
+	if got := atomic.LoadInt32(&prepareCalls); got != 1 {
+		t.Fatalf("prepare calls = %d, want 1", got)
+	}
+	if result.Activated {
+		t.Fatalf("activated = true, want false")
+	}
+	assertActiveBuild(t, ctx, db, "build-1")
+	assertTableState(t, db, "Spell", metadata.StateValid)
+	assertTableState(t, db, "Item", metadata.StateValid)
+}
+
 func TestRefreshActiveChangedCandidateFailurePreservesActiveBuildState(t *testing.T) {
 	ctx := context.Background()
 	db := openRefreshTestDB(t)

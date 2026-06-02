@@ -229,6 +229,22 @@ func candidateUnchangedForActive(ctx context.Context, db *sql.DB, active metadat
 		if err != nil || exists {
 			return !exists, err
 		}
+	} else {
+		activeTables, err := validMaterializedTableNames(ctx, db, active.Key)
+		if err != nil {
+			return false, err
+		}
+		if len(activeTables) > 0 {
+			candidateTables := make(map[string]struct{}, len(candidate.Tables))
+			for _, table := range candidate.Tables {
+				candidateTables[table.TableName] = struct{}{}
+			}
+			for activeTable := range activeTables {
+				if _, ok := candidateTables[activeTable]; !ok {
+					return false, nil
+				}
+			}
+		}
 	}
 	for _, table := range candidate.Tables {
 		existing, err := materializedTableForBuild(ctx, db, metadata.TableKey{
@@ -325,6 +341,31 @@ LIMIT 1`,
 		return false, nil
 	}
 	return err == nil, err
+}
+
+func validMaterializedTableNames(ctx context.Context, db *sql.DB, key metadata.BuildKey) (map[string]struct{}, error) {
+	rows, err := db.QueryContext(ctx, `
+SELECT table_name FROM server_materialized_tables
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ? AND state = ?`,
+		key.Region, key.Product, key.Locale, key.BuildKey, metadata.StateValid,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	names := map[string]struct{}{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		names[name] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return names, nil
 }
 
 func materializedTableForBuild(ctx context.Context, db *sql.DB, key metadata.TableKey) (metadata.MaterializedTable, error) {
