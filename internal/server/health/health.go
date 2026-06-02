@@ -20,6 +20,8 @@ type Snapshot struct {
 	Matrix       Matrix          `json:"matrix"`
 	Memory       Memory          `json:"memory"`
 	Storage      Storage         `json:"storage"`
+	Artifacts    Artifacts       `json:"artifacts"`
+	Limits       Limits          `json:"limits"`
 	Contexts     []ContextStatus `json:"contexts"`
 	RecentErrors []string        `json:"recentErrors,omitempty"`
 }
@@ -57,48 +59,62 @@ type Storage struct {
 	ArtifactBytes   int64 `json:"artifactBytes,omitempty"`
 }
 
+type Artifacts struct {
+	Root    string `json:"root"`
+	BaseURL string `json:"baseUrl,omitempty"`
+}
+
+type Limits struct {
+	MaxParallelContextPrepares       int `json:"maxParallelContextPrepares"`
+	MaxParallelTableMaterializations int `json:"maxParallelTableMaterializations"`
+	MaxParallelDownloads             int `json:"maxParallelDownloads"`
+	MaxParallelQueries               int `json:"maxParallelQueries"`
+}
+
 type ContextStatus struct {
-	Label          string `json:"label"`
-	Region         string `json:"region,omitempty"`
-	Product        string `json:"product,omitempty"`
-	Locale         string `json:"locale,omitempty"`
-	State          string `json:"state"`
-	Strict         bool   `json:"strict,omitempty"`
-	ActiveBuild    string `json:"activeBuild,omitempty"`
+	Label              string `json:"label"`
+	Region             string `json:"region,omitempty"`
+	Product            string `json:"product,omitempty"`
+	Locale             string `json:"locale,omitempty"`
+	State              string `json:"state"`
+	Strict             bool   `json:"strict,omitempty"`
+	ActiveBuild        string `json:"activeBuild,omitempty"`
 	CandidateBuild     string `json:"candidateBuild,omitempty"`
 	CandidateBuildName string `json:"candidateBuildName,omitempty"`
-	DB2Ready       bool   `json:"db2Ready,omitempty"`
-	ListfileReady  bool   `json:"listfileReady,omitempty"`
-	CASCReady      bool   `json:"cascReady,omitempty"`
-	PrepareCurrent int    `json:"prepareCurrent,omitempty"`
-	PrepareTotal   int    `json:"prepareTotal,omitempty"`
-	Error          string `json:"error,omitempty"`
+	DB2Ready           bool   `json:"db2Ready,omitempty"`
+	ListfileReady      bool   `json:"listfileReady,omitempty"`
+	CASCReady          bool   `json:"cascReady,omitempty"`
+	PrepareCurrent     int    `json:"prepareCurrent,omitempty"`
+	PrepareTotal       int    `json:"prepareTotal,omitempty"`
+	Error              string `json:"error,omitempty"`
 }
 
 type Input struct {
 	Targets      []TargetInput
 	Memory       Memory
 	Storage      Storage
+	Artifacts    Artifacts
+	Limits       Limits
 	RecentErrors []string
 }
 
 type TargetInput struct {
-	Label          string
-	Region         string
-	Product        string
-	Locale         string
-	State          string
-	Strict         bool
-	Unsupported    bool
-	ActiveBuild    string
+	Label              string
+	Region             string
+	Product            string
+	Locale             string
+	State              string
+	Strict             bool
+	Unsupported        bool
+	ActiveBuild        string
 	CandidateBuild     string
 	CandidateBuildName string
-	DB2Ready       bool
-	ListfileReady  bool
-	CASCReady      bool
-	PrepareCurrent int
-	PrepareTotal   int
-	Error          string
+	DB2Ready           bool
+	ListfileReady      bool
+	CASCReady          bool
+	PrepareCurrent     int
+	PrepareTotal       int
+	Error              string
 }
 
 type StaticProvider struct {
@@ -114,6 +130,8 @@ func BuildSnapshot(input Input) Snapshot {
 		Liveness:     Liveness{OK: true},
 		Memory:       input.Memory,
 		Storage:      input.Storage,
+		Artifacts:    input.Artifacts,
+		Limits:       input.Limits,
 		Contexts:     make([]ContextStatus, 0, len(input.Targets)),
 		RecentErrors: append([]string{}, input.RecentErrors...),
 	}
@@ -124,21 +142,21 @@ func BuildSnapshot(input Input) Snapshot {
 			state = StatePreparing
 		}
 		contextStatus := ContextStatus{
-			Label:          target.Label,
-			Region:         target.Region,
-			Product:        target.Product,
-			Locale:         target.Locale,
-			State:          state,
-			Strict:         target.Strict,
-			ActiveBuild:    target.ActiveBuild,
-			CandidateBuild: target.CandidateBuild,
+			Label:              target.Label,
+			Region:             target.Region,
+			Product:            target.Product,
+			Locale:             target.Locale,
+			State:              state,
+			Strict:             target.Strict,
+			ActiveBuild:        target.ActiveBuild,
+			CandidateBuild:     target.CandidateBuild,
 			CandidateBuildName: target.CandidateBuildName,
-			DB2Ready:       target.DB2Ready,
-			ListfileReady:  target.ListfileReady,
-			CASCReady:      target.CASCReady,
-			PrepareCurrent: target.PrepareCurrent,
-			PrepareTotal:   target.PrepareTotal,
-			Error:          target.Error,
+			DB2Ready:           target.DB2Ready,
+			ListfileReady:      target.ListfileReady,
+			CASCReady:          target.CASCReady,
+			PrepareCurrent:     target.PrepareCurrent,
+			PrepareTotal:       target.PrepareTotal,
+			Error:              target.Error,
 		}
 		snapshot.Contexts = append(snapshot.Contexts, contextStatus)
 		snapshot.Matrix.TargetsTotal++

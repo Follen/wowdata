@@ -7,9 +7,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -18,7 +21,6 @@ import (
 	"wowdata/internal/casc"
 	"wowdata/internal/db2"
 	"wowdata/internal/dbd"
-	appruntime "wowdata/internal/runtime"
 	"wowdata/internal/server/config"
 	"wowdata/internal/server/storage/metadata"
 	serverparquet "wowdata/internal/server/storage/parquet"
@@ -40,7 +42,7 @@ type DiscoveredBuild struct {
 	CASCCDNConfig    string
 	NoBuild          bool
 	Error            string
-	FileReader       appruntime.FileDataReader
+	FileReader       fileDataReader
 	PrepareResources func(context.Context) (DiscoveredBuild, error)
 }
 
@@ -458,6 +460,14 @@ type dbdDefinitionSource interface {
 	Definition(tableName string) (string, error)
 }
 
+type fileDataReader interface {
+	ReadFileData(fileDataID uint32) ([]byte, error)
+}
+
+type partialFileDataReader interface {
+	ReadFileDataPartial(fileDataID uint32) ([]byte, error)
+}
+
 type ProductionMaterializer struct {
 	Config         config.Config
 	DB             *sql.DB
@@ -470,10 +480,10 @@ func NewProductionMaterializer(cfg config.Config, db *sql.DB) ProductionMaterial
 	return ProductionMaterializer{
 		Config: cfg,
 		DB:     db,
-		ManifestSource: appruntime.NewHTTPDBDManifestSource(dbdCacheDir, []string{
+		ManifestSource: newHTTPDBDManifestSource(dbdCacheDir, []string{
 			"https://raw.githubusercontent.com/wowdev/WoWDBDefs/refs/heads/master/manifest.json",
 		}),
-		DBDSource: appruntime.NewHTTPDBDSource(dbdCacheDir, []string{
+		DBDSource: newHTTPDBDSource(dbdCacheDir, []string{
 			"https://raw.githubusercontent.com/wowdev/WoWDBDefs/refs/heads/master/definitions/%s.dbd",
 			"https://www.kruithne.net/wow.export/data/dbd/?def=%s",
 		}),
@@ -537,8 +547,8 @@ func (m ProductionMaterializer) MaterializeTable(ctx context.Context, target con
 
 type runtimeTableDecoder struct {
 	manifest  *dbd.Manifest
-	dbdSource appruntime.DBDDefinitionSource
-	files     appruntime.FileDataReader
+	dbdSource dbdDefinitionSource
+	files     fileDataReader
 	buildName string
 }
 
@@ -548,14 +558,41 @@ func (d runtimeTableDecoder) DecodeTable(ctx context.Context, spec serverparquet
 		return serverparquet.DecodedTable{}, ctx.Err()
 	default:
 	}
-	store := appruntime.NewMemoryDB2Store()
-	loader := appruntime.NewDB2Loader(d.manifest, d.dbdSource, d.files, d.buildName)
-	if err := loader.LoadTable(store, spec.Key.TableName); err != nil {
-		return serverparquet.DecodedTable{}, err
+	fileDataID, ok := d.manifest.GetByTableName(spec.Key.TableName)
+	if !ok {
+		return serverparquet.DecodedTable{}, fmt.Errorf("table not found in DBD manifest: %s", spec.Key.TableName)
 	}
-	rows, err := store.Rows(spec.Key.TableName, nil, nil, "", 0)
+	var data []byte
+	var err error
+	if partialReader, ok := d.files.(partialFileDataReader); ok {
+		data, err = partialReader.ReadFileDataPartial(fileDataID)
+	} else {
+		data, err = d.files.ReadFileData(fileDataID)
+	}
 	if err != nil {
 		return serverparquet.DecodedTable{}, err
+	}
+	rawDBD, err := d.dbdSource.Definition(spec.Key.TableName)
+	if err != nil {
+		return serverparquet.DecodedTable{}, err
+	}
+	schema, err := db2SchemaForRuntime(rawDBD, d.buildName)
+	if err != nil {
+		return serverparquet.DecodedTable{}, err
+	}
+	reader, err := db2.NewWDCReaderFromBytes(spec.Key.TableName, data, schema)
+	if err != nil {
+		return serverparquet.DecodedTable{}, err
+	}
+	allRows := reader.GetAllRows()
+	ids := make([]uint32, 0, len(allRows))
+	for id := range allRows {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	rows := make([]map[string]interface{}, 0, len(ids))
+	for _, id := range ids {
+		rows = append(rows, allRows[id])
 	}
 	return serverparquet.DecodedTable{Rows: rows, Release: func() { rows = nil }}, nil
 }
@@ -567,15 +604,7 @@ func (serverparquetRowWriter) WriteRows(path string, meta cacheparquet.Metadata,
 }
 
 func schemaForTable(rawDBD string, buildName string) ([]cacheparquet.Field, error) {
-	parser, err := dbd.Parse(strings.NewReader(rawDBD))
-	if err != nil {
-		return nil, err
-	}
-	entry := parser.GetStructure(buildName, "")
-	if entry == nil {
-		return nil, fmt.Errorf("no DBD structure for build %s", buildName)
-	}
-	schema, err := db2.SchemaFromDBD(entry)
+	schema, err := db2SchemaForRuntime(rawDBD, buildName)
 	if err != nil {
 		return nil, err
 	}
@@ -590,6 +619,22 @@ func schemaForTable(rawDBD string, buildName string) ([]cacheparquet.Field, erro
 	return out, nil
 }
 
+func db2SchemaForRuntime(rawDBD string, buildName string) ([]db2.SchemaField, error) {
+	parser, err := dbd.Parse(strings.NewReader(rawDBD))
+	if err != nil {
+		return nil, err
+	}
+	entry := parser.GetStructure(buildName, "")
+	if entry == nil {
+		return nil, fmt.Errorf("no DBD structure for build %s", buildName)
+	}
+	schema, err := db2.SchemaFromDBD(entry)
+	if err != nil {
+		return nil, err
+	}
+	return schema, nil
+}
+
 func hashDBD(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
@@ -601,4 +646,98 @@ func parquetPath(cfg config.Config, target config.PrepareTarget, build Discovere
 		root = filepath.Join(cfg.Cache.Root, "db2")
 	}
 	return filepath.Join(root, target.Region, target.Product, build.BuildKey, target.Locale, tableName+".parquet")
+}
+
+type httpDBDManifestSource struct {
+	cacheDir string
+	urls     []string
+	client   *http.Client
+}
+
+func newHTTPDBDManifestSource(cacheDir string, urls []string) *httpDBDManifestSource {
+	return &httpDBDManifestSource{cacheDir: cacheDir, urls: urls, client: http.DefaultClient}
+}
+
+func (s *httpDBDManifestSource) Manifest() (*dbd.Manifest, error) {
+	cachePath := filepath.Join(s.cacheDir, "dbd-manifest.json")
+	if data, err := os.ReadFile(cachePath); err == nil && len(data) > 0 {
+		return dbd.ParseManifest(strings.NewReader(string(data)))
+	}
+	var lastErr error
+	for _, url := range s.urls {
+		resp, err := s.client.Get(url)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		body, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			lastErr = readErr
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
+			continue
+		}
+		manifest, err := dbd.ParseManifest(strings.NewReader(string(body)))
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
+			return nil, err
+		}
+		_ = os.WriteFile(cachePath, body, 0644)
+		return manifest, nil
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no DBD manifest URLs configured")
+	}
+	return nil, lastErr
+}
+
+type httpDBDSource struct {
+	cacheDir string
+	urls     []string
+	client   *http.Client
+}
+
+func newHTTPDBDSource(cacheDir string, urls []string) *httpDBDSource {
+	return &httpDBDSource{cacheDir: cacheDir, urls: urls, client: http.DefaultClient}
+}
+
+func (s *httpDBDSource) Definition(tableName string) (string, error) {
+	cachePath := filepath.Join(s.cacheDir, tableName+".dbd")
+	if data, err := os.ReadFile(cachePath); err == nil && len(data) > 0 {
+		return string(data), nil
+	}
+	var lastErr error
+	for _, tmpl := range s.urls {
+		url := fmt.Sprintf(tmpl, tableName)
+		resp, err := s.client.Get(url)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		body, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			lastErr = readErr
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
+			return "", err
+		}
+		_ = os.WriteFile(cachePath, body, 0644)
+		return string(body), nil
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no DBD URLs configured")
+	}
+	return "", lastErr
 }

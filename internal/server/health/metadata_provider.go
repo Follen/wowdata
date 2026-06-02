@@ -98,6 +98,18 @@ func (p MetadataProvider) HealthSnapshot(ctx context.Context) (Snapshot, error) 
 					input.State = StateReady
 					input.DB2Ready = true
 				}
+				sourceKey := metadata.SourceKey{
+					Region:   target.Region,
+					Product:  target.Product,
+					Locale:   target.Locale,
+					BuildKey: active.Key.BuildKey,
+				}
+				input.ListfileReady = metadataStateReady(ctx, p.db, func(ctx context.Context, db *sql.DB) (string, error) {
+					return metadata.ListfileIndexState(ctx, db, sourceKey, "sqlite")
+				})
+				input.CASCReady = metadataStateReady(ctx, p.db, func(ctx context.Context, db *sql.DB) (string, error) {
+					return metadata.CASCIndexState(ctx, db, sourceKey, "root-encoding-archive")
+				})
 			}
 		} else if errors.Is(err, sql.ErrNoRows) {
 			latest, latestErr := metadata.LatestBuildForTarget(ctx, p.db, target.Region, target.Product, target.Locale)
@@ -127,7 +139,22 @@ func (p MetadataProvider) HealthSnapshot(ctx context.Context) (Snapshot, error) 
 			MemoryHardLimitMB: p.Config.Limits.MemoryHardLimitMB,
 		},
 		Storage: Storage{MetadataDBBytes: metadataDBBytes},
+		Artifacts: Artifacts{
+			Root:    p.Config.Artifacts.Root,
+			BaseURL: p.Config.Server.BaseURL,
+		},
+		Limits: Limits{
+			MaxParallelContextPrepares:       p.Config.Limits.MaxParallelContextPrepares,
+			MaxParallelTableMaterializations: p.Config.Limits.MaxParallelTableMaterializations,
+			MaxParallelDownloads:             p.Config.Limits.MaxParallelDownloads,
+			MaxParallelQueries:               p.Config.Limits.MaxParallelQueries,
+		},
 	}), nil
+}
+
+func metadataStateReady(ctx context.Context, db *sql.DB, read func(context.Context, *sql.DB) (string, error)) bool {
+	state, err := read(ctx, db)
+	return err == nil && state == metadata.StateValid
 }
 
 func applyLatestBuildState(input *TargetInput, build metadata.Build) {

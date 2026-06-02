@@ -214,6 +214,73 @@ func TestMetadataProviderReportsPreparingCandidateBuild(t *testing.T) {
 	}
 }
 
+func TestMetadataProviderReportsListfileAndCASCReadiness(t *testing.T) {
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db, err := metadata.Open(metadataPath)
+	if err != nil {
+		t.Fatalf("open metadata DB: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	key := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "active-build"}
+	if err := metadata.UpsertDiscoveredBuild(ctx, db, metadata.Build{
+		Key:       key,
+		BuildName: key.BuildKey,
+		State:     metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert active build: %v", err)
+	}
+	if err := metadata.ActivateBuild(ctx, db, key); err != nil {
+		t.Fatalf("activate build: %v", err)
+	}
+	if err := metadata.UpsertMaterializedTable(ctx, db, metadata.MaterializedTable{
+		Key:                 metadata.TableKey{Region: key.Region, Product: key.Product, Locale: key.Locale, BuildKey: key.BuildKey, TableName: "Item"},
+		DB2FileDataID:       1,
+		DBDHash:             "dbd-a",
+		DecoderVersion:      "decoder-1",
+		MaterializerVersion: "materializer-1",
+		ParquetPath:         "cache/db2/item.parquet",
+		RowCount:            1,
+		State:               metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert materialized table: %v", err)
+	}
+	sourceKey := metadata.SourceKey{Region: key.Region, Product: key.Product, Locale: key.Locale, BuildKey: key.BuildKey}
+	if _, err := metadata.UpsertListfileSource(ctx, db, metadata.ListfileSource{
+		Region: key.Region, Product: key.Product, Locale: key.Locale, BuildKey: key.BuildKey,
+		SourceHash: "listfile-hash",
+		State:      metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert listfile source: %v", err)
+	}
+	if err := metadata.UpsertListfileIndexState(ctx, db, sourceKey, "sqlite", metadata.StateValid, ""); err != nil {
+		t.Fatalf("upsert listfile index state: %v", err)
+	}
+	if _, err := metadata.UpsertCASCSource(ctx, db, metadata.CASCSource{
+		Region: key.Region, Product: key.Product, Locale: key.Locale, BuildKey: key.BuildKey,
+		BuildConfig: "build-config",
+		CDNConfig:   "cdn-config",
+		State:       metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert casc source: %v", err)
+	}
+	if err := metadata.UpsertCASCIndexState(ctx, db, sourceKey, "root-encoding-archive", metadata.StateValid, ""); err != nil {
+		t.Fatalf("upsert casc index state: %v", err)
+	}
+
+	cfg := testMetadataProviderConfig(metadataPath)
+	provider := NewMetadataProviderWithDB(cfg, metadataPath, db)
+	snapshot, err := provider.HealthSnapshot(ctx)
+	if err != nil {
+		t.Fatalf("HealthSnapshot: %v", err)
+	}
+	got := snapshot.Contexts[0]
+	if !got.DB2Ready || !got.ListfileReady || !got.CASCReady {
+		t.Fatalf("readiness DB2/listfile/CASC = %v/%v/%v, want true/true/true", got.DB2Ready, got.ListfileReady, got.CASCReady)
+	}
+}
+
 func testMetadataProviderConfig(metadataPath string) config.Config {
 	cfg := config.Default()
 	cfg.Cache.MetadataDB = metadataPath

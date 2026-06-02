@@ -42,6 +42,16 @@ func TestHealthReportsLivenessReadinessMatrixMemoryStorageAndErrors(t *testing.T
 			DB2Bytes:        3,
 			ArtifactBytes:   4,
 		},
+		Artifacts: Artifacts{
+			Root:    "/var/lib/wowdata/artifacts",
+			BaseURL: "http://example.test",
+		},
+		Limits: Limits{
+			MaxParallelContextPrepares:       2,
+			MaxParallelTableMaterializations: 2,
+			MaxParallelDownloads:             16,
+			MaxParallelQueries:               16,
+		},
 		RecentErrors: []string{"US PTR: materializing Spell"},
 	})
 
@@ -55,6 +65,12 @@ func TestHealthReportsLivenessReadinessMatrixMemoryStorageAndErrors(t *testing.T
 	assertJSONField(t, snapshot, "memory.memorySoftLimitMB", float64(4096))
 	assertJSONField(t, snapshot, "memory.memoryHardLimitMB", float64(8192))
 	assertJSONField(t, snapshot, "storage.metadataDBBytes", float64(1))
+	assertJSONField(t, snapshot, "artifacts.root", "/var/lib/wowdata/artifacts")
+	assertJSONField(t, snapshot, "artifacts.baseUrl", "http://example.test")
+	assertJSONField(t, snapshot, "limits.maxParallelContextPrepares", float64(2))
+	assertJSONField(t, snapshot, "limits.maxParallelTableMaterializations", float64(2))
+	assertJSONField(t, snapshot, "limits.maxParallelDownloads", float64(16))
+	assertJSONField(t, snapshot, "limits.maxParallelQueries", float64(16))
 	assertJSONField(t, snapshot, "contexts.0.label", "CN Retail")
 	assertJSONField(t, snapshot, "contexts.0.state", "ready")
 	assertJSONField(t, snapshot, "contexts.1.error", "materializing Spell")

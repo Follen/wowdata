@@ -1,10 +1,11 @@
 package config
 
 type Config struct {
-	Server  ServerConfig  `yaml:"server"`
-	Cache   CacheConfig   `yaml:"cache"`
-	Prepare PrepareConfig `yaml:"prepare"`
-	Limits  LimitsConfig  `yaml:"limits"`
+	Server    ServerConfig    `yaml:"server"`
+	Cache     CacheConfig     `yaml:"cache"`
+	Artifacts ArtifactsConfig `yaml:"artifacts"`
+	Prepare   PrepareConfig   `yaml:"prepare"`
+	Limits    LimitsConfig    `yaml:"limits"`
 }
 
 type ServerConfig struct {
@@ -19,6 +20,10 @@ type CacheConfig struct {
 	RawDir     string `yaml:"raw_dir"`
 	DB2Dir     string `yaml:"db2_dir"`
 	DuckDBPath string `yaml:"duckdb_path"`
+}
+
+type ArtifactsConfig struct {
+	Root string `yaml:"root"`
 }
 
 type PrepareConfig struct {
@@ -53,7 +58,8 @@ func Default() Config {
 			DB2Dir:     "/var/lib/wowdata/cache/db2",
 			DuckDBPath: "/var/lib/wowdata/cache/duckdb/wowdata.duckdb",
 		},
-		Prepare: PrepareConfig{Targets: defaultTargets(), DefaultTables: defaultTables()},
+		Artifacts: ArtifactsConfig{Root: "/var/lib/wowdata/artifacts"},
+		Prepare:   PrepareConfig{Targets: defaultTargets(), DefaultTables: defaultTables()},
 		Limits: LimitsConfig{
 			MaxParallelContextPrepares:       2,
 			MaxParallelTableMaterializations: 2,

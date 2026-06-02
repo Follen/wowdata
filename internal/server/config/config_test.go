@@ -56,10 +56,11 @@ func TestDefaultPrepareDefaultTablesIncludeRequiredBusinessTables(t *testing.T) 
 
 func TestConfigStructsHaveSnakeCaseYAMLTags(t *testing.T) {
 	assertYAMLTags(t, reflect.TypeOf(Config{}), map[string]string{
-		"Server":  "server",
-		"Cache":   "cache",
-		"Prepare": "prepare",
-		"Limits":  "limits",
+		"Server":    "server",
+		"Cache":     "cache",
+		"Artifacts": "artifacts",
+		"Prepare":   "prepare",
+		"Limits":    "limits",
 	})
 	assertYAMLTags(t, reflect.TypeOf(ServerConfig{}), map[string]string{
 		"Host":    "host",
@@ -72,6 +73,9 @@ func TestConfigStructsHaveSnakeCaseYAMLTags(t *testing.T) {
 		"RawDir":     "raw_dir",
 		"DB2Dir":     "db2_dir",
 		"DuckDBPath": "duckdb_path",
+	})
+	assertYAMLTags(t, reflect.TypeOf(ArtifactsConfig{}), map[string]string{
+		"Root": "root",
 	})
 	assertYAMLTags(t, reflect.TypeOf(PrepareConfig{}), map[string]string{
 		"Targets":       "targets",

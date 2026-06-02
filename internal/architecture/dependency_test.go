@@ -17,7 +17,7 @@ func TestServerDoesNotImportLocalPackages(t *testing.T) {
 		t.Fatalf("go list server deps: %v\n%s", err, out.String())
 	}
 	for _, dep := range strings.Fields(out.String()) {
-		if strings.Contains(dep, "/internal/local/") || strings.HasSuffix(dep, "/internal/app") {
+		if strings.Contains(dep, "/internal/local/") || strings.HasSuffix(dep, "/internal/app") || strings.HasSuffix(dep, "/internal/runtime") {
 			t.Fatalf("server dependency imports local package: %s", dep)
 		}
 	}
