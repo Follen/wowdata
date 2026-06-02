@@ -70,9 +70,17 @@ func TestPrepareBootstrapsNewConfiguredTargetMissingFromMetadata(t *testing.T) {
 	}}
 	oldStarted := make(chan struct{})
 	releaseOld := make(chan struct{})
+	betaStarted := make(chan struct{})
 	materializer := &fakeMaterializer{
 		db: db,
 		before: func(target config.PrepareTarget, _ string) {
+			if target.Product == "wowxptr" {
+				select {
+				case <-betaStarted:
+				default:
+					close(betaStarted)
+				}
+			}
 			if target.Product != "wow" {
 				return
 			}
@@ -97,19 +105,18 @@ func TestPrepareBootstrapsNewConfiguredTargetMissingFromMetadata(t *testing.T) {
 		}
 	}()
 
-	select {
-	case <-oldStarted:
-	case <-time.After(time.Second):
-		t.Fatal("old ready target did not start prepare")
-	}
-
 	var beta metadata.Build
-	if !eventually(500*time.Millisecond, func() bool {
+	if !eventually(time.Second, func() bool {
 		var err error
 		beta, err = metadata.ActiveBuild(ctx, db, "us", "wowxptr", "enUS")
 		return err == nil
 	}) {
 		t.Fatal("new configured beta target was not prepared while old ready target was blocked")
+	}
+	select {
+	case <-betaStarted:
+	default:
+		t.Fatal("new configured beta target did not materialize through prepare")
 	}
 	if beta.Key.BuildKey != "new-beta-build" || beta.State != metadata.StateValid {
 		t.Fatalf("beta active build = %#v, want new-beta-build valid", beta)
