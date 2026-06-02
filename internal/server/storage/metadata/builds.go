@@ -124,6 +124,30 @@ LIMIT 1`,
 	return build, err
 }
 
+func LatestBuildForTarget(ctx context.Context, db *sql.DB, region, product, locale string) (Build, error) {
+	var build Build
+	var active int
+	err := db.QueryRowContext(ctx, `
+SELECT region, product, locale, build_key, build_name, state, active, error
+FROM server_builds
+WHERE region = ? AND product = ? AND locale = ?
+ORDER BY updated_at DESC, discovered_at DESC, build_key DESC
+LIMIT 1`,
+		region, product, locale,
+	).Scan(
+		&build.Key.Region,
+		&build.Key.Product,
+		&build.Key.Locale,
+		&build.Key.BuildKey,
+		&build.BuildName,
+		&build.State,
+		&active,
+		&build.Error,
+	)
+	build.Active = active != 0
+	return build, err
+}
+
 func markBuildState(ctx context.Context, db *sql.DB, key BuildKey, state string, message string) error {
 	_, err := db.ExecContext(ctx, `
 UPDATE server_builds

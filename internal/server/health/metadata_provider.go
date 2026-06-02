@@ -99,6 +99,13 @@ func (p MetadataProvider) HealthSnapshot(ctx context.Context) (Snapshot, error) 
 					input.DB2Ready = true
 				}
 			}
+		} else if errors.Is(err, sql.ErrNoRows) {
+			latest, latestErr := metadata.LatestBuildForTarget(ctx, p.db, target.Region, target.Product, target.Locale)
+			if latestErr == nil {
+				applyLatestBuildState(&input, latest)
+			} else if !errors.Is(latestErr, sql.ErrNoRows) {
+				return Snapshot{}, latestErr
+			}
 		} else if !errors.Is(err, sql.ErrNoRows) {
 			return Snapshot{}, err
 		}
@@ -121,6 +128,20 @@ func (p MetadataProvider) HealthSnapshot(ctx context.Context) (Snapshot, error) 
 		},
 		Storage: Storage{MetadataDBBytes: metadataDBBytes},
 	}), nil
+}
+
+func applyLatestBuildState(input *TargetInput, build metadata.Build) {
+	switch build.State {
+	case metadata.StateFailed:
+		input.State = StateFailed
+		input.Error = build.Error
+	case metadata.StateStale:
+		input.State = StateStale
+		input.Error = build.Error
+	case metadata.StatePreparing:
+		input.State = StatePreparing
+		input.Error = build.Error
+	}
 }
 
 func requiredTableProgress(required []string, tables []metadata.MaterializedTable) (int, int) {

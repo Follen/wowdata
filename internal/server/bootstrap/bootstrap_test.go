@@ -135,8 +135,11 @@ func TestPrepareNoBuildDoesNotMarkTargetReady(t *testing.T) {
 		t.Fatalf("active build error = %v, want sql.ErrNoRows", err)
 	}
 	snapshot := healthSnapshot(t, ctx, db, cfg)
-	if snapshot.Readiness.OK || snapshot.Contexts[0].State != health.StatePreparing {
-		t.Fatalf("health = %#v, want not ready without active build", snapshot)
+	if snapshot.Readiness.OK || snapshot.Contexts[0].State != health.StateFailed {
+		t.Fatalf("health = %#v, want failed without active build after no-build", snapshot)
+	}
+	if snapshot.Contexts[0].Error != "product is not published in region" {
+		t.Fatalf("health error = %q, want no-build error", snapshot.Contexts[0].Error)
 	}
 }
 
