@@ -7,10 +7,12 @@ import (
 	"os"
 	"time"
 
+	"wowdata/internal/mcpserver"
 	"wowdata/internal/server/config"
 	"wowdata/internal/server/health"
 	"wowdata/internal/server/mcphttp"
 	serverruntime "wowdata/internal/server/runtime"
+	"wowdata/internal/server/service"
 	"wowdata/internal/server/storage/artifacts"
 
 	"github.com/spf13/cobra"
@@ -23,6 +25,7 @@ type httpOptions struct {
 	Port         int
 	BaseURL      string
 	ArtifactRoot string
+	QueryService service.QueryService
 }
 
 type httpRunner func(httpOptions) error
@@ -112,12 +115,10 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 		}
 		writeJSON(w, http.StatusOK, snapshot)
 	})
-	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusNotImplemented, map[string]interface{}{
-			"error":   "mcp_not_wired",
-			"message": "server MCP tools will be wired by the server service task",
-		})
-	})
+	mux.Handle("/mcp", mcpserver.NewServer("wowdata", mcphttp.HTTPTools(mcphttp.Options{
+		HealthProvider: healthProvider,
+		QueryService:   opts.QueryService,
+	})))
 	if opts.ArtifactRoot != "" {
 		mux.Handle("/files/", artifacts.FileHandler(opts.ArtifactRoot))
 	}
