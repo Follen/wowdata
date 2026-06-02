@@ -378,6 +378,7 @@ func recordDiscoveredPreparing(ctx context.Context, db *sql.DB, target config.Pr
 		Key:       buildKey,
 		BuildName: build.BuildName,
 		State:     metadata.StatePreparing,
+		Error:     "build discovered, waiting for materialization",
 	})
 }
 

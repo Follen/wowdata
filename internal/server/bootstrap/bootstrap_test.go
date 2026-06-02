@@ -189,6 +189,26 @@ func TestPrepareRecordsDiscoveredBuildBeforeMaterializing(t *testing.T) {
 	}
 }
 
+func TestRecordDiscoveredPreparingReportsWaitingForMaterialization(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	target := config.PrepareTarget{Label: "US Beta", Region: "us", Product: "wowxptr", Locale: "enUS"}
+	build := DiscoveredBuild{BuildKey: "beta-build", BuildName: "Beta Build"}
+
+	if err := recordDiscoveredPreparing(ctx, db, target, build); err != nil {
+		t.Fatalf("record discovered preparing: %v", err)
+	}
+
+	latest, err := metadata.LatestBuildForTarget(ctx, db, "us", "wowxptr", "enUS")
+	if err != nil {
+		t.Fatalf("latest build: %v", err)
+	}
+	if latest.Error != "build discovered, waiting for materialization" {
+		t.Fatalf("latest discovered build message = %q, want discovery progress", latest.Error)
+	}
+}
+
 func TestPrepareRecordsDiscoveredBuildBeforeResourcePreparationFailure(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
