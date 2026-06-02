@@ -192,11 +192,20 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 		return activeErr
 	}
 	sameActiveValid := activeErr == nil && active.Key.BuildKey == build.BuildKey && active.State == metadata.StateValid
+	allManifestTables := isAllManifestTables(r.Config.Prepare.DefaultTables)
 	requiredTables, err := ResolveRequiredTables(ctx, r.Config.Prepare.DefaultTables, materializer)
 	if err != nil {
 		return err
 	}
 	if len(requiredTables) == 0 {
+		if sameActiveValid {
+			return nil
+		}
+		if allManifestTables {
+			err := errors.New("no readable DB2 tables materialized")
+			_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
+			return err
+		}
 		return nil
 	}
 	tablesToMaterialize := requiredTables
@@ -250,7 +259,7 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 		}
 	}
 
-	if err := r.materializeTables(ctx, target, build, buildKey, tablesToMaterialize, materializer, !sameActiveValid, tableSem); err != nil {
+	if err := r.materializeTables(ctx, target, build, buildKey, tablesToMaterialize, materializer, !sameActiveValid, tableSem, allManifestTables); err != nil {
 		if sameActiveValid {
 			_ = restoreValidTables(ctx, r.DB, restoreTables)
 			_ = metadata.MarkBuildReady(ctx, r.DB, buildKey)
@@ -259,20 +268,36 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 		_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
 		return err
 	}
+	if allManifestTables {
+		validTables, err := metadata.ListValidMaterializedTables(ctx, r.DB, metadata.TableCatalogLookup{
+			Region:   target.Region,
+			Product:  target.Product,
+			Locale:   target.Locale,
+			BuildKey: build.BuildKey,
+		})
+		if err != nil {
+			return err
+		}
+		if len(validTables) == 0 {
+			err := errors.New("no readable DB2 tables materialized")
+			_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
+			return err
+		}
+	}
 	if err := metadata.MarkBuildReady(ctx, r.DB, buildKey); err != nil {
 		return err
 	}
 	return metadata.ActivateBuild(ctx, r.DB, buildKey)
 }
 
-func (r Runner) materializeTables(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, buildKey metadata.BuildKey, tables []string, materializer TableMaterializer, markBuildProgress bool, tableSem chan struct{}) error {
+func (r Runner) materializeTables(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, buildKey metadata.BuildKey, tables []string, materializer TableMaterializer, markBuildProgress bool, tableSem chan struct{}, skipUnavailableBuildStructure bool) error {
 	maxParallel := maxTableMaterializations(r.Config.Limits.MaxParallelTableMaterializations)
 	if maxParallel > len(tables) {
 		maxParallel = len(tables)
 	}
 	if maxParallel <= 1 {
 		for _, tableName := range tables {
-			if err := r.materializeOneTable(ctx, target, build, buildKey, tableName, materializer, markBuildProgress, tableSem); err != nil {
+			if err := r.materializeOneTable(ctx, target, build, buildKey, tableName, materializer, markBuildProgress, tableSem, skipUnavailableBuildStructure); err != nil {
 				return err
 			}
 		}
@@ -301,7 +326,7 @@ func (r Runner) materializeTables(ctx context.Context, target config.PrepareTarg
 		go func() {
 			defer wg.Done()
 			for tableName := range jobs {
-				if err := r.materializeOneTable(workCtx, target, build, buildKey, tableName, materializer, markBuildProgress, tableSem); err != nil {
+				if err := r.materializeOneTable(workCtx, target, build, buildKey, tableName, materializer, markBuildProgress, tableSem, skipUnavailableBuildStructure); err != nil {
 					recordErr(err)
 				}
 			}
@@ -323,7 +348,7 @@ sendJobs:
 	return workCtx.Err()
 }
 
-func (r Runner) materializeOneTable(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, buildKey metadata.BuildKey, tableName string, materializer TableMaterializer, markBuildProgress bool, tableSem chan struct{}) error {
+func (r Runner) materializeOneTable(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, buildKey metadata.BuildKey, tableName string, materializer TableMaterializer, markBuildProgress bool, tableSem chan struct{}, skipUnavailableBuildStructure bool) error {
 	if tableSem != nil {
 		select {
 		case tableSem <- struct{}{}:
@@ -336,7 +361,19 @@ func (r Runner) materializeOneTable(ctx context.Context, target config.PrepareTa
 		_ = metadata.MarkBuildPreparingMessage(ctx, r.DB, buildKey, "materializing "+tableName)
 	}
 	fmt.Fprintf(os.Stderr, "wowdata-server prepare materializing table: %s %s/%s/%s build=%s table=%s\n", target.Label, target.Region, target.Product, target.Locale, build.BuildKey, tableName)
-	return materializer.MaterializeTable(ctx, target, build, tableName)
+	err := materializer.MaterializeTable(ctx, target, build, tableName)
+	if err != nil && skipUnavailableBuildStructure && isUnavailableBuildStructureError(err) {
+		fmt.Fprintf(os.Stderr, "wowdata-server prepare skipping unreadable table: %s %s/%s/%s build=%s table=%s error=%v\n", target.Label, target.Region, target.Product, target.Locale, build.BuildKey, tableName, err)
+		return nil
+	}
+	return err
+}
+
+func isUnavailableBuildStructureError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "no DBD structure for build ")
 }
 
 func ResolveRequiredTables(ctx context.Context, configured []string, materializer TableMaterializer) ([]string, error) {

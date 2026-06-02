@@ -715,7 +715,7 @@ func TestServerProductionWiringStartsBootstrapWithLoadedConfigDefaultTables(t *t
 	}
 }
 
-func TestServerProductionWiringExpandsManifestDefaultTables(t *testing.T) {
+func TestServerProductionWiringKeepsManifestDefaultTablesSentinel(t *testing.T) {
 	root := t.TempDir()
 	metadataPath := filepath.Join(root, "metadata.sqlite")
 	dbdCache := filepath.Join(root, "dbd")
@@ -758,8 +758,8 @@ func TestServerProductionWiringExpandsManifestDefaultTables(t *testing.T) {
 	if closer, ok := handler.(interface{ Close() error }); ok {
 		t.Cleanup(func() { _ = closer.Close() })
 	}
-	if strings.Join(gotTables, ",") != "Item,Spell" {
-		t.Fatalf("expanded default tables = %#v, want Item,Spell test manifest set", gotTables)
+	if strings.Join(gotTables, ",") != "*" {
+		t.Fatalf("default tables = %#v, want manifest sentinel preserved for dynamic readable table progress", gotTables)
 	}
 }
 

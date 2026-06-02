@@ -80,6 +80,93 @@ func TestPrepareEmptyDefaultTablesMaterializesManifestTableSet(t *testing.T) {
 	}
 }
 
+func TestPrepareManifestDefaultTablesSkipsTablesWithoutBuildStructure(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"*"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "build-2", BuildName: "12.0.5.67823"},
+	}}
+	materializer := &fakeMaterializer{
+		db:              db,
+		availableTables: []string{"Achievement", "ModelSound", "Spell"},
+		failTable:       "ModelSound",
+		err:             errors.New("no DBD structure for build 12.0.5.67823"),
+	}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	if got := strings.Join(materializer.tables, ","); got != "Achievement,ModelSound,Spell" {
+		t.Fatalf("attempted tables = %q, want manifest order including unreadable table", got)
+	}
+	active := activeBuild(t, ctx, db, "us", "wow", "enUS")
+	if active.Key.BuildKey != "build-2" || active.State != metadata.StateValid {
+		t.Fatalf("active build = %#v, want build-2 valid after readable tables materialize", active)
+	}
+	tables, err := metadata.ListValidMaterializedTables(ctx, db, metadata.TableCatalogLookup{
+		Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2",
+	})
+	if err != nil {
+		t.Fatalf("list materialized tables: %v", err)
+	}
+	if len(tables) != 2 || tables[0].Key.TableName != "Achievement" || tables[1].Key.TableName != "Spell" {
+		t.Fatalf("valid tables = %#v, want only readable Achievement and Spell", tables)
+	}
+	snapshot := healthSnapshot(t, ctx, db, cfg)
+	if !snapshot.Readiness.OK || snapshot.Contexts[0].PrepareCurrent != 2 || snapshot.Contexts[0].PrepareTotal != 2 {
+		t.Fatalf("health after prepare = %#v, want ready with readable table denominator 2/2", snapshot)
+	}
+}
+
+func TestPrepareManifestDefaultTablesFailsWhenNoReadableTablesMaterialize(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"*"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "build-empty", BuildName: "12.0.5.67823"},
+	}}
+	materializer := &fakeMaterializer{db: db}
+
+	err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx)
+	if err == nil || !strings.Contains(err.Error(), "no readable DB2 tables materialized") {
+		t.Fatalf("Prepare error = %v, want no readable tables failure", err)
+	}
+	candidate := buildByKey(t, ctx, db, metadata.BuildKey{
+		Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-empty",
+	})
+	if candidate.State != metadata.StateFailed || !strings.Contains(candidate.Error, "no readable DB2 tables materialized") {
+		t.Fatalf("candidate = %#v, want failed with no readable tables message", candidate)
+	}
+}
+
+func TestPrepareManifestDefaultTablesKeepsSameActiveBuildReadyWhenCatalogIsEmpty(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"*"})
+	seedActiveBuildWithTables(t, ctx, db, metadata.BuildKey{
+		Region: "us", Product: "wow", Locale: "enUS", BuildKey: "ready-build",
+	}, []string{"Item"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "ready-build", BuildName: "Ready Build"},
+	}}
+	materializer := &fakeMaterializer{db: db}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	active := activeBuild(t, ctx, db, "us", "wow", "enUS")
+	if active.Key.BuildKey != "ready-build" || active.State != metadata.StateValid {
+		t.Fatalf("active build = %#v, want ready-build preserved as valid", active)
+	}
+	if materializer.calls != 0 {
+		t.Fatalf("materialize calls = %d, want 0 when empty catalog cannot identify missing tables", materializer.calls)
+	}
+}
+
 func TestPrepareUsesConfiguredParallelTableMaterializations(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")

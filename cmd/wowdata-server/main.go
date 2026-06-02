@@ -175,9 +175,6 @@ func newHTTPHandlerStrict(opts httpOptions, healthProvider health.Provider) (htt
 	if err != nil {
 		return nil, err
 	}
-	if err := expandManifestDefaultTables(context.Background(), &cfg); err != nil {
-		return nil, err
-	}
 	var sharedMetadataDB *sql.DB
 	if healthProvider == nil {
 		metadataDBPath := opts.MetadataDBPath
@@ -257,18 +254,6 @@ func newHTTPHandlerStrict(opts httpOptions, healthProvider health.Provider) (htt
 		return closeableHandler{Handler: mux, close: sharedMetadataDB.Close}, nil
 	}
 	return mux, nil
-}
-
-func expandManifestDefaultTables(ctx context.Context, cfg *config.Config) error {
-	if cfg == nil || len(cfg.Prepare.DefaultTables) != 1 || cfg.Prepare.DefaultTables[0] != "*" {
-		return nil
-	}
-	tables, err := serverbootstrap.ResolveRequiredTables(ctx, cfg.Prepare.DefaultTables, serverbootstrap.NewProductionMaterializer(*cfg, nil))
-	if err != nil {
-		return err
-	}
-	cfg.Prepare.DefaultTables = tables
-	return nil
 }
 
 func updateFlowFixtureHandler(w http.ResponseWriter, r *http.Request) {
