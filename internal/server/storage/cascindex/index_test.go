@@ -75,6 +75,65 @@ func TestReplaceIndexIsScopedByBuild(t *testing.T) {
 	}
 }
 
+func TestHasUsableIndexForSourceRequiresAllMappingTables(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t)
+	source := SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-us"}
+
+	ready, err := HasUsableIndexForSource(ctx, db, source)
+	if err != nil {
+		t.Fatalf("HasUsableIndexForSource before replace: %v", err)
+	}
+	if ready {
+		t.Fatal("HasUsableIndexForSource before replace = true, want false")
+	}
+
+	if err := ReplaceIndexForSource(ctx, db, source, "source-us",
+		[]RootMapping{{FileDataID: 1, ContentKey: "content-us"}},
+		[]EncodingMapping{{ContentKey: "content-us", EncodingKey: "encoding-us", Size: 10}},
+		nil,
+	); err != nil {
+		t.Fatalf("replace partial index: %v", err)
+	}
+	ready, err = HasUsableIndexForSource(ctx, db, source)
+	if err != nil {
+		t.Fatalf("HasUsableIndexForSource partial: %v", err)
+	}
+	if ready {
+		t.Fatal("HasUsableIndexForSource partial = true, want false")
+	}
+
+	if err := ReplaceIndexForSource(ctx, db, source, "source-us",
+		[]RootMapping{{FileDataID: 1, ContentKey: "content-us"}},
+		[]EncodingMapping{{ContentKey: "other-content", EncodingKey: "encoding-us", Size: 10}},
+		[]ArchiveMapping{{EncodingKey: "encoding-us", ArchiveKey: "archive-us", Offset: 20, Size: 10}},
+	); err != nil {
+		t.Fatalf("replace mismatched index: %v", err)
+	}
+	ready, err = HasUsableIndexForSource(ctx, db, source)
+	if err != nil {
+		t.Fatalf("HasUsableIndexForSource mismatched: %v", err)
+	}
+	if ready {
+		t.Fatal("HasUsableIndexForSource mismatched = true, want false")
+	}
+
+	if err := ReplaceIndexForSource(ctx, db, source, "source-us",
+		[]RootMapping{{FileDataID: 1, ContentKey: "content-us"}},
+		[]EncodingMapping{{ContentKey: "content-us", EncodingKey: "encoding-us", Size: 10}},
+		[]ArchiveMapping{{EncodingKey: "encoding-us", ArchiveKey: "archive-us", Offset: 20, Size: 10}},
+	); err != nil {
+		t.Fatalf("replace complete index: %v", err)
+	}
+	ready, err = HasUsableIndexForSource(ctx, db, source)
+	if err != nil {
+		t.Fatalf("HasUsableIndexForSource complete: %v", err)
+	}
+	if !ready {
+		t.Fatal("HasUsableIndexForSource complete = false, want true")
+	}
+}
+
 func TestSourceVersionChangeMarksIndexStale(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)

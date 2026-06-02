@@ -335,6 +335,139 @@ func TestPrepareSkipsUnchangedListfileIndex(t *testing.T) {
 	}
 }
 
+func TestPreparePersistsResourceIndexesWhenDB2TablesAlreadyValid(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item"})
+	seedActiveBuildWithTables(t, ctx, db, metadata.BuildKey{
+		Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2",
+	}, []string{"Item"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {
+			BuildKey:  "build-2",
+			BuildName: "12.0.5.67823",
+			PrepareResources: func(context.Context) (DiscoveredBuild, error) {
+				return DiscoveredBuild{
+					BuildKey:  "build-2",
+					BuildName: "12.0.5.67823",
+					ResourceIndexes: ResourceIndexes{
+						ListfileSourceHash: "listfile-hash",
+						ListfileEntries: []serverlistfile.Entry{
+							{FileDataID: 555, Path: "Interface/Icons/Ready.blp"},
+						},
+						CASCSource:        cascindex.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2"},
+						CASCSourceVersion: "casc-version",
+						CASCRoots: []cascindex.RootMapping{
+							{FileDataID: 555, ContentKey: "content-key"},
+						},
+						CASCEncodings: []cascindex.EncodingMapping{
+							{ContentKey: "content-key", EncodingKey: "encoding-key", Size: 12},
+						},
+						CASCArchives: []cascindex.ArchiveMapping{
+							{EncodingKey: "encoding-key", ArchiveKey: "archive-key", Offset: 34, Size: 12},
+						},
+					},
+				}, nil
+			},
+		},
+	}}
+
+	if err := (Runner{
+		Config:       cfg,
+		DB:           db,
+		Discoverer:   discoverer,
+		Materializer: &fakeMaterializer{db: db, availableTables: []string{"Item"}},
+	}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	span, err := cascindex.ResolveFileDataIDForSource(ctx, db, cascindex.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2"}, 555)
+	if err != nil {
+		t.Fatalf("casc resolve after DB2 reuse: %v", err)
+	}
+	if span.EncodingKey != "encoding-key" {
+		t.Fatalf("span = %#v, want persisted resource index without DB2 rematerialization", span)
+	}
+}
+
+func TestPrepareSkipsResourcePreparationWhenDB2AndAssetIndexesAlreadyValid(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item"})
+	key := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2"}
+	seedActiveBuildWithTables(t, ctx, db, key, []string{"Item"})
+	if err := serverlistfile.ReplaceSource(ctx, db, "listfile-hash", []serverlistfile.Entry{
+		{FileDataID: 555, Path: "Interface/Icons/Ready.blp"},
+	}); err != nil {
+		t.Fatalf("seed listfile: %v", err)
+	}
+	source := cascindex.SourceKey{Region: key.Region, Product: key.Product, Locale: key.Locale, BuildKey: key.BuildKey}
+	if err := cascindex.ReplaceIndexForSource(ctx, db, source, "casc-version",
+		[]cascindex.RootMapping{{FileDataID: 555, ContentKey: "content-key"}},
+		[]cascindex.EncodingMapping{{ContentKey: "content-key", EncodingKey: "encoding-key", Size: 12}},
+		[]cascindex.ArchiveMapping{{EncodingKey: "encoding-key", ArchiveKey: "archive-key", Offset: 34, Size: 12}},
+	); err != nil {
+		t.Fatalf("seed casc index: %v", err)
+	}
+	var prepareResourcesCalled bool
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {
+			BuildKey:  "build-2",
+			BuildName: "12.0.5.67823",
+			PrepareResources: func(context.Context) (DiscoveredBuild, error) {
+				prepareResourcesCalled = true
+				return DiscoveredBuild{BuildKey: "build-2", BuildName: "12.0.5.67823"}, nil
+			},
+		},
+	}}
+
+	if err := (Runner{
+		Config:       cfg,
+		DB:           db,
+		Discoverer:   discoverer,
+		Materializer: &fakeMaterializer{db: db, availableTables: []string{"Item"}},
+	}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	if prepareResourcesCalled {
+		t.Fatal("PrepareResources was called even though DB2 and asset indexes were already valid")
+	}
+}
+
+func TestPrepareFailsWhenDB2ReadyResourceBackfillLeavesAssetIndexesMissing(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item"})
+	key := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2"}
+	seedActiveBuildWithTables(t, ctx, db, key, []string{"Item"})
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {
+			BuildKey:  "build-2",
+			BuildName: "12.0.5.67823",
+			PrepareResources: func(context.Context) (DiscoveredBuild, error) {
+				return DiscoveredBuild{BuildKey: "build-2", BuildName: "12.0.5.67823"}, nil
+			},
+		},
+	}}
+
+	err := (Runner{
+		Config:       cfg,
+		DB:           db,
+		Discoverer:   discoverer,
+		Materializer: &fakeMaterializer{db: db, availableTables: []string{"Item"}},
+	}).Prepare(ctx)
+	if err == nil {
+		t.Fatal("Prepare succeeded after resource backfill left asset indexes missing")
+	}
+	if !strings.Contains(err.Error(), "resource indexes missing after preparation") {
+		t.Fatalf("Prepare error = %v, want missing resource index postcondition", err)
+	}
+}
+
 func TestPrepareManifestDefaultTablesSkipsInvalidDBDDefinitions(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
@@ -856,7 +989,7 @@ func TestPrepareSkipsMaterializationWhenActiveBuildHasAllDefaultTables(t *testin
 	}
 }
 
-func TestPrepareSkipsResourcePreparationWhenActiveBuildHasAllDefaultTables(t *testing.T) {
+func TestPrepareReusesDB2TablesWhenActiveBuildHasAllDefaultTables(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
 	db := openMetadataDBAt(t, metadataPath)
@@ -871,7 +1004,27 @@ func TestPrepareSkipsResourcePreparationWhenActiveBuildHasAllDefaultTables(t *te
 			BuildName: "Ready Build",
 			PrepareResources: func(context.Context) (DiscoveredBuild, error) {
 				prepareResourcesCalled = true
-				return DiscoveredBuild{BuildKey: "ready-build", BuildName: "Ready Build"}, nil
+				return DiscoveredBuild{
+					BuildKey:  "ready-build",
+					BuildName: "Ready Build",
+					ResourceIndexes: ResourceIndexes{
+						ListfileSourceHash: "listfile-hash",
+						ListfileEntries: []serverlistfile.Entry{
+							{FileDataID: 555, Path: "Interface/Icons/Ready.blp"},
+						},
+						CASCSource:        cascindex.SourceKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "ready-build"},
+						CASCSourceVersion: "casc-version",
+						CASCRoots: []cascindex.RootMapping{
+							{FileDataID: 555, ContentKey: "content-key"},
+						},
+						CASCEncodings: []cascindex.EncodingMapping{
+							{ContentKey: "content-key", EncodingKey: "encoding-key", Size: 12},
+						},
+						CASCArchives: []cascindex.ArchiveMapping{
+							{EncodingKey: "encoding-key", ArchiveKey: "archive-key", Offset: 34, Size: 12},
+						},
+					},
+				}, nil
 			},
 		},
 	}}
@@ -881,8 +1034,8 @@ func TestPrepareSkipsResourcePreparationWhenActiveBuildHasAllDefaultTables(t *te
 		t.Fatalf("Prepare: %v", err)
 	}
 
-	if prepareResourcesCalled {
-		t.Fatal("PrepareResources was called for an active build that already has all default tables")
+	if !prepareResourcesCalled {
+		t.Fatal("PrepareResources was not called to refresh asset indexes for a ready active build")
 	}
 	if materializer.calls != 0 {
 		t.Fatalf("materialize calls = %d, want 0 for ready active build with all default tables", materializer.calls)

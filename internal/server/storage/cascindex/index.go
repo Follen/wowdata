@@ -134,6 +134,41 @@ func ResolveFileDataID(ctx context.Context, db *sql.DB, fileDataID uint32) (Arch
 	return ResolveFileDataIDForSource(ctx, db, SourceKey{}, fileDataID)
 }
 
+func HasUsableIndexForSource(ctx context.Context, db *sql.DB, source SourceKey) (bool, error) {
+	if db == nil {
+		return false, errors.New("casc index: nil db")
+	}
+	if err := ensureSchema(ctx, db); err != nil {
+		return false, err
+	}
+
+	var count int
+	err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		  FROM server_casc_source s
+		 WHERE s.id = 1
+		   AND s.state = ?
+		   AND EXISTS (
+		       SELECT 1
+		         FROM server_casc_root_entries r
+		         JOIN server_casc_encoding_entries e
+		           ON e.region = r.region AND e.product = r.product AND e.locale = r.locale AND e.build_key = r.build_key
+		          AND e.source_version = r.source_version AND e.content_key = r.content_key
+		         JOIN server_casc_archive_entries a
+		           ON a.region = e.region AND a.product = e.product AND a.locale = e.locale AND a.build_key = e.build_key
+		          AND a.source_version = e.source_version AND a.encoding_key = e.encoding_key
+		        WHERE r.region = ? AND r.product = ? AND r.locale = ? AND r.build_key = ?
+		        LIMIT 1
+		   )`,
+		StateValid,
+		source.Region, source.Product, source.Locale, source.BuildKey,
+	).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 func ResolveFileDataIDForSource(ctx context.Context, db *sql.DB, source SourceKey, fileDataID uint32) (ArchiveSpan, error) {
 	spans, err := ResolveFileDataIDSpansForSource(ctx, db, source, fileDataID)
 	if err != nil {

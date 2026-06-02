@@ -47,6 +47,41 @@ func TestSourceHashReturnsCurrentHash(t *testing.T) {
 	}
 }
 
+func TestHasUsableSourceRequiresHashAndRows(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t)
+
+	ready, err := HasUsableSource(ctx, db)
+	if err != nil {
+		t.Fatalf("HasUsableSource before replace: %v", err)
+	}
+	if ready {
+		t.Fatal("HasUsableSource before replace = true, want false")
+	}
+
+	if err := ReplaceSource(ctx, db, "hash-1", nil); err != nil {
+		t.Fatalf("ReplaceSource empty: %v", err)
+	}
+	ready, err = HasUsableSource(ctx, db)
+	if err != nil {
+		t.Fatalf("HasUsableSource empty: %v", err)
+	}
+	if ready {
+		t.Fatal("HasUsableSource empty = true, want false")
+	}
+
+	if err := ReplaceSource(ctx, db, "hash-1", []Entry{{FileDataID: 12, Path: `World\Maps\Azeroth\Azeroth_33_44.adt`}}); err != nil {
+		t.Fatalf("ReplaceSource populated: %v", err)
+	}
+	ready, err = HasUsableSource(ctx, db)
+	if err != nil {
+		t.Fatalf("HasUsableSource populated: %v", err)
+	}
+	if !ready {
+		t.Fatal("HasUsableSource populated = false, want true")
+	}
+}
+
 func TestIndexLookupByFilename(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)

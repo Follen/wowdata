@@ -253,40 +253,36 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 		}
 		tablesToMaterialize = missingDefaultTables(requiredTables, tables)
 		if len(tablesToMaterialize) == 0 {
+			ready, err := r.resourceIndexesReady(ctx, buildKey)
+			if err != nil {
+				return err
+			}
+			if ready {
+				return nil
+			}
+			if build.PrepareResources == nil {
+				return nil
+			}
+			if _, err := r.prepareBuildResources(ctx, build, buildKey, sameActiveValid, restoreTables); err != nil {
+				return err
+			}
+			ready, err = r.resourceIndexesReady(ctx, buildKey)
+			if err != nil {
+				return err
+			}
+			if !ready {
+				return errors.New("resource indexes missing after preparation")
+			}
 			return nil
 		}
 	}
+	preparedBuild, err := r.prepareBuildResources(ctx, build, buildKey, sameActiveValid, restoreTables)
+	if err != nil {
+		return err
+	}
+	build = preparedBuild
 	if build.PrepareResources != nil {
-		if !sameActiveValid {
-			_ = metadata.MarkBuildPreparingMessage(ctx, r.DB, buildKey, "resource preparation started")
-		}
-		prepared, err := build.PrepareResources(ctx)
-		if err != nil {
-			if sameActiveValid {
-				_ = restoreValidTables(ctx, r.DB, restoreTables)
-				_ = metadata.MarkBuildReady(ctx, r.DB, buildKey)
-				return err
-			}
-			_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
-			return err
-		}
-		prepared.PrepareResources = nil
-		if prepared.BuildKey == "" {
-			prepared.BuildKey = build.BuildKey
-		}
-		if prepared.BuildName == "" {
-			prepared.BuildName = build.BuildName
-		}
-		build = prepared
-		if err := persistResourceIndexes(ctx, r.DB, build.ResourceIndexes); err != nil {
-			if sameActiveValid {
-				_ = restoreValidTables(ctx, r.DB, restoreTables)
-				_ = metadata.MarkBuildReady(ctx, r.DB, buildKey)
-				return err
-			}
-			_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
-			return err
-		}
+		build.PrepareResources = nil
 	}
 	if !sameActiveValid {
 		if err := metadata.UpsertDiscoveredBuild(ctx, r.DB, metadata.Build{
@@ -327,6 +323,58 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 		return err
 	}
 	return metadata.ActivateBuild(ctx, r.DB, buildKey)
+}
+
+func (r Runner) resourceIndexesReady(ctx context.Context, buildKey metadata.BuildKey) (bool, error) {
+	listfileReady, err := serverlistfile.HasUsableSource(ctx, r.DB)
+	if err != nil {
+		return false, err
+	}
+	if !listfileReady {
+		return false, nil
+	}
+	return cascindex.HasUsableIndexForSource(ctx, r.DB, cascindex.SourceKey{
+		Region:   buildKey.Region,
+		Product:  buildKey.Product,
+		Locale:   buildKey.Locale,
+		BuildKey: buildKey.BuildKey,
+	})
+}
+
+func (r Runner) prepareBuildResources(ctx context.Context, build DiscoveredBuild, buildKey metadata.BuildKey, sameActiveValid bool, restoreTables []metadata.MaterializedTable) (DiscoveredBuild, error) {
+	if build.PrepareResources == nil {
+		return build, nil
+	}
+	if !sameActiveValid {
+		_ = metadata.MarkBuildPreparingMessage(ctx, r.DB, buildKey, "resource preparation started")
+	}
+	prepared, err := build.PrepareResources(ctx)
+	if err != nil {
+		if sameActiveValid {
+			_ = restoreValidTables(ctx, r.DB, restoreTables)
+			_ = metadata.MarkBuildReady(ctx, r.DB, buildKey)
+			return build, err
+		}
+		_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
+		return build, err
+	}
+	prepared.PrepareResources = nil
+	if prepared.BuildKey == "" {
+		prepared.BuildKey = build.BuildKey
+	}
+	if prepared.BuildName == "" {
+		prepared.BuildName = build.BuildName
+	}
+	if err := persistResourceIndexes(ctx, r.DB, prepared.ResourceIndexes); err != nil {
+		if sameActiveValid {
+			_ = restoreValidTables(ctx, r.DB, restoreTables)
+			_ = metadata.MarkBuildReady(ctx, r.DB, buildKey)
+			return build, err
+		}
+		_ = metadata.MarkBuildFailed(ctx, r.DB, buildKey, err.Error())
+		return build, err
+	}
+	return prepared, nil
 }
 
 func (r Runner) materializeTables(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, buildKey metadata.BuildKey, tables []string, materializer TableMaterializer, markBuildProgress bool, tableSem chan struct{}, skipUnavailableBuildStructure bool) error {

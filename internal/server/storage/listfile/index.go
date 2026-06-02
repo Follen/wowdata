@@ -76,6 +76,27 @@ func SourceHash(ctx context.Context, db *sql.DB) (string, error) {
 	return hash, nil
 }
 
+func HasUsableSource(ctx context.Context, db *sql.DB) (bool, error) {
+	if db == nil {
+		return false, errors.New("listfile index: nil db")
+	}
+	if err := ensureSchema(ctx, db); err != nil {
+		return false, err
+	}
+
+	var count int
+	err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		  FROM server_listfile_source s
+		 WHERE s.id = 1
+		   AND s.source_hash <> ''
+		   AND EXISTS (SELECT 1 FROM server_listfile_entries LIMIT 1)`).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 func LookupByFileDataID(ctx context.Context, db *sql.DB, id uint32) (Entry, error) {
 	if db == nil {
 		return Entry{}, errors.New("listfile index: nil db")
