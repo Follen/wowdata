@@ -202,13 +202,33 @@ func markChangedTablesStaleForBuild(ctx context.Context, db *sql.DB, key metadat
 }
 
 func candidateUnchangedForActive(ctx context.Context, db *sql.DB, active metadata.Build, candidate BuildCandidate) (bool, error) {
-	listfileUnchanged, err := listfileSourceMatches(ctx, db, active.Key, candidate.ListfileSourceHash)
-	if err != nil || !listfileUnchanged {
-		return listfileUnchanged, err
+	if candidate.ListfileSourceHash == "" {
+		exists, err := listfileSourceExists(ctx, db, active.Key)
+		if err != nil || exists {
+			return !exists, err
+		}
+	} else {
+		listfileUnchanged, err := listfileSourceMatches(ctx, db, active.Key, candidate.ListfileSourceHash)
+		if err != nil || !listfileUnchanged {
+			return listfileUnchanged, err
+		}
 	}
-	cascUnchanged, err := cascSourceMatches(ctx, db, active.Key, candidate.CASCBuildConfig, candidate.CASCCDNConfig)
-	if err != nil || !cascUnchanged {
-		return cascUnchanged, err
+	if candidate.CASCBuildConfig == "" && candidate.CASCCDNConfig == "" {
+		exists, err := cascSourceExists(ctx, db, active.Key)
+		if err != nil || exists {
+			return !exists, err
+		}
+	} else {
+		cascUnchanged, err := cascSourceMatches(ctx, db, active.Key, candidate.CASCBuildConfig, candidate.CASCCDNConfig)
+		if err != nil || !cascUnchanged {
+			return cascUnchanged, err
+		}
+	}
+	if len(candidate.Tables) == 0 {
+		exists, err := materializedTablesExist(ctx, db, active.Key)
+		if err != nil || exists {
+			return !exists, err
+		}
 	}
 	for _, table := range candidate.Tables {
 		existing, err := materializedTableForBuild(ctx, db, metadata.TableKey{
@@ -225,6 +245,20 @@ func candidateUnchangedForActive(ctx context.Context, db *sql.DB, active metadat
 		}
 	}
 	return true, nil
+}
+
+func listfileSourceExists(ctx context.Context, db *sql.DB, key metadata.BuildKey) (bool, error) {
+	var exists int
+	err := db.QueryRowContext(ctx, `
+SELECT 1 FROM server_listfile_sources
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?
+LIMIT 1`,
+		key.Region, key.Product, key.Locale, key.BuildKey,
+	).Scan(&exists)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func listfileSourceMatches(ctx context.Context, db *sql.DB, key metadata.BuildKey, sourceHash string) (bool, error) {
@@ -246,6 +280,20 @@ WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 	return current == sourceHash, nil
 }
 
+func cascSourceExists(ctx context.Context, db *sql.DB, key metadata.BuildKey) (bool, error) {
+	var exists int
+	err := db.QueryRowContext(ctx, `
+SELECT 1 FROM server_casc_sources
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?
+LIMIT 1`,
+		key.Region, key.Product, key.Locale, key.BuildKey,
+	).Scan(&exists)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
 func cascSourceMatches(ctx context.Context, db *sql.DB, key metadata.BuildKey, buildConfig, cdnConfig string) (bool, error) {
 	if buildConfig == "" && cdnConfig == "" {
 		return true, nil
@@ -263,6 +311,20 @@ WHERE region = ? AND product = ? AND locale = ? AND build_key = ?`,
 		return false, err
 	}
 	return currentBuildConfig == buildConfig && currentCDNConfig == cdnConfig, nil
+}
+
+func materializedTablesExist(ctx context.Context, db *sql.DB, key metadata.BuildKey) (bool, error) {
+	var exists int
+	err := db.QueryRowContext(ctx, `
+SELECT 1 FROM server_materialized_tables
+WHERE region = ? AND product = ? AND locale = ? AND build_key = ?
+LIMIT 1`,
+		key.Region, key.Product, key.Locale, key.BuildKey,
+	).Scan(&exists)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func materializedTableForBuild(ctx context.Context, db *sql.DB, key metadata.TableKey) (metadata.MaterializedTable, error) {

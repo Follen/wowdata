@@ -151,6 +151,42 @@ func TestRefreshActiveUnchangedCandidateSkipsPrepareAndPreservesState(t *testing
 	assertCASCIndexState(t, ctx, db, sourceKey, "root-encoding-archive", metadata.StateValid)
 }
 
+func TestRefreshActiveCandidateWithOmittedFingerprintsDoesNotNoOp(t *testing.T) {
+	ctx := context.Background()
+	db := openRefreshTestDB(t)
+	seedActiveBuild(t, ctx, db, "build-1")
+	seedValidTable(t, ctx, db, "Spell", "dbd-a", "decoder-1", "materializer-1")
+	sourceKey := seedValidListfile(t, ctx, db, "build-1", "hash-a")
+	seedValidCASC(t, ctx, db, "build-1", "build-config-a", "cdn-config-a")
+
+	var prepareCalls int32
+	workflow := Workflow{
+		DB: db,
+		Discoverer: fixtureDiscoverer{candidate: BuildCandidate{
+			Region:    "us",
+			Product:   "wow",
+			Locale:    "enUS",
+			BuildKey:  "build-1",
+			BuildName: "build one",
+		}},
+		Preparer: fixturePreparer{calls: &prepareCalls},
+	}
+	result, err := workflow.RefreshTarget(ctx, Target{Region: "us", Product: "wow", Locale: "enUS"})
+	if err != nil {
+		t.Fatalf("refresh omitted-fingerprint active candidate: %v", err)
+	}
+	if got := atomic.LoadInt32(&prepareCalls); got != 1 {
+		t.Fatalf("prepare calls = %d, want 1", got)
+	}
+	if result.Activated {
+		t.Fatalf("activated = true, want false")
+	}
+	assertActiveBuild(t, ctx, db, "build-1")
+	assertTableState(t, db, "Spell", metadata.StateValid)
+	assertListfileIndexState(t, ctx, db, sourceKey, "main", metadata.StateValid)
+	assertCASCIndexState(t, ctx, db, sourceKey, "root-encoding-archive", metadata.StateValid)
+}
+
 func TestRefreshActiveChangedCandidateFailurePreservesActiveBuildState(t *testing.T) {
 	ctx := context.Background()
 	db := openRefreshTestDB(t)
