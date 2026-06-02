@@ -148,11 +148,6 @@ func defaultTargets() []PrepareTarget {
 		{Label: "US PTR", Region: "us", Product: "wowt", Locale: "enUS"},
 		{Label: "EU PTR", Region: "eu", Product: "wowt", Locale: "enUS"},
 
-		{Label: "US Beta", Region: "us", Product: "wowxptr", Locale: "enUS"},
-		{Label: "EU Beta", Region: "eu", Product: "wowxptr", Locale: "enUS"},
-		{Label: "KR Beta", Region: "kr", Product: "wowxptr", Locale: "koKR"},
-		{Label: "TW Beta", Region: "tw", Product: "wowxptr", Locale: "zhTW"},
-
 		{Label: "CN Classic", Region: "cn", Product: "wow_classic", Locale: "zhCN"},
 		{Label: "US Classic", Region: "us", Product: "wow_classic", Locale: "enUS"},
 		{Label: "EU Classic", Region: "eu", Product: "wow_classic", Locale: "enUS"},

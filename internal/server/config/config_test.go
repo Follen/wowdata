@@ -8,7 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestDefaultPrepareMatrixHasTwentyThreeTargets(t *testing.T) {
+func TestDefaultPrepareMatrixHasNineteenTargetsAndExcludesBetaForNow(t *testing.T) {
 	cfg := Default()
 	targets := cfg.Prepare.Targets
 	expected := expectedPrepareTargets()
@@ -17,7 +17,7 @@ func TestDefaultPrepareMatrixHasTwentyThreeTargets(t *testing.T) {
 	}
 	assertNoDuplicateTargets(t, targets)
 	assertNoUnsupportedNonCNTitan(t, targets)
-	assertRequiredBetaTargets(t, targets)
+	assertNoBetaTargets(t, targets)
 	if t.Failed() {
 		return
 	}
@@ -226,22 +226,11 @@ func assertNoUnsupportedNonCNTitan(t *testing.T, targets []PrepareTarget) {
 	}
 }
 
-func assertRequiredBetaTargets(t *testing.T, targets []PrepareTarget) {
+func assertNoBetaTargets(t *testing.T, targets []PrepareTarget) {
 	t.Helper()
-	required := []PrepareTarget{
-		{Label: "US Beta", Region: "us", Product: "wowxptr", Locale: "enUS"},
-		{Label: "EU Beta", Region: "eu", Product: "wowxptr", Locale: "enUS"},
-		{Label: "KR Beta", Region: "kr", Product: "wowxptr", Locale: "koKR"},
-		{Label: "TW Beta", Region: "tw", Product: "wowxptr", Locale: "zhTW"},
-	}
-	seen := map[string]bool{}
 	for _, target := range targets {
-		seen[target.Region+"/"+target.Product+"/"+target.Locale] = true
-	}
-	for _, target := range required {
-		key := target.Region + "/" + target.Product + "/" + target.Locale
-		if !seen[key] {
-			t.Errorf("missing required Beta target: %s (%s)", key, target.Label)
+		if target.Product == "wowxptr" {
+			t.Errorf("Beta target should not be in default prepare for now: %s/%s/%s (%s)", target.Region, target.Product, target.Locale, target.Label)
 		}
 	}
 }
@@ -267,10 +256,6 @@ func expectedPrepareTargets() []PrepareTarget {
 		{Label: "CN PTR", Region: "cn", Product: "wowt", Locale: "zhCN"},
 		{Label: "US PTR", Region: "us", Product: "wowt", Locale: "enUS"},
 		{Label: "EU PTR", Region: "eu", Product: "wowt", Locale: "enUS"},
-		{Label: "US Beta", Region: "us", Product: "wowxptr", Locale: "enUS"},
-		{Label: "EU Beta", Region: "eu", Product: "wowxptr", Locale: "enUS"},
-		{Label: "KR Beta", Region: "kr", Product: "wowxptr", Locale: "koKR"},
-		{Label: "TW Beta", Region: "tw", Product: "wowxptr", Locale: "zhTW"},
 		{Label: "CN Classic", Region: "cn", Product: "wow_classic", Locale: "zhCN"},
 		{Label: "US Classic", Region: "us", Product: "wow_classic", Locale: "enUS"},
 		{Label: "EU Classic", Region: "eu", Product: "wow_classic", Locale: "enUS"},

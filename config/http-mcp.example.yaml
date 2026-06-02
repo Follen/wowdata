@@ -58,22 +58,6 @@ prepare:
       region: eu
       product: wowt
       locale: enUS
-    - label: US Beta
-      region: us
-      product: wowxptr
-      locale: enUS
-    - label: EU Beta
-      region: eu
-      product: wowxptr
-      locale: enUS
-    - label: KR Beta
-      region: kr
-      product: wowxptr
-      locale: koKR
-    - label: TW Beta
-      region: tw
-      product: wowxptr
-      locale: zhTW
     - label: CN Classic
       region: cn
       product: wow_classic
