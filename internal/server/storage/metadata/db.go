@@ -55,7 +55,7 @@ func OpenWithMigrations(path string, migrationsDir string) (*sql.DB, error) {
 		_ = db.Close()
 		return nil, err
 	}
-	if _, err := db.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
+	if _, err := db.Exec(`PRAGMA busy_timeout = 120000`); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func OpenWithMigrations(path string, migrationsDir string) (*sql.DB, error) {
 
 func sqliteOpenDSN(path string) string {
 	q := url.Values{}
-	q.Add("_pragma", "busy_timeout=5000")
+	q.Add("_pragma", "busy_timeout=120000")
 	q.Add("_pragma", "foreign_keys=ON")
 	if path != ":memory:" {
 		q.Add("_pragma", "journal_mode=WAL")

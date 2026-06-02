@@ -89,7 +89,7 @@ func TestSQLiteOpenDSNAppendsPragmasToExistingQuery(t *testing.T) {
 	if !strings.Contains(dsn, "cache=shared") {
 		t.Fatalf("dsn = %q, want existing query preserved", dsn)
 	}
-	if !strings.Contains(dsn, "_pragma=busy_timeout%3D5000") {
+	if !strings.Contains(dsn, "_pragma=busy_timeout%3D120000") {
 		t.Fatalf("dsn = %q, want busy_timeout pragma appended", dsn)
 	}
 }
