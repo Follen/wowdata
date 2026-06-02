@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	"wowdata/internal/mcpserver"
@@ -50,6 +51,15 @@ func TestWowQueryModesDispatchToQueryService(t *testing.T) {
 		called  string
 		wantReq interface{}
 	}{
+		{
+			name:   "tables",
+			args:   map[string]interface{}{"mode": "tables", "region": "us", "product": "wow", "locale": "enUS", "buildKey": "11.1.7.61491"},
+			want:   "query tables",
+			called: "tables",
+			wantReq: service.TablesRequest{
+				Context: service.RequestContext{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "11.1.7.61491"},
+			},
+		},
 		{
 			name:   "schema",
 			args:   map[string]interface{}{"mode": "schema", "table": "Item", "region": "us", "product": "wow", "locale": "enUS", "buildKey": "11.1.7.61491"},
@@ -141,7 +151,48 @@ func TestWowQueryModesDispatchToQueryService(t *testing.T) {
 			if !reflect.DeepEqual(fake.lastRequest, tt.wantReq) {
 				t.Fatalf("request = %#v, want %#v", fake.lastRequest, tt.wantReq)
 			}
+			if tt.called == "tables" {
+				data, ok := envelope["data"].(map[string]interface{})
+				if !ok {
+					t.Fatalf("data = %T, want map", envelope["data"])
+				}
+				if data["mode"] != "tables" {
+					t.Fatalf("data mode = %v, want tables", data["mode"])
+				}
+				if data["count"] != 2 {
+					t.Fatalf("data count = %v, want 2", data["count"])
+				}
+				tables, ok := data["tables"].([]service.TableInfo)
+				if !ok {
+					t.Fatalf("tables = %T, want []service.TableInfo", data["tables"])
+				}
+				if len(tables) != 2 || tables[0].Name != "Item" || tables[1].Name != "SpellName" {
+					t.Fatalf("tables = %#v", tables)
+				}
+			}
 		})
+	}
+}
+
+func TestWowQueryInvalidModeMentionsTables(t *testing.T) {
+	fake := &fakeQueryService{}
+	tool := findTool(t, HTTPTools(Options{QueryService: fake}), "wow_query")
+
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{"mode":"wat","table":"Item"}`))
+	if err != nil {
+		t.Fatalf("wow_query handler: %v", err)
+	}
+	envelope := resultEnvelope(t, result)
+	errInfo, ok := envelope["error"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("error = %T, want map", envelope["error"])
+	}
+	message, ok := errInfo["message"].(string)
+	if !ok {
+		t.Fatalf("error message = %T, want string", errInfo["message"])
+	}
+	if !strings.Contains(message, "tables") {
+		t.Fatalf("message = %q, want tables in supported modes", message)
 	}
 }
 
@@ -264,6 +315,12 @@ func (f *fakeQueryService) Schema(ctx context.Context, req service.SchemaRequest
 	f.called = "schema"
 	f.lastRequest = req
 	return service.Schema{Table: req.Table, RowCount: 2, Fields: []service.Field{{Name: "ID", Type: "uint"}}}, nil
+}
+
+func (f *fakeQueryService) Tables(ctx context.Context, req service.TablesRequest) (service.TableCatalog, error) {
+	f.called = "tables"
+	f.lastRequest = req
+	return service.TableCatalog{Tables: []service.TableInfo{{Name: "Item"}, {Name: "SpellName"}}}, nil
 }
 
 func (f *fakeQueryService) Rows(ctx context.Context, req service.QueryRowsRequest) ([]map[string]interface{}, error) {

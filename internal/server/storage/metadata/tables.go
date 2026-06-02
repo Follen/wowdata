@@ -20,6 +20,12 @@ type TableLookup struct {
 	TableName string
 }
 
+type TableCatalogLookup struct {
+	Region  string
+	Product string
+	Locale  string
+}
+
 type MaterializedTable struct {
 	Key                 TableKey
 	DB2FileDataID       int
@@ -143,4 +149,57 @@ LIMIT 1`,
 		&table.Error,
 	)
 	return table, err
+}
+
+func ListValidMaterializedTables(ctx context.Context, db *sql.DB, lookup TableCatalogLookup) ([]MaterializedTable, error) {
+	rows, err := db.QueryContext(ctx, `
+SELECT t.region, t.product, t.locale, t.build_key, t.table_name,
+  t.db2_file_data_id, t.dbd_hash, t.decoder_version, t.materializer_version,
+  t.parquet_path, t.row_count, t.state, t.error
+FROM server_materialized_tables t
+JOIN (
+  SELECT table_name, MAX(updated_seq) AS updated_seq
+  FROM server_materialized_tables
+  WHERE region = ? AND product = ? AND locale = ? AND state = ?
+  GROUP BY table_name
+) latest ON latest.table_name = t.table_name AND latest.updated_seq = t.updated_seq
+WHERE t.region = ? AND t.product = ? AND t.locale = ? AND t.state = ?
+ORDER BY t.table_name`,
+		lookup.Region,
+		lookup.Product,
+		lookup.Locale,
+		StateValid,
+		lookup.Region,
+		lookup.Product,
+		lookup.Locale,
+		StateValid,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tables []MaterializedTable
+	for rows.Next() {
+		var table MaterializedTable
+		if err := rows.Scan(
+			&table.Key.Region,
+			&table.Key.Product,
+			&table.Key.Locale,
+			&table.Key.BuildKey,
+			&table.Key.TableName,
+			&table.DB2FileDataID,
+			&table.DBDHash,
+			&table.DecoderVersion,
+			&table.MaterializerVersion,
+			&table.ParquetPath,
+			&table.RowCount,
+			&table.State,
+			&table.Error,
+		); err != nil {
+			return nil, err
+		}
+		tables = append(tables, table)
+	}
+	return tables, rows.Err()
 }

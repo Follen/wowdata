@@ -89,13 +89,21 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 			if err != nil {
 				return nil, err
 			}
-			table := stringArg(args, "table", "")
-			if table == "" {
-				return errorEnvelope("query", "invalid_request", "table is required"), nil
-			}
 
 			switch mode := stringArg(args, "mode", "rows"); mode {
+			case "tables":
+				catalog, err := queryService.Tables(ctx, service.TablesRequest{
+					Context: requestContextFromArgs(args),
+				})
+				if err != nil {
+					return errorEnvelopeFromError("query tables", "query_engine_unavailable", err), nil
+				}
+				return okEnvelope("query tables", tablesEnvelope(catalog.Tables)), nil
 			case "schema":
+				table := stringArg(args, "table", "")
+				if table == "" {
+					return errorEnvelope("query", "invalid_request", "table is required"), nil
+				}
 				schema, err := queryService.Schema(ctx, service.SchemaRequest{
 					Context: requestContextFromArgs(args),
 					Table:   table,
@@ -110,6 +118,10 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 					"fields":   schema.Fields,
 				}), nil
 			case "", "rows":
+				table := stringArg(args, "table", "")
+				if table == "" {
+					return errorEnvelope("query", "invalid_request", "table is required"), nil
+				}
 				ids, err := uint64ListArg(args, "id", "ids")
 				if err != nil {
 					return errorEnvelope("query rows", "invalid_request", err.Error()), nil
@@ -137,6 +149,10 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 				}
 				return okEnvelope("query rows", rowsEnvelope(table, "rows", rows)), nil
 			case "search":
+				table := stringArg(args, "table", "")
+				if table == "" {
+					return errorEnvelope("query", "invalid_request", "table is required"), nil
+				}
 				limit, err := nonNegativeIntArg(args, "limit", 0)
 				if err != nil {
 					return errorEnvelope("query search", "invalid_request", err.Error()), nil
@@ -153,6 +169,10 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 				}
 				return okEnvelope("query search", rowsEnvelope(table, "search", rows)), nil
 			case "foreign-key":
+				table := stringArg(args, "table", "")
+				if table == "" {
+					return errorEnvelope("query", "invalid_request", "table is required"), nil
+				}
 				limit, err := nonNegativeIntArg(args, "limit", 0)
 				if err != nil {
 					return errorEnvelope("query foreign-key", "invalid_request", err.Error()), nil
@@ -169,6 +189,10 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 				}
 				return okEnvelope("query foreign-key", rowsEnvelope(table, "foreign-key", rows)), nil
 			case "stream":
+				table := stringArg(args, "table", "")
+				if table == "" {
+					return errorEnvelope("query", "invalid_request", "table is required"), nil
+				}
 				limit, err := nonNegativeIntArg(args, "limit", 0)
 				if err != nil {
 					return errorEnvelope("query stream", "invalid_request", err.Error()), nil
@@ -188,7 +212,7 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 				}
 				return okEnvelope("query stream", rowsEnvelope(table, "stream", rows)), nil
 			default:
-				return errorEnvelope("query", "invalid_mode", "mode must be schema, rows, search, foreign-key, or stream"), nil
+				return errorEnvelope("query", "invalid_mode", "mode must be schema, rows, search, foreign-key, stream, or tables"), nil
 			}
 		},
 	}
@@ -214,6 +238,17 @@ func rowsEnvelope(table, mode string, rows []map[string]interface{}) map[string]
 		"mode":  mode,
 		"rows":  rows,
 		"count": len(rows),
+	}
+}
+
+func tablesEnvelope(tables []service.TableInfo) map[string]interface{} {
+	if tables == nil {
+		tables = []service.TableInfo{}
+	}
+	return map[string]interface{}{
+		"mode":   "tables",
+		"tables": tables,
+		"count":  len(tables),
 	}
 }
 

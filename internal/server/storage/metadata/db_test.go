@@ -298,6 +298,84 @@ WHERE region = 'us' AND product = 'wow' AND locale = 'enUS' AND table_name = 'Sp
 	}
 }
 
+func TestListValidMaterializedTablesReturnsLatestDistinctNames(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t)
+	lookup := TableCatalogLookup{Region: "us", Product: "wow", Locale: "enUS"}
+
+	tables := []MaterializedTable{
+		{
+			Key:                 TableKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1", TableName: "Spell"},
+			DB2FileDataID:       123,
+			DBDHash:             "dbd-a",
+			DecoderVersion:      "decoder-1",
+			MaterializerVersion: "materializer-1",
+			ParquetPath:         "cache/db2/spell-build-1.parquet",
+			RowCount:            2,
+			State:               StateValid,
+		},
+		{
+			Key:                 TableKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2", TableName: "Spell"},
+			DB2FileDataID:       123,
+			DBDHash:             "dbd-b",
+			DecoderVersion:      "decoder-1",
+			MaterializerVersion: "materializer-1",
+			ParquetPath:         "cache/db2/spell-build-2.parquet",
+			RowCount:            4,
+			State:               StateValid,
+		},
+		{
+			Key:                 TableKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1", TableName: "Item"},
+			DB2FileDataID:       456,
+			DBDHash:             "dbd-a",
+			DecoderVersion:      "decoder-1",
+			MaterializerVersion: "materializer-1",
+			ParquetPath:         "cache/db2/item-build-1.parquet",
+			RowCount:            6,
+			State:               StateValid,
+		},
+		{
+			Key:                 TableKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1", TableName: "GoOnlyStale"},
+			DB2FileDataID:       789,
+			DBDHash:             "dbd-a",
+			DecoderVersion:      "decoder-1",
+			MaterializerVersion: "materializer-1",
+			ParquetPath:         "cache/db2/stale.parquet",
+			RowCount:            8,
+			State:               StateStale,
+		},
+		{
+			Key:                 TableKey{Region: "eu", Product: "wow", Locale: "enUS", BuildKey: "build-1", TableName: "OtherRegion"},
+			DB2FileDataID:       999,
+			DBDHash:             "dbd-a",
+			DecoderVersion:      "decoder-1",
+			MaterializerVersion: "materializer-1",
+			ParquetPath:         "cache/db2/other.parquet",
+			RowCount:            10,
+			State:               StateValid,
+		},
+	}
+	for _, table := range tables {
+		if err := UpsertMaterializedTable(ctx, db, table); err != nil {
+			t.Fatalf("upsert table %s/%s: %v", table.Key.BuildKey, table.Key.TableName, err)
+		}
+	}
+
+	got, err := ListValidMaterializedTables(ctx, db, lookup)
+	if err != nil {
+		t.Fatalf("list valid materialized tables: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("table count = %d, want 2: %#v", len(got), got)
+	}
+	if got[0].Key.TableName != "Item" || got[1].Key.TableName != "Spell" {
+		t.Fatalf("table order = %#v, want Item then Spell", got)
+	}
+	if got[1].Key.BuildKey != "build-2" || got[1].RowCount != 4 {
+		t.Fatalf("latest Spell = %#v, want build-2 row count 4", got[1])
+	}
+}
+
 func TestOpenWithMigrationsUpgradesLegacyMaterializedTableSchema(t *testing.T) {
 	ctx := context.Background()
 	migrationsDir := filepath.Join(t.TempDir(), "migrations", "server")

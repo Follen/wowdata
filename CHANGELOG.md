@@ -16,6 +16,7 @@
 - Kept listfile warmup unfiltered so generated asset lookups remain available after initialization.
 - Added same-configuration warmup reuse so repeated explicit `wow_warmup` calls avoid resetting hot in-memory state when the requested build and warmed resources are already covered.
 - Added HTTP MCP `--max-contexts` to keep multiple warmed build contexts resident in memory with LRU eviction.
+- Added HTTP MCP `wow_query mode=tables` catalog support for parity harness extra-table detection.
 - Added regression coverage for local CASC reads, DB2 schema arrays, item slot names, and item model selection.
 - Added architecture, MCP tool, HTTP runtime, deployment, cache layout, and performance documentation.
 - Verified Retail, PTR, Beta, Classic, Classic Era, and Classic Titan DB2 coverage across CN, US, EU, KR, and TW remote products.

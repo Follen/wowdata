@@ -9,14 +9,14 @@ import (
 func TestUnavailableQueryServiceReturnsCapabilityUnavailable(t *testing.T) {
 	svc := UnavailableQueryService{}
 
-	_, err := svc.Rows(context.Background(), QueryRowsRequest{Table: "Item"})
+	_, err := svc.Tables(context.Background(), TablesRequest{})
 	if err == nil {
-		t.Fatal("Rows error = nil, want unavailable error")
+		t.Fatal("Tables error = nil, want unavailable error")
 	}
 
 	var unavailable CapabilityUnavailableError
 	if !errors.As(err, &unavailable) {
-		t.Fatalf("Rows error = %T %[1]v, want CapabilityUnavailableError", err)
+		t.Fatalf("Tables error = %T %[1]v, want CapabilityUnavailableError", err)
 	}
 	if unavailable.Code != "query_engine_unavailable" {
 		t.Fatalf("Code = %q, want query_engine_unavailable", unavailable.Code)

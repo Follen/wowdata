@@ -44,6 +44,10 @@ Exact default HTTP tool list:
 
 `wow_warmup` is not an ordinary HTTP tool. HTTP prepares data lazily for request contexts, and explicit prepare operations are admin-only.
 
+`wow_query` supports the normal table-scoped query modes plus an internal verification catalog mode:
+
+- `mode=tables`: lists Go-readable DB2 tables for the requested `region`, `product`, `locale`, and optional `buildKey`. This mode does not require `table` and is intended for parity harness/admin verification, including extra-table detection.
+
 ## HTTP admin tools
 
 Admin tools are hidden by default. Enable them with:

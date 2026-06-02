@@ -51,6 +51,10 @@ type SchemaRequest struct {
 	Table   string
 }
 
+type TablesRequest struct {
+	Context RequestContext
+}
+
 type Schema struct {
 	Table    string
 	RowCount int
@@ -62,8 +66,17 @@ type Field struct {
 	Type string
 }
 
+type TableCatalog struct {
+	Tables []TableInfo
+}
+
+type TableInfo struct {
+	Name string `json:"name"`
+}
+
 type QueryService interface {
 	Schema(context.Context, SchemaRequest) (Schema, error)
+	Tables(context.Context, TablesRequest) (TableCatalog, error)
 	Rows(context.Context, QueryRowsRequest) ([]map[string]interface{}, error)
 	Search(context.Context, SearchRequest) ([]map[string]interface{}, error)
 	ForeignKey(context.Context, ForeignKeyRequest) ([]map[string]interface{}, error)
@@ -90,6 +103,10 @@ type UnavailableQueryService struct{}
 
 func (UnavailableQueryService) Schema(context.Context, SchemaRequest) (Schema, error) {
 	return Schema{}, newCapabilityUnavailableError("query engine")
+}
+
+func (UnavailableQueryService) Tables(context.Context, TablesRequest) (TableCatalog, error) {
+	return TableCatalog{}, newCapabilityUnavailableError("query engine")
 }
 
 func (UnavailableQueryService) Rows(context.Context, QueryRowsRequest) ([]map[string]interface{}, error) {

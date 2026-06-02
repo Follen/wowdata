@@ -189,6 +189,10 @@ func (s *boundedBusinessQueryService) Schema(context.Context, SchemaRequest) (Sc
 	return Schema{}, nil
 }
 
+func (s *boundedBusinessQueryService) Tables(context.Context, TablesRequest) (TableCatalog, error) {
+	return TableCatalog{}, nil
+}
+
 func (s *boundedBusinessQueryService) Rows(_ context.Context, req QueryRowsRequest) ([]map[string]interface{}, error) {
 	call := businessQueryCall{
 		table:   req.Table,
