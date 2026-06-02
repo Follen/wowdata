@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -26,7 +27,7 @@ func HTTPTools(opts Options) []mcpserver.Tool {
 
 	return []mcpserver.Tool{
 		statusTool(opts.HealthProvider),
-		capabilityTool("wow_builds", "List prepared build contexts.", "builds"),
+		buildsTool(opts.HealthProvider),
 		queryTool(queryService),
 		capabilityTool("wow_item", "Query item metadata and assets.", "item"),
 		capabilityTool("wow_spell", "Inspect spell relationships.", "spell"),
@@ -36,6 +37,27 @@ func HTTPTools(opts Options) []mcpserver.Tool {
 		capabilityTool("wow_encounter", "Query JournalEncounter data.", "encounter"),
 		capabilityTool("wow_decor", "Query decor data.", "decor"),
 		capabilityTool("wow_video", "Process video container data.", "video"),
+	}
+}
+
+func buildsTool(provider health.Provider) mcpserver.Tool {
+	return mcpserver.Tool{
+		Name:        "wow_builds",
+		Description: "List prepared build contexts.",
+		InputSchema: objectSchema(),
+		Handler: func(ctx context.Context, raw json.RawMessage) (interface{}, error) {
+			if provider == nil {
+				return errorEnvelope("builds", "health_unavailable", "health provider is unavailable"), nil
+			}
+			snapshot, err := provider.HealthSnapshot(ctx)
+			if err != nil {
+				return errorEnvelope("builds", "health_unavailable", err.Error()), nil
+			}
+			return okEnvelope("builds", map[string]interface{}{
+				"contexts": snapshot.Contexts,
+				"count":    len(snapshot.Contexts),
+			}), nil
+		},
 	}
 }
 
@@ -88,50 +110,78 @@ func queryTool(queryService service.QueryService) mcpserver.Tool {
 					"fields":   schema.Fields,
 				}), nil
 			case "", "rows":
+				ids, err := uint64ListArg(args, "id", "ids")
+				if err != nil {
+					return errorEnvelope("query rows", "invalid_request", err.Error()), nil
+				}
+				limit, err := nonNegativeIntArg(args, "limit", 0)
+				if err != nil {
+					return errorEnvelope("query rows", "invalid_request", err.Error()), nil
+				}
+				offset, err := nonNegativeIntArg(args, "offset", 0)
+				if err != nil {
+					return errorEnvelope("query rows", "invalid_request", err.Error()), nil
+				}
 				rows, err := queryService.Rows(ctx, service.QueryRowsRequest{
 					Context: requestContextFromArgs(args),
 					Table:   table,
-					IDs:     uint64ListArg(args, "id", "ids"),
+					IDs:     ids,
 					IDField: stringArg(args, "field", "ID"),
 					Fields:  stringListArg(args, "fields"),
 					Filter:  stringArg(args, "filter", ""),
-					Limit:   intArg(args, "limit", 0),
-					Offset:  intArg(args, "offset", 0),
+					Limit:   limit,
+					Offset:  offset,
 				})
 				if err != nil {
 					return errorEnvelopeFromError("query rows", "query_engine_unavailable", err), nil
 				}
 				return okEnvelope("query rows", rowsEnvelope(table, "rows", rows)), nil
 			case "search":
+				limit, err := nonNegativeIntArg(args, "limit", 0)
+				if err != nil {
+					return errorEnvelope("query search", "invalid_request", err.Error()), nil
+				}
 				rows, err := queryService.Search(ctx, service.SearchRequest{
 					Context: requestContextFromArgs(args),
 					Table:   table,
 					Field:   stringArg(args, "field", ""),
 					Query:   stringArg(args, "query", ""),
-					Limit:   intArg(args, "limit", 0),
+					Limit:   limit,
 				})
 				if err != nil {
 					return errorEnvelopeFromError("query search", "query_engine_unavailable", err), nil
 				}
 				return okEnvelope("query search", rowsEnvelope(table, "search", rows)), nil
 			case "foreign-key":
+				limit, err := nonNegativeIntArg(args, "limit", 0)
+				if err != nil {
+					return errorEnvelope("query foreign-key", "invalid_request", err.Error()), nil
+				}
 				rows, err := queryService.ForeignKey(ctx, service.ForeignKeyRequest{
 					Context: requestContextFromArgs(args),
 					Table:   table,
 					Field:   stringArg(args, "field", ""),
 					Value:   args["value"],
-					Limit:   intArg(args, "limit", 0),
+					Limit:   limit,
 				})
 				if err != nil {
 					return errorEnvelopeFromError("query foreign-key", "query_engine_unavailable", err), nil
 				}
 				return okEnvelope("query foreign-key", rowsEnvelope(table, "foreign-key", rows)), nil
 			case "stream":
+				limit, err := nonNegativeIntArg(args, "limit", 0)
+				if err != nil {
+					return errorEnvelope("query stream", "invalid_request", err.Error()), nil
+				}
+				offset, err := nonNegativeIntArg(args, "offset", 0)
+				if err != nil {
+					return errorEnvelope("query stream", "invalid_request", err.Error()), nil
+				}
 				rows, err := queryService.Stream(ctx, service.StreamRequest{
 					Context: requestContextFromArgs(args),
 					Table:   table,
-					Limit:   intArg(args, "limit", 0),
-					Offset:  intArg(args, "offset", 0),
+					Limit:   limit,
+					Offset:  offset,
 				})
 				if err != nil {
 					return errorEnvelopeFromError("query stream", "query_engine_unavailable", err), nil
@@ -242,22 +292,25 @@ func stringArg(args map[string]interface{}, key, fallback string) string {
 	}
 }
 
-func intArg(args map[string]interface{}, key string, fallback int) int {
+func nonNegativeIntArg(args map[string]interface{}, key string, fallback int) (int, error) {
 	value, ok := args[key]
 	if !ok {
-		return fallback
+		return fallback, nil
 	}
 	switch v := value.(type) {
 	case float64:
-		return int(v)
+		if v < 0 || math.Trunc(v) != v {
+			return 0, fmt.Errorf("%s must be a non-negative integer", key)
+		}
+		return int(v), nil
 	case string:
 		parsed, err := strconv.Atoi(strings.TrimSpace(v))
-		if err != nil {
-			return fallback
+		if err != nil || parsed < 0 {
+			return 0, fmt.Errorf("%s must be a non-negative integer", key)
 		}
-		return parsed
+		return parsed, nil
 	default:
-		return fallback
+		return 0, fmt.Errorf("%s must be a non-negative integer", key)
 	}
 }
 
@@ -289,7 +342,7 @@ func stringListArg(args map[string]interface{}, key string) []string {
 	}
 }
 
-func uint64ListArg(args map[string]interface{}, keys ...string) []uint64 {
+func uint64ListArg(args map[string]interface{}, keys ...string) ([]uint64, error) {
 	var out []uint64
 	for _, key := range keys {
 		value, ok := args[key]
@@ -299,31 +352,63 @@ func uint64ListArg(args map[string]interface{}, keys ...string) []uint64 {
 		switch v := value.(type) {
 		case []interface{}:
 			for _, item := range v {
-				out = appendUint64Arg(out, fmt.Sprint(item))
+				parsed, err := parseUint64Value(item, key)
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, parsed)
 			}
 		case string:
 			for _, part := range strings.Split(v, ",") {
-				out = appendUint64Arg(out, part)
+				parsed, err := parseUint64String(part, key)
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, parsed)
 			}
 		case float64:
-			if v >= 0 {
-				out = append(out, uint64(v))
+			parsed, err := parseUint64Float(v, key)
+			if err != nil {
+				return nil, err
 			}
+			out = append(out, parsed)
 		default:
-			out = appendUint64Arg(out, fmt.Sprint(v))
+			parsed, err := parseUint64Value(v, key)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, parsed)
 		}
 	}
-	return out
+	return out, nil
 }
 
-func appendUint64Arg(out []uint64, value string) []uint64 {
+func parseUint64Value(value interface{}, key string) (uint64, error) {
+	switch v := value.(type) {
+	case float64:
+		return parseUint64Float(v, key)
+	case string:
+		return parseUint64String(v, key)
+	default:
+		return parseUint64String(fmt.Sprint(v), key)
+	}
+}
+
+func parseUint64Float(value float64, key string) (uint64, error) {
+	if value < 0 || math.Trunc(value) != value {
+		return 0, fmt.Errorf("%s must contain non-negative integer IDs", key)
+	}
+	return uint64(value), nil
+}
+
+func parseUint64String(value string, key string) (uint64, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return out
+		return 0, fmt.Errorf("%s must contain non-negative integer IDs", key)
 	}
 	parsed, err := strconv.ParseUint(value, 10, 64)
 	if err != nil {
-		return out
+		return 0, fmt.Errorf("%s must contain non-negative integer IDs", key)
 	}
-	return append(out, parsed)
+	return parsed, nil
 }

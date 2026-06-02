@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"wowdata/internal/mcpserver"
+	"wowdata/internal/server/health"
 	"wowdata/internal/server/service"
 )
 
@@ -144,6 +145,116 @@ func TestWowQueryModesDispatchToQueryService(t *testing.T) {
 	}
 }
 
+func TestWowBuildsReturnsHealthSnapshotContexts(t *testing.T) {
+	provider := &fakeHealthProvider{
+		snapshot: health.Snapshot{
+			Contexts: []health.ContextStatus{
+				{Label: "US Retail", Region: "us", Product: "wow", Locale: "enUS", State: health.StateReady, ActiveBuild: "11.1.7.61491"},
+				{Label: "CN Classic", Region: "cn", Product: "wow_classic", Locale: "zhCN", State: health.StatePreparing, ActiveBuild: "1.15.7.61491"},
+			},
+		},
+	}
+	tool := findTool(t, HTTPTools(Options{HealthProvider: provider}), "wow_builds")
+
+	result, err := tool.Handler(context.Background(), json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatalf("wow_builds handler: %v", err)
+	}
+	envelope := resultEnvelope(t, result)
+	if envelope["ok"] != true {
+		t.Fatalf("ok = %v, want true; result=%#v", envelope["ok"], envelope)
+	}
+	if envelope["command"] != "builds" {
+		t.Fatalf("command = %v, want builds", envelope["command"])
+	}
+	data, ok := envelope["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("data = %T, want map", envelope["data"])
+	}
+	contexts, ok := data["contexts"].([]health.ContextStatus)
+	if !ok {
+		t.Fatalf("contexts = %T, want []health.ContextStatus", data["contexts"])
+	}
+	if len(contexts) != 2 {
+		t.Fatalf("contexts length = %d, want 2", len(contexts))
+	}
+	if contexts[0].Label != "US Retail" || contexts[0].ActiveBuild != "11.1.7.61491" {
+		t.Fatalf("first context = %#v", contexts[0])
+	}
+	if contexts[1].Label != "CN Classic" || contexts[1].State != health.StatePreparing {
+		t.Fatalf("second context = %#v", contexts[1])
+	}
+}
+
+func TestWowQueryRowsRejectsInvalidNumericArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		args map[string]interface{}
+	}{
+		{
+			name: "fractional limit",
+			args: map[string]interface{}{"mode": "rows", "table": "Item", "limit": float64(1.9)},
+		},
+		{
+			name: "negative limit",
+			args: map[string]interface{}{"mode": "rows", "table": "Item", "limit": float64(-1)},
+		},
+		{
+			name: "malformed limit",
+			args: map[string]interface{}{"mode": "rows", "table": "Item", "limit": "bad"},
+		},
+		{
+			name: "fractional id",
+			args: map[string]interface{}{"mode": "rows", "table": "Item", "id": float64(1.9)},
+		},
+		{
+			name: "negative id",
+			args: map[string]interface{}{"mode": "rows", "table": "Item", "id": float64(-1)},
+		},
+		{
+			name: "malformed ids",
+			args: map[string]interface{}{"mode": "rows", "table": "Item", "ids": []interface{}{"abc"}},
+		},
+		{
+			name: "fractional offset",
+			args: map[string]interface{}{"mode": "rows", "table": "Item", "offset": float64(2.5)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := &fakeQueryService{}
+			tool := findTool(t, HTTPTools(Options{QueryService: fake}), "wow_query")
+			raw, err := json.Marshal(tt.args)
+			if err != nil {
+				t.Fatalf("marshal args: %v", err)
+			}
+
+			result, err := tool.Handler(context.Background(), raw)
+			if err != nil {
+				t.Fatalf("wow_query handler: %v", err)
+			}
+			envelope := resultEnvelope(t, result)
+			if envelope["ok"] != false {
+				t.Fatalf("ok = %v, want false; result=%#v", envelope["ok"], envelope)
+			}
+			if envelope["command"] != "query rows" {
+				t.Fatalf("command = %v, want query rows", envelope["command"])
+			}
+			errInfo, ok := envelope["error"].(map[string]interface{})
+			if !ok {
+				t.Fatalf("error = %T, want map", envelope["error"])
+			}
+			if errInfo["code"] != "invalid_request" {
+				t.Fatalf("error code = %v, want invalid_request; result=%#v", errInfo["code"], envelope)
+			}
+			if fake.called != "" {
+				t.Fatalf("service called = %q, want no call", fake.called)
+			}
+		})
+	}
+}
+
 type fakeQueryService struct {
 	called      string
 	lastRequest interface{}
@@ -196,6 +307,15 @@ func findTool(t *testing.T, tools []mcpserver.Tool, name string) mcpserver.Tool 
 	}
 	t.Fatalf("tool %q not found in %v", name, toolNames(tools))
 	return mcpserver.Tool{}
+}
+
+func resultEnvelope(t *testing.T, result interface{}) map[string]interface{} {
+	t.Helper()
+	envelope, ok := result.(map[string]interface{})
+	if !ok {
+		t.Fatalf("result = %T, want map envelope", result)
+	}
+	return envelope
 }
 
 func contains(values []string, want string) bool {

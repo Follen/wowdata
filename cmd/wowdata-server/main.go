@@ -115,10 +115,12 @@ func newHTTPHandler(opts httpOptions, healthProvider health.Provider) http.Handl
 		}
 		writeJSON(w, http.StatusOK, snapshot)
 	})
-	mux.Handle("/mcp", mcpserver.NewServer("wowdata", mcphttp.HTTPTools(mcphttp.Options{
+	mcpServer := mcpserver.NewServer("wowdata", mcphttp.HTTPTools(mcphttp.Options{
 		HealthProvider: healthProvider,
 		QueryService:   opts.QueryService,
-	})))
+	}))
+	mux.Handle("/mcp", mcpServer)
+	mux.Handle("/mcp/", mcpServer)
 	if opts.ArtifactRoot != "" {
 		mux.Handle("/files/", artifacts.FileHandler(opts.ArtifactRoot))
 	}

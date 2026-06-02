@@ -133,6 +133,21 @@ func TestServerMCPRouteListsTools(t *testing.T) {
 	}
 }
 
+func TestServerMCPTrailingSlashRouteListsTools(t *testing.T) {
+	handler := newHTTPHandler(httpOptions{ServiceName: "wowdata-server"}, &testHealthProvider{})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/mcp/", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"name":"wow_query"`) {
+		t.Fatalf("/mcp/ tools/list missing wow_query: %s", rec.Body.String())
+	}
+}
+
 func TestServerFileRouteServesArtifacts(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "exports"), 0755); err != nil {
