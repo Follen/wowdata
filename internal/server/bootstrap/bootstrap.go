@@ -138,6 +138,7 @@ func (r Runner) prepareTarget(ctx context.Context, target config.PrepareTarget, 
 		return activeErr
 	}
 	sameActiveValid := activeErr == nil && active.Key.BuildKey == build.BuildKey && active.State == metadata.StateValid
+	tablesToMaterialize := r.Config.Prepare.DefaultTables
 	var restoreTables []metadata.MaterializedTable
 	if sameActiveValid {
 		tables, err := metadata.ListValidMaterializedTables(ctx, r.DB, metadata.TableCatalogLookup{
@@ -150,6 +151,10 @@ func (r Runner) prepareTarget(ctx context.Context, target config.PrepareTarget, 
 			return err
 		}
 		restoreTables = tables
+		tablesToMaterialize = missingDefaultTables(r.Config.Prepare.DefaultTables, tables)
+		if len(tablesToMaterialize) == 0 {
+			return nil
+		}
 	} else {
 		if err := metadata.UpsertDiscoveredBuild(ctx, r.DB, metadata.Build{
 			Key:       buildKey,
@@ -160,7 +165,7 @@ func (r Runner) prepareTarget(ctx context.Context, target config.PrepareTarget, 
 		}
 	}
 
-	for _, tableName := range r.Config.Prepare.DefaultTables {
+	for _, tableName := range tablesToMaterialize {
 		if err := materializer.MaterializeTable(ctx, target, build, tableName); err != nil {
 			if sameActiveValid {
 				_ = restoreValidTables(ctx, r.DB, restoreTables)
@@ -175,6 +180,20 @@ func (r Runner) prepareTarget(ctx context.Context, target config.PrepareTarget, 
 		return err
 	}
 	return metadata.ActivateBuild(ctx, r.DB, buildKey)
+}
+
+func missingDefaultTables(defaultTables []string, validTables []metadata.MaterializedTable) []string {
+	validByName := make(map[string]bool, len(validTables))
+	for _, table := range validTables {
+		validByName[table.Key.TableName] = true
+	}
+	var missing []string
+	for _, tableName := range defaultTables {
+		if !validByName[tableName] {
+			missing = append(missing, tableName)
+		}
+	}
+	return missing
 }
 
 func (r Runner) discoverBuild(ctx context.Context, target config.PrepareTarget, discoverer Discoverer) (DiscoveredBuild, error) {

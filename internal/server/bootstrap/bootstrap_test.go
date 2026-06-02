@@ -132,6 +132,32 @@ func TestPrepareBootstrapsNewConfiguredTargetMissingFromMetadata(t *testing.T) {
 	}
 }
 
+func TestPrepareSkipsMaterializationWhenActiveBuildHasAllDefaultTables(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item", "Spell"})
+	seedActiveBuildWithTables(t, ctx, db, metadata.BuildKey{
+		Region: "us", Product: "wow", Locale: "enUS", BuildKey: "ready-build",
+	}, cfg.Prepare.DefaultTables)
+	materializer := &fakeMaterializer{db: db}
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "ready-build", BuildName: "Ready Build"},
+	}}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	if materializer.calls != 0 {
+		t.Fatalf("materialize calls = %d, want 0 for ready active build with all default tables", materializer.calls)
+	}
+	snapshot := healthSnapshot(t, ctx, db, cfg)
+	if !snapshot.Readiness.OK || snapshot.Contexts[0].State != health.StateReady {
+		t.Fatalf("health after prepare = %#v, want ready", snapshot)
+	}
+}
+
 func TestPrepareFailureMarksCandidateFailedAndPreservesOldActiveBuild(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
@@ -167,14 +193,14 @@ func TestPrepareFailureMarksCandidateFailedAndPreservesOldActiveBuild(t *testing
 	}
 }
 
-func TestPrepareFailureForSameActiveBuildKeepsExistingBuildValidAndReady(t *testing.T) {
+func TestPrepareFailureForSameActiveBuildMissingTableKeepsExistingBuildValid(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
 	db := openMetadataDBAt(t, metadataPath)
 	cfg := testConfig(metadataPath, []string{"Item", "Spell"})
 	seedActiveBuildWithTables(t, ctx, db, metadata.BuildKey{
 		Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1",
-	}, []string{"Item", "Spell"})
+	}, []string{"Item"})
 	fail := errors.New("Spell transient decode failed")
 	materializer := &fakeMaterializer{db: db, failTable: "Spell", err: fail}
 	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
@@ -190,9 +216,12 @@ func TestPrepareFailureForSameActiveBuildKeepsExistingBuildValidAndReady(t *test
 	if active.Key.BuildKey != "build-1" || active.State != metadata.StateValid {
 		t.Fatalf("active build = %#v, want build-1 still valid", active)
 	}
+	if materializer.calls != 1 || strings.Join(materializer.tables, ",") != "Spell" {
+		t.Fatalf("materialized tables = %q (%d calls), want only missing Spell", strings.Join(materializer.tables, ","), materializer.calls)
+	}
 	snapshot := healthSnapshot(t, ctx, db, cfg)
-	if !snapshot.Readiness.OK || snapshot.Contexts[0].State != health.StateReady || snapshot.Contexts[0].PrepareCurrent != 2 {
-		t.Fatalf("health = %#v, want old active build still ready with 2/2 tables", snapshot)
+	if snapshot.Readiness.OK || snapshot.Contexts[0].State == health.StateReady || snapshot.Contexts[0].PrepareCurrent != 1 {
+		t.Fatalf("health = %#v, want old active build valid with 1/2 tables after missing-table failure", snapshot)
 	}
 }
 
