@@ -227,6 +227,37 @@ func TestWDCSignedInlineIDKeysCommonData(t *testing.T) {
 	}
 }
 
+func TestWDCInlineIDNameKeysCommonDataWhenIDIndexDiffers(t *testing.T) {
+	reader := &WDCReader{
+		IsLoaded: true,
+		Schema: []SchemaField{
+			{Name: "ID", Type: FieldInt32},
+			{Name: "Value", Type: FieldUInt32},
+		},
+		IDField: "ID",
+		// Some WDC layouts report an idIndex that does not line up with the
+		// schema field index used by this reader. The field name is still the
+		// authoritative signal for inline ID capture.
+		IDFieldIndex:     99,
+		FieldInfo:        []FieldStorageInfo{{FieldCompression: CompBitpacked, FieldSizeBits: 32}, {FieldCompression: CompCommonData, FieldCompressionPacking: [3]uint32{10, 0, 0}}},
+		CommonData:       []map[uint32]uint32{nil, {2: 99}},
+		RecordSize:       4,
+		TotalRecordCount: 2,
+		data:             []byte{1, 0, 0, 0, 2, 0, 0, 0},
+		Sections: []Section{{
+			Header:         SectionHeader{RecordCount: 2},
+			IsNormal:       true,
+			RecordDataOfs:  0,
+			RecordDataSize: 8,
+		}},
+	}
+
+	rows := reader.GetAllRows()
+	if rows[2]["Value"] != uint32(99) {
+		t.Fatalf("row 2 value = %v, want common-data override 99; rows=%#v", rows[2]["Value"], rows)
+	}
+}
+
 func TestWDCGetRowAcceptsSignedInlineID(t *testing.T) {
 	reader := signedInlineIDReaderForTest()
 

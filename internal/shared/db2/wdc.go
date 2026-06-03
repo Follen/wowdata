@@ -850,8 +850,8 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 		cursor += n
 		return data, true
 	}
-	captureInlineRecordID := func(fieldIndex int, value interface{}) {
-		if !hasIDMap && fieldIndex == r.IDFieldIndex {
+	captureInlineRecordID := func(field SchemaField, fieldIndex int, value interface{}) {
+		if !hasIDMap && (fieldIndex == r.IDFieldIndex || field.Name == r.IDField || field.Name == "ID") {
 			if id := rowIDUint32(value); id != 0 {
 				recordID = id
 			}
@@ -890,7 +890,7 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 
 		if rfi.FieldCompression != CompNone {
 			out[sf.Name] = r.readCompressedField(section, rfi, sf, recordOfs, recordID)
-			captureInlineRecordID(fieldInfoIndex-1, out[sf.Name])
+			captureInlineRecordID(sf, fieldInfoIndex-1, out[sf.Name])
 			continue
 		}
 
@@ -993,7 +993,7 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 				cursor = end
 			}
 		}
-		captureInlineRecordID(fieldInfoIndex-1, out[sf.Name])
+		captureInlineRecordID(sf, fieldInfoIndex-1, out[sf.Name])
 	}
 
 	if section.RelationshipMap != nil {
