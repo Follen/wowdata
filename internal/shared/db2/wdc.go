@@ -803,6 +803,14 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 	}
 
 	isNormal := section.IsNormal
+	hasIDMap := len(section.IDList) > 0
+	emptyIDMap := hasIDMap
+	for _, id := range section.IDList {
+		if id != 0 {
+			emptyIDMap = false
+			break
+		}
+	}
 
 	// Compute record offset
 	var recordOfs uint32
@@ -826,7 +834,6 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 
 	out := make(map[string]interface{})
 	fieldInfoIndex := 0
-	hasIDMap := len(section.IDList) > 0
 	recordBase := section.RecordDataOfs + int64(recordOfs)
 	if !isNormal {
 		recordBase = int64(recordOfs)
@@ -842,6 +849,13 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 		data := r.data[cursor : cursor+n]
 		cursor += n
 		return data, true
+	}
+	captureInlineRecordID := func(fieldIndex int, value interface{}) {
+		if !hasIDMap && fieldIndex == r.IDFieldIndex {
+			if id := rowIDUint32(value); id != 0 {
+				recordID = id
+			}
+		}
 	}
 
 	for _, sf := range r.Schema {
@@ -860,8 +874,11 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 
 		if sf.Type == FieldNonInlineID {
 			if len(section.IDList) > int(recordIndex) {
-				recordID = section.IDList[recordIndex]
-				out[sf.Name] = recordID
+				id := section.IDList[recordIndex]
+				if !emptyIDMap {
+					recordID = id
+				}
+				out[sf.Name] = id
 			}
 			continue
 		}
@@ -873,6 +890,7 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 
 		if rfi.FieldCompression != CompNone {
 			out[sf.Name] = r.readCompressedField(section, rfi, sf, recordOfs, recordID)
+			captureInlineRecordID(fieldInfoIndex-1, out[sf.Name])
 			continue
 		}
 
@@ -975,11 +993,7 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 				cursor = end
 			}
 		}
-		if !hasIDMap && fieldInfoIndex-1 == r.IDFieldIndex {
-			if id, ok := out[sf.Name].(uint32); ok {
-				recordID = id
-			}
-		}
+		captureInlineRecordID(fieldInfoIndex-1, out[sf.Name])
 	}
 
 	if section.RelationshipMap != nil {
