@@ -1094,6 +1094,50 @@ func TestPrepareSkipsMaterializationWhenActiveBuildHasAllDefaultTables(t *testin
 	}
 }
 
+func TestPrepareRematerializesOutdatedTableVersionsForReadyActiveBuild(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item", "Spell"})
+	key := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "ready-build"}
+	seedActiveBuildWithTables(t, ctx, db, key, []string{"Item"})
+	if err := metadata.UpsertMaterializedTable(ctx, db, metadata.MaterializedTable{
+		Key: metadata.TableKey{
+			Region: key.Region, Product: key.Product, Locale: key.Locale, BuildKey: key.BuildKey, TableName: "Spell",
+		},
+		DB2FileDataID:       2,
+		DBDHash:             "old-dbd-Spell",
+		DecoderVersion:      "old-decoder",
+		MaterializerVersion: "old-materializer",
+		ParquetPath:         filepath.ToSlash(filepath.Join("cache", "db2", "Spell.parquet")),
+		RowCount:            1,
+		State:               metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert outdated Spell: %v", err)
+	}
+	materializer := &fakeMaterializer{db: db}
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: key.BuildKey, BuildName: "Ready Build"},
+	}}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	if materializer.calls != 1 || strings.Join(materializer.tables, ",") != "Spell" {
+		t.Fatalf("materialized tables = %q (%d calls), want only outdated Spell", strings.Join(materializer.tables, ","), materializer.calls)
+	}
+	record, err := metadata.LatestValidMaterializedTable(ctx, db, metadata.TableLookup{
+		Region: key.Region, Product: key.Product, Locale: key.Locale, TableName: "Spell",
+	})
+	if err != nil {
+		t.Fatalf("latest Spell: %v", err)
+	}
+	if record.DecoderVersion != "fake-decoder" || record.MaterializerVersion != "fake-materializer" {
+		t.Fatalf("Spell versions = %q/%q, want fake-decoder/fake-materializer", record.DecoderVersion, record.MaterializerVersion)
+	}
+}
+
 func TestPrepareReusesDB2TablesWhenActiveBuildHasAllDefaultTables(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
@@ -1577,6 +1621,10 @@ func (m *fakeMaterializer) MaterializeTable(ctx context.Context, target config.P
 		RowCount:            1,
 		State:               metadata.StateValid,
 	})
+}
+
+func (m *fakeMaterializer) CurrentTableVersions() (string, string) {
+	return "fake-decoder", "fake-materializer"
 }
 
 func eventually(timeout time.Duration, condition func() bool) bool {

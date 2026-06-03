@@ -81,6 +81,10 @@ type TableCatalogMaterializer interface {
 	AvailableTables(context.Context) ([]string, error)
 }
 
+type TableVersionMaterializer interface {
+	CurrentTableVersions() (string, string)
+}
+
 type Runner struct {
 	Config                  config.Config
 	DB                      *sql.DB
@@ -252,7 +256,8 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 			}
 			tables = append(tables, knownUnreadable...)
 		}
-		tablesToMaterialize = missingDefaultTables(requiredTables, tables)
+		desiredDecoderVersion, desiredMaterializerVersion := currentTableVersions(materializer)
+		tablesToMaterialize = missingDefaultTables(requiredTables, tables, desiredDecoderVersion, desiredMaterializerVersion)
 		if len(tablesToMaterialize) == 0 {
 			ready, err := r.resourceIndexesReady(ctx, buildKey)
 			if err != nil {
@@ -574,10 +579,14 @@ func isAllManifestTables(configured []string) bool {
 	return len(configured) == 1 && configured[0] == "*"
 }
 
-func missingDefaultTables(defaultTables []string, validTables []metadata.MaterializedTable) []string {
+func missingDefaultTables(defaultTables []string, validTables []metadata.MaterializedTable, desiredDecoderVersion string, desiredMaterializerVersion string) []string {
 	validByName := make(map[string]bool, len(validTables))
 	for _, table := range validTables {
-		validByName[table.Key.TableName] = true
+		if table.State != metadata.StateValid {
+			validByName[table.Key.TableName] = true
+			continue
+		}
+		validByName[table.Key.TableName] = table.DecoderVersion == desiredDecoderVersion && table.MaterializerVersion == desiredMaterializerVersion
 	}
 	var missing []string
 	for _, tableName := range defaultTables {
@@ -586,6 +595,13 @@ func missingDefaultTables(defaultTables []string, validTables []metadata.Materia
 		}
 	}
 	return missing
+}
+
+func currentTableVersions(materializer TableMaterializer) (string, string) {
+	if versioned, ok := materializer.(TableVersionMaterializer); ok {
+		return versioned.CurrentTableVersions()
+	}
+	return decoderVersion, materializerVersion
 }
 
 func (r Runner) discoverBuild(ctx context.Context, target config.PrepareTarget, discoverer Discoverer) (DiscoveredBuild, error) {
@@ -1223,6 +1239,10 @@ func (m ProductionMaterializer) MaterializeTable(ctx context.Context, target con
 	}
 	_, err = serverparquet.NewMaterializer(m.DB, decoder, serverparquetRowWriter{}).Materialize(ctx, spec)
 	return err
+}
+
+func (m ProductionMaterializer) CurrentTableVersions() (string, string) {
+	return decoderVersion, materializerVersion
 }
 
 func (m ProductionMaterializer) AvailableTables(ctx context.Context) ([]string, error) {
