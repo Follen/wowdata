@@ -79,7 +79,7 @@ public 211.154.18.253:11223 -> host 9443 -> Docker 0.0.0.0:9443 -> container 978
 
 Use these public URLs:
 
-- `http://211.154.18.253:11223/wowdata`
+- `http://211.154.18.253:11223/mcp`
 - `http://211.154.18.253:11223/help`
 - `http://211.154.18.253:11223/health`
 - `http://211.154.18.253:11223/files/...`

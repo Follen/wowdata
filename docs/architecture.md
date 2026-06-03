@@ -30,7 +30,7 @@ local MCP client can explicitly warm the one context it wants to query.
 ## HTTP Service Runtime
 
 `wowdata mcp http` is the remote service runtime. It loads the HTTP YAML config,
-binds `/wowdata`, `/health`, `/help`, and `/files/`, and serves MCP Streamable HTTP
+binds `/mcp`, `/health`, `/help`, and `/files/`, and serves MCP Streamable HTTP
 requests. HTTP uses lazy prepare instead of exposing `wow_warmup` by default:
 requests resolve a `region/product/locale` context, materialize the required
 table or artifact path, and then serve the result from cache.

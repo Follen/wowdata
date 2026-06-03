@@ -102,15 +102,15 @@ wowdata mcp http --host 0.0.0.0 --port 9788 --base-url http://211.154.18.253:112
 
 HTTP endpoint:
 
-- `POST /wowdata`：MCP Streamable HTTP JSON-RPC endpoint
-- `GET|HEAD /wowdata`：健康探测和客户端 reachability 检查
+- `POST /mcp`：MCP Streamable HTTP JSON-RPC endpoint
+- `GET|HEAD /mcp`：健康探测和客户端 reachability 检查
 - `GET /health`：服务健康状态
 - `GET /help`：面向用户和 agent 的配置指南
 - `GET /files/...`：导出图标、贴图和原始文件的静态下载入口
 
 当前公开 HTTP 地址：
 
-- `http://211.154.18.253:11223/wowdata`
+- `http://211.154.18.253:11223/mcp`
 - `http://211.154.18.253:11223/help`
 - `http://211.154.18.253:11223/health`
 - `http://211.154.18.253:11223/files/...`
@@ -128,7 +128,7 @@ HTTP endpoint:
 Codex:
 
 ```powershell
-codex mcp add wowdata --url http://211.154.18.253:11223/wowdata
+codex mcp add wowdata --url http://211.154.18.253:11223/mcp
 ```
 
 cc-switch custom MCP:
@@ -136,14 +136,14 @@ cc-switch custom MCP:
 ```json
 {
   "type": "http",
-  "url": "http://211.154.18.253:11223/wowdata"
+  "url": "http://211.154.18.253:11223/mcp"
 }
 ```
 
 Claude Code:
 
 ```powershell
-claude mcp add --transport http wowdata http://211.154.18.253:11223/wowdata
+claude mcp add --transport http wowdata http://211.154.18.253:11223/mcp
 ```
 
 Claude Code 本地 stdio：
@@ -297,15 +297,15 @@ wowdata mcp http --host 0.0.0.0 --port 9788 --base-url http://211.154.18.253:112
 
 HTTP endpoints:
 
-- `POST /wowdata`: MCP Streamable HTTP JSON-RPC endpoint
-- `GET|HEAD /wowdata`: health/reachability checks for clients
+- `POST /mcp`: MCP Streamable HTTP JSON-RPC endpoint
+- `GET|HEAD /mcp`: health/reachability checks for clients
 - `GET /health`: service health
 - `GET /help`: setup guide for users and agents
 - `GET /files/...`: static downloads for exported icons, textures, and raw files
 
 Current public HTTP URLs:
 
-- `http://211.154.18.253:11223/wowdata`
+- `http://211.154.18.253:11223/mcp`
 - `http://211.154.18.253:11223/help`
 - `http://211.154.18.253:11223/health`
 - `http://211.154.18.253:11223/files/...`
@@ -323,7 +323,7 @@ Public deployment path:
 Codex:
 
 ```bash
-codex mcp add wowdata --url http://211.154.18.253:11223/wowdata
+codex mcp add wowdata --url http://211.154.18.253:11223/mcp
 ```
 
 cc-switch custom MCP:
@@ -331,14 +331,14 @@ cc-switch custom MCP:
 ```json
 {
   "type": "http",
-  "url": "http://211.154.18.253:11223/wowdata"
+  "url": "http://211.154.18.253:11223/mcp"
 }
 ```
 
 Claude Code:
 
 ```bash
-claude mcp add --transport http wowdata http://211.154.18.253:11223/wowdata
+claude mcp add --transport http wowdata http://211.154.18.253:11223/mcp
 ```
 
 Claude Code local stdio:

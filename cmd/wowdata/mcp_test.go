@@ -139,7 +139,7 @@ func TestMCPHTTPHelpUsesGenericExampleDomain(t *testing.T) {
 	if strings.Contains(help, "lychee-addon.online") || strings.Contains(help, "wowdata.online") {
 		t.Fatalf("Go HTTP help should use generic examples, not deployment domains:\n%s", help)
 	}
-	if !strings.Contains(help, "https://mcp.example.com:9443/wowdata") {
+	if !strings.Contains(help, "https://mcp.example.com:9443/mcp") {
 		t.Fatalf("Go HTTP help should include generic MCP endpoint example:\n%s", help)
 	}
 }
@@ -160,15 +160,15 @@ func TestMCPWebHelpEscapesConfiguredBaseURL(t *testing.T) {
 	for _, unsafe := range []string{
 		`<script>`,
 		`</script>`,
-		`https://mcp.example.com/"\&<script>alert(1)</script>/wowdata`,
-		`"url": "https://mcp.example.com/"\&<script>alert(1)</script>/wowdata"`,
+		`https://mcp.example.com/"\&<script>alert(1)</script>/mcp`,
+		`"url": "https://mcp.example.com/"\&<script>alert(1)</script>/mcp"`,
 	} {
 		if strings.Contains(help, unsafe) {
 			t.Fatalf("web help contains unescaped configured URL %q:\n%s", unsafe, help)
 		}
 	}
 
-	wantText := `https://mcp.example.com/&#34;\&amp;&lt;script&gt;alert(1)&lt;/script&gt;/wowdata`
+	wantText := `https://mcp.example.com/&#34;\&amp;&lt;script&gt;alert(1)&lt;/script&gt;/mcp`
 	for _, want := range []string{
 		`Endpoint: <code>` + wantText + `</code>`,
 		`codex mcp add wowdata --url ` + wantText,
@@ -179,31 +179,31 @@ func TestMCPWebHelpEscapesConfiguredBaseURL(t *testing.T) {
 		}
 	}
 
-	wantJSONURL := `&#34;https://mcp.example.com/\&#34;\\\u0026\u003cscript\u003ealert(1)\u003c/script\u003e/wowdata&#34;`
+	wantJSONURL := `&#34;https://mcp.example.com/\&#34;\\\u0026\u003cscript\u003ealert(1)\u003c/script\u003e/mcp&#34;`
 	if !strings.Contains(help, `"url": `+wantJSONURL) {
 		t.Fatalf("web help missing JSON-escaped and HTML-escaped cc-switch URL %q:\n%s", wantJSONURL, help)
 	}
 }
 
-func TestMCPHTTPHandlersUseWowdataEndpoint(t *testing.T) {
+func TestMCPHTTPHandlersUseMCPEndpoint(t *testing.T) {
 	mux := http.NewServeMux()
 	registerMCPHTTPHandlers(mux, newMCPServerForRuntime(NewRuntime()), "https://mcp.example.com:9443", t.TempDir(), "")
 
-	wowdata := httptest.NewRecorder()
-	wowdataReq := httptest.NewRequest(http.MethodPost, "/wowdata", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
-	mux.ServeHTTP(wowdata, wowdataReq)
-	if wowdata.Code != http.StatusOK {
-		t.Fatalf("/wowdata status = %d, want 200: %s", wowdata.Code, wowdata.Body.String())
+	mcp := httptest.NewRecorder()
+	mcpReq := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
+	mux.ServeHTTP(mcp, mcpReq)
+	if mcp.Code != http.StatusOK {
+		t.Fatalf("/mcp status = %d, want 200: %s", mcp.Code, mcp.Body.String())
 	}
-	if !strings.Contains(wowdata.Body.String(), `"name":"wow_query"`) {
-		t.Fatalf("/wowdata tools/list missing wow_query: %s", wowdata.Body.String())
+	if !strings.Contains(mcp.Body.String(), `"name":"wow_query"`) {
+		t.Fatalf("/mcp tools/list missing wow_query: %s", mcp.Body.String())
 	}
 
-	legacy := httptest.NewRecorder()
-	legacyReq := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
-	mux.ServeHTTP(legacy, legacyReq)
-	if legacy.Code != http.StatusNotFound {
-		t.Fatalf("/mcp status = %d, want 404: %s", legacy.Code, legacy.Body.String())
+	old := httptest.NewRecorder()
+	oldReq := httptest.NewRequest(http.MethodPost, "/wowdata", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
+	mux.ServeHTTP(old, oldReq)
+	if old.Code != http.StatusNotFound {
+		t.Fatalf("/wowdata status = %d, want 404: %s", old.Code, old.Body.String())
 	}
 }
 
@@ -214,14 +214,14 @@ func TestMCPHTTPServiceRejectsUnsupportedTargetBeforeWork(t *testing.T) {
 	registerMCPHTTPHandlers(mux, server, "https://mcp.example.com:9443", t.TempDir(), "")
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/wowdata", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_query","arguments":{"table":"SpellName","region":"us","product":"wow","locale":"enUS"}}}`))
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_query","arguments":{"table":"SpellName","region":"us","product":"wow","locale":"enUS"}}}`))
 	mux.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf("/wowdata unsupported target status = %d, want 200: %s", rec.Code, rec.Body.String())
+		t.Fatalf("/mcp unsupported target status = %d, want 200: %s", rec.Code, rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), `"unsupported_target"`) {
-		t.Fatalf("/wowdata unsupported target should return unsupported_target: %s", rec.Body.String())
+		t.Fatalf("/mcp unsupported target should return unsupported_target: %s", rec.Body.String())
 	}
 }
 

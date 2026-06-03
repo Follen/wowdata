@@ -73,8 +73,8 @@ func mcpHTTPSupportedTargets() []mcpadapter.SupportedTarget {
 }
 
 func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseURL, cacheRoot, artifactRoot string) {
-	mux.Handle("/wowdata", server)
-	mux.Handle("/wowdata/", server)
+	mux.Handle("/mcp", server)
+	mux.Handle("/mcp/", server)
 	if artifactRoot != "" {
 		mux.HandleFunc("/files/", artifactFileHandler(artifactRoot))
 	}
@@ -82,7 +82,7 @@ func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseU
 		writeHelpJSON(w, http.StatusOK, map[string]interface{}{
 			"ok":        true,
 			"service":   "wowdata-mcp",
-			"endpoint":  publicURL(baseURL, "/wowdata"),
+			"endpoint":  publicURL(baseURL, "/mcp"),
 			"transport": "streamable_http",
 			"cacheRoot": filepath.ToSlash(cacheRoot),
 		})
@@ -95,7 +95,7 @@ func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseU
 			writeHelpHTML(w, http.StatusOK, mcpHelpHTML(baseURL))
 			return
 		}
-		writeHelpJSON(w, http.StatusNotFound, map[string]interface{}{"error": "not found", "help": "/help", "endpoint": "/wowdata"})
+		writeHelpJSON(w, http.StatusNotFound, map[string]interface{}{"error": "not found", "help": "/help", "endpoint": "/mcp"})
 	})
 }
 
@@ -171,7 +171,7 @@ func writeHelpHTML(w http.ResponseWriter, code int, text string) {
 }
 
 func mcpHelpHTML(baseURL string) string {
-	endpoint := publicURL(baseURL, "/wowdata")
+	endpoint := publicURL(baseURL, "/mcp")
 	escapedEndpoint := htmltemplate.HTMLEscapeString(endpoint)
 	jsonEndpoint, _ := json.Marshal(endpoint)
 	escapedJSONEndpoint := htmltemplate.HTMLEscapeString(string(jsonEndpoint))

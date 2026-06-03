@@ -163,8 +163,8 @@ func TestHTTPHandlerRejectsSSEGet(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "streamable_http") {
 		t.Fatalf("SSE rejection should explain supported transport: %s", rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), `"/wowdata"`) {
-		t.Fatalf("SSE rejection should report /wowdata endpoint: %s", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), `"/mcp"`) {
+		t.Fatalf("SSE rejection should report /mcp endpoint: %s", rec.Body.String())
 	}
 }
 

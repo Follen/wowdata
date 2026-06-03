@@ -48,8 +48,8 @@ func TestStdioMCPToolNamesStayStable(t *testing.T) {
 func TestHTTPHelpListsCodexClaudeAndCCSwitch(t *testing.T) {
 	help := mcpHelpHTML("http://211.154.18.253:11223")
 	for _, want := range []string{
-		"codex mcp add wowdata --url http://211.154.18.253:11223/wowdata",
-		"claude mcp add --transport http wowdata http://211.154.18.253:11223/wowdata",
+		"codex mcp add wowdata --url http://211.154.18.253:11223/mcp",
+		"claude mcp add --transport http wowdata http://211.154.18.253:11223/mcp",
 		"cc-switch",
 		"wow_builds",
 		"wow_status",

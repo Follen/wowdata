@@ -375,7 +375,7 @@ func TestServerWowStatusReportsConfiguredTargetPreparingWithoutActiveMetadata(t 
 	}, newTestMetadataHealthProvider(t, configPath, metadataPath))
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/wowdata", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_status","arguments":{}}}`))
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_status","arguments":{}}}`))
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
@@ -484,17 +484,17 @@ func TestServerWowdataRouteListsTools(t *testing.T) {
 	handler := newHTTPHandler(httpOptions{ServiceName: "wowdata-server"}, &testHealthProvider{})
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/wowdata", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), `"name":"wow_query"`) {
-		t.Fatalf("/wowdata tools/list missing wow_query: %s", rec.Body.String())
+		t.Fatalf("/mcp tools/list missing wow_query: %s", rec.Body.String())
 	}
 	if strings.Contains(rec.Body.String(), "mcp_not_wired") {
-		t.Fatalf("/wowdata still returns placeholder response: %s", rec.Body.String())
+		t.Fatalf("/mcp still returns placeholder response: %s", rec.Body.String())
 	}
 }
 
@@ -502,14 +502,14 @@ func TestServerWowdataTrailingSlashRouteListsTools(t *testing.T) {
 	handler := newHTTPHandler(httpOptions{ServiceName: "wowdata-server"}, &testHealthProvider{})
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/wowdata/", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
+	req := httptest.NewRequest(http.MethodPost, "/mcp/", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), `"name":"wow_query"`) {
-		t.Fatalf("/wowdata/ tools/list missing wow_query: %s", rec.Body.String())
+		t.Fatalf("/mcp/ tools/list missing wow_query: %s", rec.Body.String())
 	}
 }
 
@@ -517,11 +517,11 @@ func TestServerLegacyMCPRouteIsNotRegistered(t *testing.T) {
 	handler := newHTTPHandler(httpOptions{ServiceName: "wowdata-server"}, &testHealthProvider{})
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
+	req := httptest.NewRequest(http.MethodPost, "/wowdata", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf("legacy /mcp status = %d, want 404: %s", rec.Code, rec.Body.String())
+		t.Fatalf("legacy /wowdata status = %d, want 404: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -583,7 +583,7 @@ func TestServerDefaultMCPHandlerAnswersTablesFromMetadata(t *testing.T) {
 	}, &testHealthProvider{})
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/wowdata", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_query","arguments":{"mode":"tables","region":"cn","product":"wow","locale":"zhCN","buildKey":"build-1"}}}`))
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_query","arguments":{"mode":"tables","region":"cn","product":"wow","locale":"zhCN","buildKey":"build-1"}}}`))
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
@@ -663,7 +663,7 @@ func TestServerDefaultMCPHandlerUsesConfigMetadataDB(t *testing.T) {
 	}, &testHealthProvider{})
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/wowdata", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_query","arguments":{"mode":"tables","region":"cn","product":"wow","locale":"zhCN"}}}`))
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_query","arguments":{"mode":"tables","region":"cn","product":"wow","locale":"zhCN"}}}`))
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
@@ -853,7 +853,7 @@ func TestServerMCPFileLookupUsesMetadataAssetService(t *testing.T) {
 	}, newTestMetadataHealthProvider(t, configPath, metadataPath))
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/wowdata", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_file","arguments":{"mode":"lookup","fileDataID":321}}}`))
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_file","arguments":{"mode":"lookup","fileDataID":321}}}`))
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
@@ -930,7 +930,7 @@ func TestServerMCPFileExportReturnsDownloadableResourceLink(t *testing.T) {
 	}, newTestMetadataHealthProvider(t, configPath, metadataPath))
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/wowdata", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_file","arguments":{"mode":"export","region":"cn","product":"wow","locale":"zhCN","buildKey":"active-build","fileDataID":322}}}`))
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_file","arguments":{"mode":"export","region":"cn","product":"wow","locale":"zhCN","buildKey":"active-build","fileDataID":322}}}`))
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {

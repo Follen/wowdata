@@ -62,7 +62,7 @@ MCP:
 
 The rename applies to CLI, stdio MCP, HTTP MCP, help text, README examples, release docs, performance docs, and tests. No legacy `wowdata db2 ...` command or `wow_db2` MCP tool is kept for compatibility.
 
-The HTTP MCP JSON-RPC endpoint path is `/wowdata`. The server must not register `/mcp` as a compatibility alias.
+The HTTP MCP JSON-RPC endpoint path is `/mcp`. The server must not register `/wowdata` as a compatibility alias.
 
 Internal packages, storage paths, and type names may still use `DB2` where they refer to the actual WoW DB2 file/table format, such as DB2 decoder code, DB2 metadata, and DB2 Parquet cache paths.
 
@@ -480,7 +480,7 @@ All implementation must be test-driven. Each feature or behavior change requires
 - Server config validates default matrix, locale mapping, strict/no_build behavior, and resource limits.
 - Health model reports liveness, readiness, matrix summary, per-target state, memory, storage, artifacts, and errors.
 - `wow_status` and `/health` use the same health source.
-- HTTP MCP is served at `/wowdata`, and `/mcp` is not registered.
+- HTTP MCP is served at `/mcp`, and `/wowdata` is not registered.
 - HTTP MCP tools reject requests outside the supported 5-target matrix with `unsupported_target` before calling query or asset services.
 - DB2 metadata records transition through preparing, valid, stale, and failed.
 - DB2 materializer reuses valid Parquet without decoding or downloading again.
