@@ -489,6 +489,59 @@ func TestPrepareSkipsResourcePreparationWhenDB2AndAssetIndexesAlreadyValid(t *te
 	}
 }
 
+func TestPrepareMissingTableForReadyActiveBuildUsesTableReaderWhenAssetIndexesReady(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item", "Spell"})
+	key := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-2"}
+	seedActiveBuildWithTables(t, ctx, db, key, []string{"Item"})
+	if err := serverlistfile.ReplaceSource(ctx, db, "listfile-hash", []serverlistfile.Entry{
+		{FileDataID: 555, Path: "Interface/Icons/Ready.blp"},
+	}); err != nil {
+		t.Fatalf("seed listfile: %v", err)
+	}
+	source := cascindex.SourceKey{Region: key.Region, Product: key.Product, Locale: key.Locale, BuildKey: key.BuildKey}
+	if err := cascindex.ReplaceIndexForSource(ctx, db, source, "casc-version",
+		[]cascindex.RootMapping{{FileDataID: 555, ContentKey: "content-key"}},
+		[]cascindex.EncodingMapping{{ContentKey: "content-key", EncodingKey: "encoding-key", Size: 12}},
+		[]cascindex.ArchiveMapping{{EncodingKey: "encoding-key", ArchiveKey: "archive-key", Offset: 34, Size: 12}},
+	); err != nil {
+		t.Fatalf("seed casc index: %v", err)
+	}
+	var prepareTableReaderCalled bool
+	var prepareResourcesCalled bool
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {
+			BuildKey:  "build-2",
+			BuildName: "12.0.5.67823",
+			PrepareTableReader: func(context.Context) (DiscoveredBuild, error) {
+				prepareTableReaderCalled = true
+				return DiscoveredBuild{BuildKey: "build-2", BuildName: "12.0.5.67823"}, nil
+			},
+			PrepareResources: func(context.Context) (DiscoveredBuild, error) {
+				prepareResourcesCalled = true
+				return DiscoveredBuild{BuildKey: "build-2", BuildName: "12.0.5.67823"}, nil
+			},
+		},
+	}}
+	materializer := &fakeMaterializer{db: db}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	if !prepareTableReaderCalled {
+		t.Fatal("PrepareTableReader was not called for missing DB2 table on ready active build")
+	}
+	if prepareResourcesCalled {
+		t.Fatal("PrepareResources was called even though asset indexes were already valid")
+	}
+	if materializer.calls != 1 || strings.Join(materializer.tables, ",") != "Spell" {
+		t.Fatalf("materialized tables = %q (%d calls), want only missing Spell", strings.Join(materializer.tables, ","), materializer.calls)
+	}
+}
+
 func TestPrepareFailsWhenDB2ReadyResourceBackfillLeavesAssetIndexesMissing(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")

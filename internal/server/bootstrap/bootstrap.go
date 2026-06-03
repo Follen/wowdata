@@ -47,15 +47,16 @@ var listfileIndexMu sync.Mutex
 type Config = config.Config
 
 type DiscoveredBuild struct {
-	BuildKey         string
-	BuildName        string
-	CASCBuildConfig  string
-	CASCCDNConfig    string
-	NoBuild          bool
-	Error            string
-	FileReader       fileDataReader
-	PrepareResources func(context.Context) (DiscoveredBuild, error)
-	ResourceIndexes  ResourceIndexes
+	BuildKey           string
+	BuildName          string
+	CASCBuildConfig    string
+	CASCCDNConfig      string
+	NoBuild            bool
+	Error              string
+	FileReader         fileDataReader
+	PrepareTableReader func(context.Context) (DiscoveredBuild, error)
+	PrepareResources   func(context.Context) (DiscoveredBuild, error)
+	ResourceIndexes    ResourceIndexes
 }
 
 type ResourceIndexes struct {
@@ -276,7 +277,7 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 			return nil
 		}
 	}
-	preparedBuild, err := r.prepareBuildResources(ctx, build, buildKey, sameActiveValid, restoreTables)
+	preparedBuild, err := r.prepareBuildForTableMaterialization(ctx, build, buildKey, sameActiveValid, restoreTables)
 	if err != nil {
 		return err
 	}
@@ -323,6 +324,38 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 		return err
 	}
 	return metadata.ActivateBuild(ctx, r.DB, buildKey)
+}
+
+func (r Runner) prepareBuildForTableMaterialization(ctx context.Context, build DiscoveredBuild, buildKey metadata.BuildKey, sameActiveValid bool, restoreTables []metadata.MaterializedTable) (DiscoveredBuild, error) {
+	if sameActiveValid {
+		ready, err := r.resourceIndexesReady(ctx, buildKey)
+		if err != nil {
+			return build, err
+		}
+		if ready {
+			if build.FileReader != nil {
+				return build, nil
+			}
+			if build.PrepareTableReader != nil {
+				prepared, err := build.PrepareTableReader(ctx)
+				if err != nil {
+					_ = restoreValidTables(ctx, r.DB, restoreTables)
+					_ = metadata.MarkBuildReady(ctx, r.DB, buildKey)
+					return build, err
+				}
+				prepared.PrepareResources = nil
+				prepared.PrepareTableReader = nil
+				if prepared.BuildKey == "" {
+					prepared.BuildKey = build.BuildKey
+				}
+				if prepared.BuildName == "" {
+					prepared.BuildName = build.BuildName
+				}
+				return prepared, nil
+			}
+		}
+	}
+	return r.prepareBuildResources(ctx, build, buildKey, sameActiveValid, restoreTables)
 }
 
 func (r Runner) resourceIndexesReady(ctx context.Context, buildKey metadata.BuildKey) (bool, error) {
@@ -735,21 +768,28 @@ func (d ProductionDiscoverer) DiscoverBuild(_ context.Context, target config.Pre
 	if buildKey == "" {
 		return DiscoveredBuild{NoBuild: true, Error: fmt.Sprintf("no build key found for %s/%s", target.Region, target.Product)}, nil
 	}
+	prepareTableReader := func(context.Context) (DiscoveredBuild, error) {
+		if err := remote.Preload(buildIndex); err != nil {
+			return DiscoveredBuild{}, err
+		}
+		return DiscoveredBuild{
+			BuildKey:        remote.GetBuildKey(),
+			BuildName:       remote.GetBuildName(),
+			CASCBuildConfig: remote.Build.BuildConfig,
+			CASCCDNConfig:   remote.Build.CDNConfig,
+			FileReader:      remote,
+		}, nil
+	}
 	return DiscoveredBuild{
-		BuildKey:        buildKey,
-		BuildName:       version.VersionsName,
-		CASCBuildConfig: version.BuildConfig,
-		CASCCDNConfig:   version.CDNConfig,
-		PrepareResources: func(context.Context) (DiscoveredBuild, error) {
-			if err := remote.Preload(buildIndex); err != nil {
+		BuildKey:           buildKey,
+		BuildName:          version.VersionsName,
+		CASCBuildConfig:    version.BuildConfig,
+		CASCCDNConfig:      version.CDNConfig,
+		PrepareTableReader: prepareTableReader,
+		PrepareResources: func(ctx context.Context) (DiscoveredBuild, error) {
+			prepared, err := prepareTableReader(ctx)
+			if err != nil {
 				return DiscoveredBuild{}, err
-			}
-			prepared := DiscoveredBuild{
-				BuildKey:        remote.GetBuildKey(),
-				BuildName:       remote.GetBuildName(),
-				CASCBuildConfig: remote.Build.BuildConfig,
-				CASCCDNConfig:   remote.Build.CDNConfig,
-				FileReader:      remote,
 			}
 			indexes, err := buildProductionResourceIndexes(d.CacheRoot, target, prepared, remote.CASCSource)
 			if err != nil {
