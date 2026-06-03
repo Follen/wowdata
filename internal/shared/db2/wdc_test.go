@@ -258,6 +258,46 @@ func TestWDCInlineIDNameKeysCommonDataWhenIDIndexDiffers(t *testing.T) {
 	}
 }
 
+func TestWDCDuplicateFieldInfoUsesCurrentCommonDataIndex(t *testing.T) {
+	reader := &WDCReader{
+		IsLoaded: true,
+		Schema: []SchemaField{
+			{Name: "ID", Type: FieldUInt32},
+			{Name: "FormID", Type: FieldUInt8},
+			{Name: "DisplayID", Type: FieldUInt32},
+		},
+		IDField:      "ID",
+		IDFieldIndex: 0,
+		FieldInfo: []FieldStorageInfo{
+			{FieldCompression: CompBitpacked, FieldSizeBits: 32},
+			{FieldCompression: CompCommonData, AdditionalDataSize: 8},
+			{FieldCompression: CompCommonData, AdditionalDataSize: 8},
+		},
+		CommonData: []map[uint32]uint32{
+			nil,
+			{1: 0x3f199901},
+			{1: 66784},
+		},
+		RecordSize:       4,
+		TotalRecordCount: 1,
+		data:             []byte{1, 0, 0, 0},
+		Sections: []Section{{
+			Header:         SectionHeader{RecordCount: 1},
+			IsNormal:       true,
+			RecordDataOfs:  0,
+			RecordDataSize: 4,
+		}},
+	}
+
+	row := reader.GetRow(1)
+	if row["FormID"] != uint8(1) {
+		t.Fatalf("FormID = %v, want 1; row=%#v", row["FormID"], row)
+	}
+	if row["DisplayID"] != uint32(66784) {
+		t.Fatalf("DisplayID = %v, want 66784; row=%#v", row["DisplayID"], row)
+	}
+}
+
 func TestWDCGetRowAcceptsSignedInlineID(t *testing.T) {
 	reader := signedInlineIDReaderForTest()
 

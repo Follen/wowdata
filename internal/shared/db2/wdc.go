@@ -889,7 +889,7 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 		fieldInfoIndex++
 
 		if rfi.FieldCompression != CompNone {
-			out[sf.Name] = r.readCompressedField(section, rfi, sf, recordOfs, recordID)
+			out[sf.Name] = r.readCompressedField(section, fieldInfoIndex-1, rfi, sf, recordOfs, recordID)
 			captureInlineRecordID(sf, fieldInfoIndex-1, out[sf.Name])
 			continue
 		}
@@ -1144,28 +1144,26 @@ func fieldTypeBitSize(fieldType FieldType) int {
 	}
 }
 
-func (r *WDCReader) readCompressedField(section *Section, info FieldStorageInfo, field SchemaField, recordOfs, recordID uint32) interface{} {
+func (r *WDCReader) readCompressedField(section *Section, fieldInfoIndex int, info FieldStorageInfo, field SchemaField, recordOfs, recordID uint32) interface{} {
 	var value interface{}
 	switch info.FieldCompression {
 	case CompCommonData:
 		value = uint64(info.FieldCompressionPacking[0])
-		fi := r.fieldInfoIndex(info)
-		if fi >= 0 && fi < len(r.CommonData) && r.CommonData[fi] != nil {
-			if v, ok := r.CommonData[fi][recordID]; ok {
+		if fieldInfoIndex >= 0 && fieldInfoIndex < len(r.CommonData) && r.CommonData[fieldInfoIndex] != nil {
+			if v, ok := r.CommonData[fieldInfoIndex][recordID]; ok {
 				value = uint64(v)
 			}
 		}
 	case CompBitpacked, CompBitpackedSigned, CompBitpackedIndexed, CompBitpackedIndexedArray:
 		bitpacked := r.readBitpackedValue(section, info, recordOfs)
-		fi := r.fieldInfoIndex(info)
 		if info.FieldCompression == CompBitpackedIndexedArray {
 			count := int(info.FieldCompressionPacking[2])
 			values := make([]interface{}, count)
 			for i := 0; i < count; i++ {
 				idx := int(bitpacked)*count + i
 				var raw uint64
-				if fi >= 0 && fi < len(r.PalletData) && idx >= 0 && idx < len(r.PalletData[fi]) {
-					raw = uint64(r.PalletData[fi][idx])
+				if fieldInfoIndex >= 0 && fieldInfoIndex < len(r.PalletData) && idx >= 0 && idx < len(r.PalletData[fieldInfoIndex]) {
+					raw = uint64(r.PalletData[fieldInfoIndex][idx])
 				}
 				values[i] = reinterpretCompressedValue(raw, field.Type)
 			}
@@ -1173,8 +1171,8 @@ func (r *WDCReader) readCompressedField(section *Section, info FieldStorageInfo,
 		}
 		if info.FieldCompression == CompBitpackedIndexed {
 			idx := int(bitpacked)
-			if fi >= 0 && fi < len(r.PalletData) && idx >= 0 && idx < len(r.PalletData[fi]) {
-				value = uint64(r.PalletData[fi][idx])
+			if fieldInfoIndex >= 0 && fieldInfoIndex < len(r.PalletData) && idx >= 0 && idx < len(r.PalletData[fieldInfoIndex]) {
+				value = uint64(r.PalletData[fieldInfoIndex][idx])
 			} else {
 				value = uint64(0)
 			}
@@ -1187,15 +1185,6 @@ func (r *WDCReader) readCompressedField(section *Section, info FieldStorageInfo,
 		value = uint64(0)
 	}
 	return reinterpretCompressedValue(value, field.Type)
-}
-
-func (r *WDCReader) fieldInfoIndex(info FieldStorageInfo) int {
-	for i := range r.FieldInfo {
-		if r.FieldInfo[i] == info {
-			return i
-		}
-	}
-	return -1
 }
 
 func (r *WDCReader) readBitpackedValue(section *Section, info FieldStorageInfo, recordOfs uint32) uint64 {
