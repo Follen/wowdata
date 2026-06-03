@@ -196,6 +196,34 @@ func TestWDCEmptyIDListUsesRecordIndexForCommonData(t *testing.T) {
 	}
 }
 
+func TestWDCEmptyIDListWritesRecordIndexForNonInlineID(t *testing.T) {
+	reader := &WDCReader{
+		IsLoaded: true,
+		Schema: []SchemaField{
+			{Name: "ID", Type: FieldNonInlineID},
+			{Name: "Value", Type: FieldUInt32},
+		},
+		IDField:          "ID",
+		IDFieldIndex:     0,
+		FieldInfo:        []FieldStorageInfo{{FieldSizeBits: 32}},
+		RecordSize:       4,
+		TotalRecordCount: 2,
+		data:             []byte{10, 0, 0, 0, 20, 0, 0, 0},
+		Sections: []Section{{
+			Header:         SectionHeader{RecordCount: 2},
+			IsNormal:       true,
+			IDList:         []uint32{0, 0},
+			RecordDataOfs:  0,
+			RecordDataSize: 8,
+		}},
+	}
+
+	rows := reader.GetAllRows()
+	if rows[0]["ID"] != uint32(0) || rows[1]["ID"] != uint32(1) {
+		t.Fatalf("row IDs = %#v/%#v, want 0/1; rows=%#v", rows[0]["ID"], rows[1]["ID"], rows)
+	}
+}
+
 func TestWDCSignedInlineIDKeysCommonData(t *testing.T) {
 	reader := &WDCReader{
 		IsLoaded: true,

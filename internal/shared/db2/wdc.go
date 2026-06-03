@@ -875,7 +875,9 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 		if sf.Type == FieldNonInlineID {
 			if len(section.IDList) > int(recordIndex) {
 				id := section.IDList[recordIndex]
-				if !emptyIDMap {
+				if emptyIDMap {
+					id = recordID
+				} else {
 					recordID = id
 				}
 				out[sf.Name] = id
