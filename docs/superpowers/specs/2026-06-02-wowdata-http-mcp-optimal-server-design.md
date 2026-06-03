@@ -62,7 +62,27 @@ MCP:
 
 The rename applies to CLI, stdio MCP, HTTP MCP, help text, README examples, release docs, performance docs, and tests. No legacy `wowdata db2 ...` command or `wow_db2` MCP tool is kept for compatibility.
 
-The HTTP MCP JSON-RPC endpoint path is `/mcp`. The server must not register `/wowdata` as a compatibility alias.
+The HTTP MCP JSON-RPC endpoint path is `/mcp`. The server itself must not register `/wowdata` as a compatibility alias.
+
+## Public Ingress
+
+Public deployment may place an Nginx front door in front of the HTTP MCP server.
+The front door owns the public prefixes and rewrites them to the internal
+service routes:
+
+```text
+/wowdata       -> /mcp
+/wowdata/help  -> /help
+/wowdata/health -> /health
+/wowdata/files/ -> /files/
+/wowdoc        -> /mcp
+/wowdoc/help   -> /help
+/wowdoc/health -> /health
+```
+
+The backend service still exposes only `/mcp`, `/help`, and `/health` on its
+own listener. `/files/...` remains served by `wowdata-server` directly, not by
+the front door.
 
 Internal packages, storage paths, and type names may still use `DB2` where they refer to the actual WoW DB2 file/table format, such as DB2 decoder code, DB2 metadata, and DB2 Parquet cache paths.
 
@@ -480,7 +500,7 @@ All implementation must be test-driven. Each feature or behavior change requires
 - Server config validates default matrix, locale mapping, strict/no_build behavior, and resource limits.
 - Health model reports liveness, readiness, matrix summary, per-target state, memory, storage, artifacts, and errors.
 - `wow_status` and `/health` use the same health source.
-- HTTP MCP is served at `/mcp`, and `/wowdata` is not registered.
+- HTTP MCP is served at `/mcp`, and `/wowdata` is not registered on the backend listener.
 - HTTP MCP tools reject requests outside the supported 5-target matrix with `unsupported_target` before calling query or asset services.
 - DB2 metadata records transition through preparing, valid, stale, and failed.
 - DB2 materializer reuses valid Parquet without decoding or downloading again.
@@ -651,7 +671,7 @@ The rewrite is complete only when all of these are true:
 - Remote update-flow tests prove DB2 fingerprint changes rematerialize only affected tables.
 - Remote cleanup/cache tests prove configured disposable DB2/listfile/temp cache can be removed while metadata and active service remain reusable.
 - Memory and concurrency tests pass under configured limits.
-- No Python gateway or nginx-dependent artifact serving is required for pure HTTP/IP deployment.
+- No Python gateway is required; nginx is allowed only as a prefix-routing front door, not as an artifact gateway.
 
 ## Current Implementation Gaps This Spec Intentionally Replaces
 
