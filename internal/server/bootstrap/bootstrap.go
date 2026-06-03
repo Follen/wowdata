@@ -34,8 +34,8 @@ import (
 )
 
 const (
-	decoderVersion                = "runtime-db2-loader-v1"
-	materializerVersion           = "server-prepare-bootstrap-v1"
+	decoderVersion                = "runtime-db2-loader-v2"
+	materializerVersion           = "server-prepare-bootstrap-v2"
 	manifestUnreadableErrorPrefix = "manifest unreadable: "
 	defaultRetryAttempts          = 3
 	defaultRetryDelay             = 500 * time.Millisecond
@@ -1367,14 +1367,10 @@ func schemaForTable(rawDBD string, buildName string) ([]cacheparquet.Field, erro
 	}
 	out := make([]cacheparquet.Field, 0, len(schema))
 	for _, field := range schema {
-		arrayLen := field.ArrayLen
-		if field.Type == db2.FieldString {
-			arrayLen = 0
-		}
 		out = append(out, cacheparquet.Field{
 			Name:     field.Name,
 			Type:     field.Type.SchemaDescription(),
-			ArrayLen: arrayLen,
+			ArrayLen: field.ArrayLen,
 		})
 	}
 	return out, nil

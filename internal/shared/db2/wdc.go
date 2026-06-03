@@ -961,36 +961,64 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 		case FieldString:
 			if isNormal && r.WDCVersion > 2 {
 				// String table offset (WDC3+)
-				fieldByteOffset := int64(rfi.FieldOffsetBits / 8)
-				data, ok := read(4)
-				if !ok {
-					return nil
+				count := sf.ArrayLen
+				if count <= 0 {
+					count = 1
 				}
-				ofs := binary.LittleEndian.Uint32(data)
-				if ofs == 0 {
-					out[sf.Name] = ""
+				values := make([]interface{}, count)
+				bitSize := int(rfi.FieldSizeBits) / count
+				if bitSize == 0 {
+					bitSize = 32
+				}
+				for i := 0; i < count; i++ {
+					fieldByteOffset := int64((int(rfi.FieldOffsetBits) + i*bitSize) / 8)
+					data, ok := read(4)
+					if !ok {
+						return nil
+					}
+					ofs := binary.LittleEndian.Uint32(data)
+					if ofs == 0 {
+						values[i] = ""
+					} else {
+						values[i] = r.readString(section, fieldByteOffset, int64(ofs), recordOfs)
+					}
+				}
+				if sf.ArrayLen > 0 {
+					out[sf.Name] = values
 				} else {
-					out[sf.Name] = r.readString(section, fieldByteOffset, int64(ofs), recordOfs)
+					out[sf.Name] = values[0]
 				}
 			} else {
 				// Inline null-terminated (WDC2 or sparse)
-				start := cursor
-				end := start
-				recordEnd := int64(len(r.data))
-				if isNormal {
-					recordEnd = section.RecordDataOfs + section.RecordDataSize
+				count := sf.ArrayLen
+				if count <= 0 {
+					count = 1
 				}
-				for end < recordEnd && end < int64(len(r.data)) && r.data[end] != 0 {
-					end++
+				values := make([]interface{}, count)
+				for i := 0; i < count; i++ {
+					start := cursor
+					end := start
+					recordEnd := int64(len(r.data))
+					if isNormal {
+						recordEnd = section.RecordDataOfs + section.RecordDataSize
+					}
+					for end < recordEnd && end < int64(len(r.data)) && r.data[end] != 0 {
+						end++
+					}
+					if start < 0 || start > end || end > int64(len(r.data)) {
+						return nil
+					}
+					values[i] = string(r.data[start:end])
+					if end < recordEnd && end < int64(len(r.data)) {
+						end++
+					}
+					cursor = end
 				}
-				if start < 0 || start > end || end > int64(len(r.data)) {
-					return nil
+				if sf.ArrayLen > 0 {
+					out[sf.Name] = values
+				} else {
+					out[sf.Name] = values[0]
 				}
-				out[sf.Name] = string(r.data[start:end])
-				if end < recordEnd && end < int64(len(r.data)) {
-					end++
-				}
-				cursor = end
 			}
 		}
 		captureInlineRecordID(sf, fieldInfoIndex-1, out[sf.Name])

@@ -160,7 +160,7 @@ func (m *DB2Materializer) materializerVersion() string {
 	if m.MaterializerVersion != "" {
 		return m.MaterializerVersion
 	}
-	return "http-materializer-v1"
+	return "http-materializer-v2"
 }
 
 func (m *DB2Materializer) writeParquet(path string, meta cacheparquet.Metadata, loaded LoadedDB2Table) error {

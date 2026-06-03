@@ -298,6 +298,77 @@ func TestWDCDuplicateFieldInfoUsesCurrentCommonDataIndex(t *testing.T) {
 	}
 }
 
+func TestWDCStringArrayReadsAllInlineValues(t *testing.T) {
+	reader := &WDCReader{
+		IsLoaded:         true,
+		Schema:           []SchemaField{{Name: "ParamLabel", Type: FieldString, ArrayLen: 3}},
+		IDField:          "ID",
+		IDFieldIndex:     -1,
+		FieldInfo:        []FieldStorageInfo{{FieldSizeBits: 24}},
+		RecordSize:       12,
+		TotalRecordCount: 1,
+		data:             []byte("Points\x00Accuracy\x00Variance\x00"),
+		Sections: []Section{{
+			Header:         SectionHeader{RecordCount: 1},
+			IsNormal:       true,
+			RecordDataOfs:  0,
+			RecordDataSize: 25,
+		}},
+	}
+
+	rows := reader.GetAllRows()
+	values, ok := rows[0]["ParamLabel"].([]interface{})
+	if !ok {
+		t.Fatalf("ParamLabel = %#v, want string array", rows[0]["ParamLabel"])
+	}
+	want := []interface{}{"Points", "Accuracy", "Variance"}
+	for i := range want {
+		if values[i] != want[i] {
+			t.Fatalf("ParamLabel[%d] = %#v, want %#v; values=%#v", i, values[i], want[i], values)
+		}
+	}
+}
+
+func TestWDCStringArrayReadsAllStringTableOffsets(t *testing.T) {
+	data := []byte{
+		12, 0, 0, 0,
+		15, 0, 0, 0,
+		20, 0, 0, 0,
+	}
+	data = append(data, []byte("Points\x00Accuracy\x00Variance\x00")...)
+	reader := &WDCReader{
+		IsLoaded:         true,
+		Schema:           []SchemaField{{Name: "ParamLabel", Type: FieldString, ArrayLen: 3}},
+		IDField:          "ID",
+		IDFieldIndex:     -1,
+		FieldInfo:        []FieldStorageInfo{{FieldSizeBits: 96}},
+		RecordSize:       12,
+		RecordCount:      1,
+		TotalRecordCount: 1,
+		WDCVersion:       3,
+		data:             data,
+		Sections: []Section{{
+			Header:            SectionHeader{RecordCount: 1, StringTableSize: uint32(len(data) - 12)},
+			IsNormal:          true,
+			RecordDataOfs:     0,
+			RecordDataSize:    12,
+			StringTableOffset: 12,
+		}},
+	}
+
+	rows := reader.GetAllRows()
+	values, ok := rows[0]["ParamLabel"].([]interface{})
+	if !ok {
+		t.Fatalf("ParamLabel = %#v, want string array", rows[0]["ParamLabel"])
+	}
+	want := []interface{}{"Points", "Accuracy", "Variance"}
+	for i := range want {
+		if values[i] != want[i] {
+			t.Fatalf("ParamLabel[%d] = %#v, want %#v; values=%#v", i, values[i], want[i], values)
+		}
+	}
+}
+
 func TestWDCGetRowAcceptsSignedInlineID(t *testing.T) {
 	reader := signedInlineIDReaderForTest()
 

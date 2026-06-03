@@ -246,11 +246,15 @@ func TestWriteRowsFileExpandsDB2ArrayFields(t *testing.T) {
 	meta := testMetadata()
 	path := PathFor(root, meta)
 	rows := []map[string]interface{}{
-		{"EffectMiscValue": []interface{}{int32(11), int32(22)}},
+		{
+			"EffectMiscValue": []interface{}{int32(11), int32(22)},
+			"ParamLabel":      []interface{}{"Points", "Accuracy"},
+		},
 	}
 
 	if err := WriteRowsFile(path, meta, []Field{
 		{Name: "EffectMiscValue", Type: "dbFieldInt32", ArrayLen: 2},
+		{Name: "ParamLabel", Type: "dbFieldString", ArrayLen: 2},
 	}, rows); err != nil {
 		t.Fatalf("WriteRowsFile: %v", err)
 	}
@@ -261,8 +265,10 @@ func TestWriteRowsFileExpandsDB2ArrayFields(t *testing.T) {
 	}
 	defer file.Close()
 	type arrayRow struct {
-		EffectMiscValue0 int32 `parquet:"EffectMiscValue_0"`
-		EffectMiscValue1 int32 `parquet:"EffectMiscValue_1"`
+		EffectMiscValue0 int32  `parquet:"EffectMiscValue_0"`
+		EffectMiscValue1 int32  `parquet:"EffectMiscValue_1"`
+		ParamLabel0      string `parquet:"ParamLabel_0"`
+		ParamLabel1      string `parquet:"ParamLabel_1"`
 	}
 	reader := parquetgo.NewGenericReader[arrayRow](file)
 	got := make([]arrayRow, 1)
@@ -275,6 +281,9 @@ func TestWriteRowsFileExpandsDB2ArrayFields(t *testing.T) {
 	}
 	if got[0].EffectMiscValue0 != 11 || got[0].EffectMiscValue1 != 22 {
 		t.Fatalf("array values = %#v, want 11 and 22", got[0])
+	}
+	if got[0].ParamLabel0 != "Points" || got[0].ParamLabel1 != "Accuracy" {
+		t.Fatalf("string array values = %#v, want Points and Accuracy", got[0])
 	}
 }
 

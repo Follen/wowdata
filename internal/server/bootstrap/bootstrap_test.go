@@ -802,7 +802,7 @@ func TestWDCRowSourceStreamsRowsAndEOF(t *testing.T) {
 	}
 }
 
-func TestSchemaForTableTreatsDBDStringArraysAsScalarStrings(t *testing.T) {
+func TestSchemaForTablePreservesDBDStringArrays(t *testing.T) {
 	rawDBD := strings.Join([]string{
 		"COLUMNS",
 		"string ParamLabel",
@@ -821,8 +821,8 @@ func TestSchemaForTableTreatsDBDStringArraysAsScalarStrings(t *testing.T) {
 	if len(schema) != 2 {
 		t.Fatalf("schema fields = %#v, want ParamLabel and ParamTypeEnum", schema)
 	}
-	if schema[0] != (cacheparquet.Field{Name: "ParamLabel", Type: "dbFieldString"}) {
-		t.Fatalf("ParamLabel schema = %#v, want scalar dbFieldString", schema[0])
+	if schema[0] != (cacheparquet.Field{Name: "ParamLabel", Type: "dbFieldString", ArrayLen: 6}) {
+		t.Fatalf("ParamLabel schema = %#v, want dbFieldString array", schema[0])
 	}
 	if schema[1] != (cacheparquet.Field{Name: "ParamTypeEnum", Type: "dbFieldUInt8", ArrayLen: 6}) {
 		t.Fatalf("ParamTypeEnum schema = %#v, want numeric array preserved", schema[1])
