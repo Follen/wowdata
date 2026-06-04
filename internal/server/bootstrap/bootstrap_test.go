@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -20,6 +21,17 @@ import (
 	"wowdata/internal/shared/casc"
 	"wowdata/internal/shared/db2"
 )
+
+func TestManifestUnreadableTableErrorsIncludeMissingRootFileDataID(t *testing.T) {
+	for _, err := range []error{
+		fmt.Errorf("fileDataID does not exist in root: 1720145"),
+		fmt.Errorf("no root entry found for locale: 2"),
+	} {
+		if !isManifestUnreadableTableError(err) {
+			t.Fatalf("isManifestUnreadableTableError(%v) = false, want true", err)
+		}
+	}
+}
 
 func TestPrepareActivatesBuildOnlyAfterEveryRequiredTableMaterializes(t *testing.T) {
 	ctx := context.Background()

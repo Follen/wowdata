@@ -557,7 +557,9 @@ func isManifestUnreadableTableError(err error) bool {
 	}
 	message := err.Error()
 	return strings.Contains(message, "no DBD structure for build ") ||
-		strings.Contains(message, "Invalid DBD:")
+		strings.Contains(message, "Invalid DBD:") ||
+		strings.Contains(message, "fileDataID does not exist in root:") ||
+		strings.Contains(message, "no root entry found for locale:")
 }
 
 func ResolveRequiredTables(ctx context.Context, configured []string, materializer TableMaterializer) ([]string, error) {
