@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"encoding/binary"
 	"fmt"
 	"strings"
 
@@ -62,7 +63,11 @@ func (l *DB2Loader) LoadTable(store *MemoryDB2Store, tableName string) error {
 	if err != nil {
 		return err
 	}
-	entry := parser.GetStructure(l.buildID, "")
+	layoutHash, err := db2LayoutHash(data)
+	if err != nil {
+		return err
+	}
+	entry := parser.GetStructure(l.buildID, layoutHash)
 	if entry == nil {
 		return fmt.Errorf("no DBD structure for table %s build %s", tableName, l.buildID)
 	}
@@ -85,4 +90,28 @@ func schemaForRuntime(schema []db2.SchemaField) []SchemaField {
 		out = append(out, SchemaField{Name: field.Name, Type: field.Type.SchemaDescription(), ArrayLen: field.ArrayLen})
 	}
 	return out
+}
+
+func db2LayoutHash(data []byte) (string, error) {
+	if len(data) < 24 {
+		return "", fmt.Errorf("DB2 data too short for layout hash: %d bytes", len(data))
+	}
+	pos := 4
+	magic := binary.LittleEndian.Uint32(data[:4])
+	if magic == 0x35434457 {
+		if len(data) < 156 {
+			return "", fmt.Errorf("WDC5 data too short for layout hash: %d bytes", len(data))
+		}
+		pos += 4 + 128
+	}
+	pos += 4 // recordCount
+	pos += 4 // fieldCount
+	pos += 4 // recordSize
+	pos += 4 // stringTableSize
+	pos += 4 // tableHash
+	if pos+4 > len(data) {
+		return "", fmt.Errorf("DB2 data too short for layout hash: %d bytes", len(data))
+	}
+	layout := binary.LittleEndian.Uint32(data[pos : pos+4])
+	return fmt.Sprintf("%08X", layout), nil
 }
