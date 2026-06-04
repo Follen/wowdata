@@ -45,6 +45,10 @@ func StdioTools(factory StdioHandlerFactory) []mcpserver.Tool {
 	return tools
 }
 
+func objectSchema() map[string]interface{} {
+	return map[string]interface{}{"type": "object"}
+}
+
 func stdioToolDescription(name string) string {
 	switch name {
 	case "wow_warmup":

@@ -1,6 +1,6 @@
 # HTTP Docker Deployment
 
-This document shows the public deployment shape for the `wowdata mcp http`
+This document shows the public deployment shape for the `wowdata-server mcp http`
 service. Keep production secrets, private key paths, and host-specific config
 outside the repository.
 
@@ -12,7 +12,7 @@ local tests, but it is not a Linux CGO cross compiler.
 
 ```bash
 mkdir -p dist/linux-amd64
-CGO_ENABLED=1 go build -tags wowdata_duckdb -trimpath -ldflags="-s -w" -o dist/linux-amd64/wowdata ./cmd/wowdata
+CGO_ENABLED=1 go build -tags wowdata_duckdb -trimpath -ldflags="-s -w" -o dist/linux-amd64/wowdata-server ./cmd/wowdata-server
 ```
 
 The `wowdata_duckdb` tag is required for HTTP `wow_query` queries. Without it the

@@ -7,15 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"wowdata/internal/config"
-	httpservice "wowdata/internal/service/http"
 )
 
 func TestMCPCommandHelpExists(t *testing.T) {
@@ -33,32 +28,11 @@ func TestMCPCommandHelpExists(t *testing.T) {
 	}
 }
 
-func TestMCPHTTPHelpIncludesClientConfigGuidance(t *testing.T) {
+func TestMCPCommandDoesNotExposeLegacyHTTPSubcommand(t *testing.T) {
 	cmd := newRootCommandForRuntime(NewRuntime())
-	cmd.SetArgs([]string{"mcp", "http", "--help"})
-	var stdout, stderr bytes.Buffer
-	cmd.SetOut(&stdout)
-	cmd.SetErr(&stderr)
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("mcp http --help: %v stderr=%s", err, stderr.String())
-	}
-	help := stdout.String()
-	for _, want := range []string{"--host", "--port", "--base-url", "--max-contexts", "codex mcp add", "cc-switch", "Claude Code"} {
-		if !strings.Contains(help, want) {
-			t.Fatalf("mcp http help missing %q:\n%s", want, help)
-		}
-	}
-}
-
-func TestMCPHTTPCommandHasConfigFlag(t *testing.T) {
-	cmd := newRootCommandForRuntime(NewRuntime())
-	httpCmd, _, err := cmd.Find([]string{"mcp", "http"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if httpCmd.Flags().Lookup("config") == nil {
-		t.Fatal("mcp http missing --config flag")
+	found, _, err := cmd.Find([]string{"mcp", "http"})
+	if err == nil && found != nil && found.Name() == "http" {
+		t.Fatal("legacy mcp http subcommand should not be registered on wowdata")
 	}
 }
 
@@ -70,22 +44,6 @@ func TestMCPStdioCommandDoesNotRequireHTTPConfig(t *testing.T) {
 	}
 	if stdioCmd.Flags().Lookup("config") != nil {
 		t.Fatal("mcp stdio should not expose HTTP --config flag")
-	}
-}
-
-func TestMCPHTTPMaxContextsFlagEnablesRuntimeContextCache(t *testing.T) {
-	rt := NewRuntime()
-	cmd := newRootCommandForRuntime(rt)
-	cmd.SetArgs([]string{"mcp", "http", "--max-contexts", "3", "--help"})
-	var stdout, stderr bytes.Buffer
-	cmd.SetOut(&stdout)
-	cmd.SetErr(&stderr)
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("mcp http --help: %v stderr=%s", err, stderr.String())
-	}
-	if !strings.Contains(stdout.String(), "--max-contexts") {
-		t.Fatalf("http help missing max contexts flag:\n%s", stdout.String())
 	}
 }
 
@@ -102,126 +60,6 @@ func TestMCPToolInheritsRuntimePersistentFlags(t *testing.T) {
 	}
 	if cache != "runtime-cache" {
 		t.Fatalf("cache flag = %q, want runtime-cache", cache)
-	}
-}
-
-func TestSyncRuntimeFromMCPHTTPCommandReadsRootCacheFlag(t *testing.T) {
-	rt := NewRuntime()
-	cmd := newRootCommandForRuntime(rt)
-	cmd.SetArgs([]string{"--cache", "runtime-cache", "mcp", "http"})
-	httpCmd, _, err := cmd.Find([]string{"mcp", "http"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := httpCmd.ParseFlags([]string{}); err != nil {
-		t.Fatal(err)
-	}
-	cmd.PersistentFlags().Set("cache", "runtime-cache")
-
-	syncRuntimeFromPersistentFlags(httpCmd, rt)
-
-	if rt.CacheRoot != "runtime-cache" {
-		t.Fatalf("runtime cache = %q, want runtime-cache", rt.CacheRoot)
-	}
-}
-
-func TestMCPHTTPHelpUsesGenericExampleDomain(t *testing.T) {
-	cmd := newRootCommandForRuntime(NewRuntime())
-	cmd.SetArgs([]string{"mcp", "http", "--help"})
-	var stdout, stderr bytes.Buffer
-	cmd.SetOut(&stdout)
-	cmd.SetErr(&stderr)
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("mcp http --help: %v stderr=%s", err, stderr.String())
-	}
-	help := stdout.String()
-	if strings.Contains(help, "lychee-addon.online") || strings.Contains(help, "wowdata.online") {
-		t.Fatalf("Go HTTP help should use generic examples, not deployment domains:\n%s", help)
-	}
-	if !strings.Contains(help, "https://mcp.example.com:9443/mcp") {
-		t.Fatalf("Go HTTP help should include generic MCP endpoint example:\n%s", help)
-	}
-}
-
-func TestMCPWebHelpOmitsServerStartupCommand(t *testing.T) {
-	help := mcpHelpHTML("https://mcp.lychee-addon.online:9443")
-	if strings.Contains(help, "HTTP server") || strings.Contains(help, "wowdata mcp http") {
-		t.Fatalf("web help should not show server startup commands:\n%s", help)
-	}
-	if !strings.Contains(help, "codex mcp add") || !strings.Contains(help, "claude mcp add --transport http") {
-		t.Fatalf("web help should keep client setup commands:\n%s", help)
-	}
-}
-
-func TestMCPWebHelpEscapesConfiguredBaseURL(t *testing.T) {
-	help := mcpHelpHTML(`https://mcp.example.com/"\&<script>alert(1)</script>`)
-
-	for _, unsafe := range []string{
-		`<script>`,
-		`</script>`,
-		`https://mcp.example.com/"\&<script>alert(1)</script>/mcp`,
-		`"url": "https://mcp.example.com/"\&<script>alert(1)</script>/mcp"`,
-	} {
-		if strings.Contains(help, unsafe) {
-			t.Fatalf("web help contains unescaped configured URL %q:\n%s", unsafe, help)
-		}
-	}
-
-	wantText := `https://mcp.example.com/&#34;\&amp;&lt;script&gt;alert(1)&lt;/script&gt;/mcp`
-	for _, want := range []string{
-		`Endpoint: <code>` + wantText + `</code>`,
-		`codex mcp add wowdata --url ` + wantText,
-		`claude mcp add --transport http wowdata ` + wantText,
-	} {
-		if !strings.Contains(help, want) {
-			t.Fatalf("web help missing HTML-escaped URL %q:\n%s", want, help)
-		}
-	}
-
-	wantJSONURL := `&#34;https://mcp.example.com/\&#34;\\\u0026\u003cscript\u003ealert(1)\u003c/script\u003e/mcp&#34;`
-	if !strings.Contains(help, `"url": `+wantJSONURL) {
-		t.Fatalf("web help missing JSON-escaped and HTML-escaped cc-switch URL %q:\n%s", wantJSONURL, help)
-	}
-}
-
-func TestMCPHTTPHandlersUseMCPEndpoint(t *testing.T) {
-	mux := http.NewServeMux()
-	registerMCPHTTPHandlers(mux, newMCPServerForRuntime(NewRuntime()), "https://mcp.example.com:9443", t.TempDir(), "")
-
-	mcp := httptest.NewRecorder()
-	mcpReq := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
-	mux.ServeHTTP(mcp, mcpReq)
-	if mcp.Code != http.StatusOK {
-		t.Fatalf("/mcp status = %d, want 200: %s", mcp.Code, mcp.Body.String())
-	}
-	if !strings.Contains(mcp.Body.String(), `"name":"wow_query"`) {
-		t.Fatalf("/mcp tools/list missing wow_query: %s", mcp.Body.String())
-	}
-
-	old := httptest.NewRecorder()
-	oldReq := httptest.NewRequest(http.MethodPost, "/wowdata", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
-	mux.ServeHTTP(old, oldReq)
-	if old.Code != http.StatusNotFound {
-		t.Fatalf("/wowdata status = %d, want 404: %s", old.Code, old.Body.String())
-	}
-}
-
-func TestMCPHTTPServiceRejectsUnsupportedTargetBeforeWork(t *testing.T) {
-	mux := http.NewServeMux()
-	svc := httpservice.NewService(config.DefaultHTTPConfig(), nil)
-	server := newMCPHTTPServerForService(svc, NewRuntime(), artifactConfig{})
-	registerMCPHTTPHandlers(mux, server, "https://mcp.example.com:9443", t.TempDir(), "")
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wow_query","arguments":{"table":"SpellName","region":"us","product":"wow","locale":"enUS"}}}`))
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("/mcp unsupported target status = %d, want 200: %s", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), `"unsupported_target"`) {
-		t.Fatalf("/mcp unsupported target should return unsupported_target: %s", rec.Body.String())
 	}
 }
 
@@ -280,29 +118,6 @@ func TestMCPToolExecutesCLIHandlerInProcess(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `"ok":false`) || !strings.Contains(string(data), "CASC 未就绪") {
 		t.Fatalf("wow_casc should return existing handler envelope, got %s", data)
-	}
-}
-
-func TestMCPHTTPWarmupGateReturnsBusyEnvelope(t *testing.T) {
-	rt := NewRuntime()
-	rt.enableHTTPWarmupGate()
-	release, err := rt.beginHTTPWarmup()
-	if err != nil {
-		t.Fatalf("begin warmup: %v", err)
-	}
-	defer release()
-
-	tool := findMCPTool(t, mcpToolsForRuntime(rt), "wow_warmup")
-	result, err := tool.Handler(context.Background(), json.RawMessage(`{"source":"remote","region":"cn","product":"wow"}`))
-	if err != nil {
-		t.Fatalf("wow_warmup tool: %v", err)
-	}
-	data, err := json.Marshal(result)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(data), `"ok":false`) || !strings.Contains(string(data), "warmup_in_progress") {
-		t.Fatalf("busy warmup envelope mismatch: %s", data)
 	}
 }
 

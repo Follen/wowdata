@@ -1,16 +1,16 @@
 # HTTP Service Runtime
 
-This document describes the runtime behavior of `wowdata mcp http`.
+This document describes the runtime behavior of `wowdata-server mcp http`.
 
 ## Config path
 
 Start the HTTP service with an optional YAML config:
 
 ```sh
-wowdata mcp http --config /path/to/http.yaml
+wowdata-server mcp http --config /path/to/http.yaml
 ```
 
-When `--config` is omitted, the service uses `config.DefaultHTTPConfig()`. CLI flags override the loaded config only when the flag is explicitly set; without a config file, the HTTP command flag defaults provide the bind address, public base URL, artifact paths, and max context count.
+When `--config` is omitted, the service uses the server default HTTP config. CLI flags override the loaded config only when the flag is explicitly set; without a config file, the HTTP command flag defaults provide the bind address and public artifact paths.
 
 Important YAML sections:
 

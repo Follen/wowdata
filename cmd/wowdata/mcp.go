@@ -5,19 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	htmltemplate "html/template"
-	"net/http"
-	"os"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	mcpadapter "wowdata/internal/adapter/mcp"
-	"wowdata/internal/config"
-	"wowdata/internal/listfile"
-	appruntime "wowdata/internal/local/runtime"
-	httpservice "wowdata/internal/service/http"
 	"wowdata/internal/shared/artifact"
 	"wowdata/internal/shared/mcpserver"
 
@@ -34,14 +27,12 @@ func registerMCPCommand(root *cobra.Command, rt *Runtime) {
 
 Transports:
   stdio  Local process transport for Codex, Claude Code, and cc-switch command configs.
-  http   Streamable HTTP endpoint for remote services, domains, and shared deployments.
 
 Examples:
-  wowdata mcp stdio
-  wowdata mcp http --host 127.0.0.1 --port 9788 --base-url http://127.0.0.1:9788`,
+  wowdata mcp stdio`,
 	}
 
-	mcpCmd.AddCommand(newMCPStdioCommand(rt), newMCPHTTPCommand(rt))
+	mcpCmd.AddCommand(newMCPStdioCommand(rt))
 	root.AddCommand(mcpCmd)
 }
 
@@ -51,147 +42,6 @@ func newMCPServerForRuntime(rt *Runtime) *mcpserver.Server {
 
 func newMCPServerForRuntimeWithArtifacts(rt *Runtime, artifacts artifactConfig) *mcpserver.Server {
 	return mcpserver.NewServer("wowdata", mcpToolsForRuntimeWithArtifacts(rt, artifacts))
-}
-
-func newMCPHTTPServerForService(svc *httpservice.Service, rt *Runtime, artifacts artifactConfig) *mcpserver.Server {
-	return mcpserver.NewServer("wowdata", mcpadapter.HTTPTools(svc, mcpadapter.HTTPToolOptions{
-		ExposeAdmin:      svc.ToolPolicy().ExposeAdminTools,
-		Artifacts:        newMCPArtifactReserver(artifacts),
-		Assets:           httpRuntimeAssets{rt: rt, svc: svc},
-		SupportedTargets: mcpHTTPSupportedTargets(),
-	}))
-}
-
-func mcpHTTPSupportedTargets() []mcpadapter.SupportedTarget {
-	return []mcpadapter.SupportedTarget{
-		{Region: "cn", Product: "wow", Locale: "zhCN"},
-		{Region: "cn", Product: "wow_classic", Locale: "zhCN"},
-		{Region: "cn", Product: "wow_classic_titan", Locale: "zhCN"},
-		{Region: "cn", Product: "wowt", Locale: "zhCN"},
-		{Region: "cn", Product: "wow_classic_ptr", Locale: "zhCN"},
-	}
-}
-
-func registerMCPHTTPHandlers(mux *http.ServeMux, server *mcpserver.Server, baseURL, cacheRoot, artifactRoot string) {
-	mux.Handle("/mcp", server)
-	mux.Handle("/mcp/", server)
-	if artifactRoot != "" {
-		mux.HandleFunc("/files/", artifactFileHandler(artifactRoot))
-	}
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		writeHelpJSON(w, http.StatusOK, map[string]interface{}{
-			"ok":        true,
-			"service":   "wowdata-mcp",
-			"endpoint":  publicURL(baseURL, "/mcp"),
-			"transport": "streamable_http",
-			"cacheRoot": filepath.ToSlash(cacheRoot),
-		})
-	})
-	mux.HandleFunc("/help", func(w http.ResponseWriter, r *http.Request) {
-		writeHelpHTML(w, http.StatusOK, mcpHelpHTML(baseURL))
-	})
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
-			writeHelpHTML(w, http.StatusOK, mcpHelpHTML(baseURL))
-			return
-		}
-		writeHelpJSON(w, http.StatusNotFound, map[string]interface{}{"error": "not found", "help": "/help", "endpoint": "/mcp"})
-	})
-}
-
-func artifactFileHandler(root string) http.HandlerFunc {
-	root = filepath.Clean(root)
-	return func(w http.ResponseWriter, r *http.Request) {
-		rel := strings.TrimPrefix(r.URL.Path, "/files/")
-		if rel == "" {
-			http.NotFound(w, r)
-			return
-		}
-		clean := filepath.Clean(filepath.FromSlash(rel))
-		if filepath.IsAbs(clean) || clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-			http.NotFound(w, r)
-			return
-		}
-		filePath := filepath.Join(root, clean)
-		if !pathInsideRoot(root, filePath) {
-			http.NotFound(w, r)
-			return
-		}
-		if realPath, err := filepath.EvalSymlinks(filePath); err == nil && !pathInsideRoot(root, realPath) {
-			http.NotFound(w, r)
-			return
-		}
-		info, err := os.Stat(filePath)
-		if err != nil || info.IsDir() {
-			http.NotFound(w, r)
-			return
-		}
-		http.ServeFile(w, r, filePath)
-	}
-}
-
-func pathInsideRoot(root, filePath string) bool {
-	absRoot, err := filepath.Abs(root)
-	if err != nil {
-		return false
-	}
-	absPath, err := filepath.Abs(filePath)
-	if err != nil {
-		return false
-	}
-	rel, err := filepath.Rel(filepath.Clean(absRoot), filepath.Clean(absPath))
-	if err != nil {
-		return false
-	}
-	return rel != "." && rel != ".." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
-func publicURL(baseURL, path string) string {
-	baseURL = strings.TrimRight(baseURL, "/")
-	if baseURL == "" {
-		return path
-	}
-	return baseURL + path
-}
-
-func writeHelpJSON(w http.ResponseWriter, code int, payload interface{}) {
-	data, _ := json.Marshal(payload)
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-	w.WriteHeader(code)
-	_, _ = w.Write(data)
-}
-
-func writeHelpHTML(w http.ResponseWriter, code int, text string) {
-	data := []byte(text)
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-	w.WriteHeader(code)
-	_, _ = w.Write(data)
-}
-
-func mcpHelpHTML(baseURL string) string {
-	endpoint := publicURL(baseURL, "/mcp")
-	escapedEndpoint := htmltemplate.HTMLEscapeString(endpoint)
-	jsonEndpoint, _ := json.Marshal(endpoint)
-	escapedJSONEndpoint := htmltemplate.HTMLEscapeString(string(jsonEndpoint))
-	return fmt.Sprintf(`<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>wowdata MCP Help</title>
-<style>body{font-family:Segoe UI,Arial,sans-serif;line-height:1.55;max-width:980px;margin:40px auto;padding:0 18px;color:#172033}pre{background:#0f172a;color:#dbeafe;padding:14px;border-radius:8px;overflow:auto}code{background:#e5e7eb;padding:2px 5px;border-radius:4px}h1,h2{color:#0f172a}li{margin:4px 0}</style></head>
-<body><h1>wowdata MCP</h1><p>Endpoint: <code>%s</code></p>
-<h2>Codex HTTP config</h2><pre>codex mcp add wowdata --url %s</pre>
-<h2>Claude Code HTTP config</h2><pre>claude mcp add --transport http wowdata %s</pre>
-<h2>cc-switch HTTP config</h2><pre>{
-  "type": "http",
-  "url": %s
-}</pre>
-<h2>Local stdio fallback</h2><pre>claude mcp add --transport stdio wowdata -- wowdata mcp stdio
-wowdata mcp stdio</pre>
-<h2>HTTP supported tools</h2><p>wow_builds, wow_status, wow_query, wow_item, wow_spell, wow_file, wow_icon, wow_creature, wow_encounter, wow_decor, wow_video.</p>
-<h2>Admin tools when enabled</h2><p>Admin tools are hidden by default and appear only when <code>tools.expose_admin_tools</code> is enabled: wow_refresh_builds, wow_prepare, wow_prune_cache.</p>
-<h2>Artifact download behavior</h2><p>Tools that create files return public artifact URLs when the server has an artifact root and base URL configured; local file URIs are preserved as <code>fileURI</code> when rewritten.</p>
-</body></html>`, escapedEndpoint, escapedEndpoint, escapedEndpoint, escapedJSONEndpoint)
 }
 
 func mcpToolsForRuntime(rt *Runtime) []mcpTool {
@@ -207,104 +57,6 @@ func mcpToolsForRuntimeWithArtifacts(rt *Runtime, artifacts artifactConfig) []mc
 type artifactConfig struct {
 	root    string
 	baseURL string
-}
-
-type mcpArtifactReserver struct {
-	manager *artifact.Manager
-}
-
-type httpRuntimeAssets struct {
-	rt  *Runtime
-	svc *httpservice.Service
-}
-
-func (a httpRuntimeAssets) FileStore(ctx context.Context, rc httpservice.RequestContext, needListfile bool) (appruntime.FileStore, error) {
-	lf, reader, err := a.prepare(ctx, rc, needListfile)
-	if err != nil {
-		return nil, err
-	}
-	return appruntime.NewCASCFileStore(lf, nil, reader), nil
-}
-
-func (a httpRuntimeAssets) IconStore(ctx context.Context, rc httpservice.RequestContext) (appruntime.IconStore, error) {
-	_, reader, err := a.prepare(ctx, rc, false)
-	if err != nil {
-		return nil, err
-	}
-	return appruntime.NewCASCFileStore(nil, nil, reader), nil
-}
-
-func (a httpRuntimeAssets) prepare(ctx context.Context, rc httpservice.RequestContext, needListfile bool) (*listfile.Listfile, appruntime.FileDataReader, error) {
-	if a.rt == nil {
-		return nil, nil, fmt.Errorf("runtime is required")
-	}
-	if a.svc != nil {
-		rc = a.svc.ResolveRequestContext(rc)
-	} else {
-		rc = httpservice.NewService(config.DefaultHTTPConfig(), nil).ResolveRequestContext(rc)
-	}
-	a.rt.httpRuntimeMu.Lock()
-	defer a.rt.httpRuntimeMu.Unlock()
-	_, err := a.rt.initialize(warmupOptions{
-		Source:          "remote",
-		Region:          rc.Region,
-		Product:         rc.Product,
-		Locale:          rc.Locale,
-		CacheRoot:       a.rt.CacheRoot,
-		WarmDBDManifest: false,
-		WarmListfile:    needListfile,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	a.rt.mu.Lock()
-	defer a.rt.mu.Unlock()
-	var reader appruntime.FileDataReader
-	if a.rt.CASC != nil {
-		reader = a.rt.CASC
-	} else if a.rt.Local != nil {
-		reader = a.rt.Local
-	}
-	return a.rt.LF, reader, nil
-}
-
-func newMCPArtifactReserver(cfg artifactConfig) *mcpArtifactReserver {
-	if cfg.root == "" {
-		return nil
-	}
-	return &mcpArtifactReserver{manager: artifact.NewManager(artifact.Config{Root: cfg.root, BaseURL: cfg.baseURL})}
-}
-
-func (r *mcpArtifactReserver) LinkArtifact(path, mimeType string) (mcpadapter.ArtifactLink, error) {
-	link, err := r.manager.LinkForPath(path, mimeType)
-	if err != nil {
-		return mcpadapter.ArtifactLink{}, err
-	}
-	return mcpadapter.ArtifactLink{
-		Path:        link.Path,
-		URI:         link.URI,
-		DownloadURL: link.DownloadURL,
-		MimeType:    link.MimeType,
-		Name:        link.Name,
-		Size:        link.Size,
-		SHA256:      link.SHA256,
-	}, nil
-}
-
-func (r *mcpArtifactReserver) ReserveArtifact(kind, name, mimeType string) (string, mcpadapter.ArtifactLink, error) {
-	outputPath, link, err := r.manager.Reserve(kind, name, mimeType)
-	if err != nil {
-		return "", mcpadapter.ArtifactLink{}, err
-	}
-	return outputPath, mcpadapter.ArtifactLink{
-		Path:        link.Path,
-		URI:         link.URI,
-		DownloadURL: link.DownloadURL,
-		MimeType:    link.MimeType,
-		Name:        link.Name,
-		Size:        link.Size,
-		SHA256:      link.SHA256,
-	}, nil
 }
 
 func stdioCLIHandler(rt *Runtime, name string, artifacts artifactConfig) mcpadapter.ToolHandler {
@@ -357,25 +109,6 @@ func cliTool(rt *Runtime, name, description string, base []string, mapper func(m
 			extra, err := mapper(args)
 			if err != nil {
 				return nil, err
-			}
-			var release func()
-			if name == "wow_warmup" {
-				release, err = rt.beginHTTPWarmup()
-				if err != nil {
-					return map[string]interface{}{
-						"ok":      false,
-						"command": "warmup",
-						"data": map[string]interface{}{
-							"status": "busy",
-						},
-						"warnings": []interface{}{},
-						"error": map[string]interface{}{
-							"code":    "warmup_in_progress",
-							"message": err.Error(),
-						},
-					}, nil
-				}
-				defer release()
 			}
 			result, err := executeCLIJSON(ctx, rt, append(append([]string{}, base...), extra...))
 			if err != nil {

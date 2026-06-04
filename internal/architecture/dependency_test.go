@@ -36,6 +36,21 @@ func TestSpecDirectoryArchitecturePackagesExist(t *testing.T) {
 	}
 }
 
+func TestLegacyLocalHTTPPackagesAreRemoved(t *testing.T) {
+	legacyPaths := []string{
+		filepath.Join("..", "..", "internal", "service", "http"),
+		filepath.Join("..", "..", "internal", "config", "http.go"),
+		filepath.Join("..", "..", "cmd", "wowdata", "mcp_http.go"),
+	}
+	for _, path := range legacyPaths {
+		if _, err := os.Stat(path); err == nil {
+			t.Fatalf("legacy local HTTP path still exists: %s", path)
+		} else if !os.IsNotExist(err) {
+			t.Fatalf("stat legacy local HTTP path %s: %v", path, err)
+		}
+	}
+}
+
 func TestServerDoesNotImportLocalPackages(t *testing.T) {
 	cmd := exec.Command(goToolPath(), "list", "-deps", "./cmd/wowdata-server", "./internal/server/...")
 	cmd.Dir = "../.."

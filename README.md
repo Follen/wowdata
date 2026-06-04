@@ -97,7 +97,7 @@ wowdata --mcp
 作为远端 MCP Streamable HTTP server 运行：
 
 ```powershell
-wowdata mcp http --host 0.0.0.0 --port 9788 --base-url http://211.154.18.253:11223 --artifact-root /var/lib/wowdata/artifacts --artifact-base-url http://211.154.18.253:11223/files --max-contexts 3
+wowdata-server mcp http --config /etc/wowdata/http-mcp.yaml
 ```
 
 HTTP endpoint:
@@ -194,7 +194,6 @@ creature display|model
 decor list|get
 video demux
 mcp stdio
-mcp http
 ```
 
 ### 开发构建
@@ -292,7 +291,7 @@ wowdata --mcp
 Run as an MCP Streamable HTTP server:
 
 ```bash
-wowdata mcp http --host 0.0.0.0 --port 9788 --base-url http://211.154.18.253:11223 --artifact-root /var/lib/wowdata/artifacts --artifact-base-url http://211.154.18.253:11223/files --max-contexts 3
+wowdata-server mcp http --config /etc/wowdata/http-mcp.yaml
 ```
 
 HTTP endpoints:
@@ -389,7 +388,6 @@ creature display|model
 decor list|get
 video demux
 mcp stdio
-mcp http
 ```
 
 ### Development

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+
+	"wowdata/internal/shared/mcpserver"
 )
 
 func TestStdioToolNamesIncludeWarmupAndExistingTools(t *testing.T) {
@@ -53,4 +55,15 @@ func stringSet(values []string) map[string]bool {
 		out[value] = true
 	}
 	return out
+}
+
+func findTool(t *testing.T, tools []mcpserver.Tool, name string) mcpserver.Tool {
+	t.Helper()
+	for _, tool := range tools {
+		if tool.Name == name {
+			return tool
+		}
+	}
+	t.Fatalf("tool %s not found", name)
+	return mcpserver.Tool{}
 }
