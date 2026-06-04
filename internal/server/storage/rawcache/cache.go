@@ -17,11 +17,11 @@ import (
 type FetchFunc func(ctx context.Context, encodingKey string) ([]byte, error)
 
 type Cache struct {
-	root             string
-	limitBytes       int64
-	targetBytes      int64
-	mu               sync.Mutex
-	in               map[string]*call
+	root        string
+	limitBytes  int64
+	targetBytes int64
+	mu          sync.Mutex
+	in          map[string]*call
 }
 
 type call struct {
@@ -47,10 +47,6 @@ func (c *Cache) Get(ctx context.Context, region, product, buildKey, encodingKey,
 	if c == nil {
 		return nil, errors.New("raw cache: nil cache")
 	}
-	if expectedSHA256 == "" {
-		return nil, errors.New("raw cache: empty expected sha256")
-	}
-
 	path, err := Path(c.root, region, product, buildKey, encodingKey)
 	if err != nil {
 		return nil, err
@@ -101,7 +97,7 @@ func (c *Cache) fetchAndStore(ctx context.Context, path, encodingKey, expectedSH
 	if err != nil {
 		return nil, err
 	}
-	if sha256Hex(body) != strings.ToLower(expectedSHA256) {
+	if expectedSHA256 != "" && sha256Hex(body) != strings.ToLower(expectedSHA256) {
 		return nil, errors.New("raw cache: fetched blob sha256 mismatch")
 	}
 	if err := writeAtomic(c.root, path, body); err != nil {
@@ -151,7 +147,7 @@ func readValid(path, expectedSHA256 string) ([]byte, bool) {
 	if err != nil {
 		return nil, false
 	}
-	if sha256Hex(body) != strings.ToLower(expectedSHA256) {
+	if expectedSHA256 != "" && sha256Hex(body) != strings.ToLower(expectedSHA256) {
 		return nil, false
 	}
 	return body, true

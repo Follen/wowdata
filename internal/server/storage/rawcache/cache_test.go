@@ -290,19 +290,23 @@ func TestSymlinkedCacheAncestorCannotEscapeRoot(t *testing.T) {
 	}
 }
 
-func TestEmptyExpectedSHA256RejectedBeforeFetch(t *testing.T) {
+func TestEmptyExpectedSHA256SkipsHashValidation(t *testing.T) {
 	ctx := context.Background()
+	body := []byte("remote body")
 
 	var calls atomic.Int64
-	_, err := New(t.TempDir()).Get(ctx, "us", "wow", "build-a", "encoding-a", "", func(context.Context, string) ([]byte, error) {
+	got, err := New(t.TempDir()).Get(ctx, "us", "wow", "build-a", "encoding-a", "", func(context.Context, string) ([]byte, error) {
 		calls.Add(1)
-		return []byte("remote body"), nil
+		return body, nil
 	})
-	if err == nil {
-		t.Fatal("Get with empty expectedSHA256 succeeded, want error")
+	if err != nil {
+		t.Fatalf("Get with empty expectedSHA256: %v", err)
 	}
-	if calls.Load() != 0 {
-		t.Fatalf("remote calls = %d, want 0", calls.Load())
+	if string(got) != string(body) {
+		t.Fatalf("body = %q, want %q", got, body)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("remote calls = %d, want 1", calls.Load())
 	}
 }
 

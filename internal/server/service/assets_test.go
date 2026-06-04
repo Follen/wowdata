@@ -13,6 +13,7 @@ import (
 	"wowdata/internal/server/storage/artifacts"
 	"wowdata/internal/server/storage/cascindex"
 	"wowdata/internal/server/storage/listfile"
+	"wowdata/internal/server/storage/metadata"
 	"wowdata/internal/server/storage/rawcache"
 )
 
@@ -143,6 +144,42 @@ func TestServerFileExportResolvesCASCIndexForRequestBuild(t *testing.T) {
 	}
 }
 
+func TestServerFileExportUsesActiveBuildWhenBuildKeyOmitted(t *testing.T) {
+	ctx := context.Background()
+	db := openMetadataQueryTestDB(t)
+	body := []byte("active file")
+	hash := sha256HexForAssetTest(body)
+	active := metadata.BuildKey{Region: "cn", Product: "wow", Locale: "zhCN", BuildKey: "active-build"}
+	seedActiveReadyBuild(t, ctx, db, active)
+	if err := listfile.ReplaceSource(ctx, db, "source-a", []listfile.Entry{{FileDataID: 303, Path: "Files/Active.bin"}}); err != nil {
+		t.Fatalf("seed listfile: %v", err)
+	}
+	if err := cascindex.ReplaceIndexForSource(ctx, db, cascindex.SourceKey(active), "source-active",
+		[]cascindex.RootMapping{{FileDataID: 303, ContentKey: "content-active"}},
+		[]cascindex.EncodingMapping{{ContentKey: "content-active", EncodingKey: hash, Size: int64(len(body))}},
+		[]cascindex.ArchiveMapping{{EncodingKey: hash, ArchiveKey: "archive-active", Offset: 0, Size: int64(len(body))}},
+	); err != nil {
+		t.Fatalf("seed casc index: %v", err)
+	}
+	svc := NewAssetServiceForTest(db, rawcache.New(t.TempDir()), artifacts.NewStore(artifacts.Config{
+		Root:    t.TempDir(),
+		BaseURL: "http://example.test/files",
+	}, db), func(ctx context.Context, encodingKey string) ([]byte, error) {
+		return body, nil
+	})
+
+	got, err := svc.FileExport(ctx, FileExportRequest{
+		Context:    RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"},
+		FileDataID: 303,
+	})
+	if err != nil {
+		t.Fatalf("FileExport: %v", err)
+	}
+	if got.SHA256 != hash || got.Size != int64(len(body)) {
+		t.Fatalf("export = %#v, want active build blob", got)
+	}
+}
+
 func TestServerFileExportUsesCachedRawBlobWithoutFetcher(t *testing.T) {
 	ctx := context.Background()
 	db := openMetadataQueryTestDB(t)
@@ -182,6 +219,50 @@ func TestServerFileExportUsesCachedRawBlobWithoutFetcher(t *testing.T) {
 		t.Fatalf("FileExport: %v", err)
 	}
 	if got.Size != int64(len(body)) || got.DownloadURL == "" {
+		t.Fatalf("export = %#v", got)
+	}
+}
+
+func TestServerFileExportAllowsNonSHAEncodingKeysWithContextFetcher(t *testing.T) {
+	ctx := context.Background()
+	db := openMetadataQueryTestDB(t)
+	body := []byte("md5-key file")
+	active := metadata.BuildKey{Region: "cn", Product: "wow", Locale: "zhCN", BuildKey: "active-build"}
+	encodingKey := "5beea65cbad371c0484059fbaad5dac0"
+	seedActiveReadyBuild(t, ctx, db, active)
+	if err := listfile.ReplaceSource(ctx, db, "source-a", []listfile.Entry{{FileDataID: 304, Path: "Files/MD5Key.bin"}}); err != nil {
+		t.Fatalf("seed listfile: %v", err)
+	}
+	if err := cascindex.ReplaceIndexForSource(ctx, db, cascindex.SourceKey(active), "source-active",
+		[]cascindex.RootMapping{{FileDataID: 304, ContentKey: "content-active"}},
+		[]cascindex.EncodingMapping{{ContentKey: "content-active", EncodingKey: encodingKey, Size: int64(len(body))}},
+		[]cascindex.ArchiveMapping{{EncodingKey: encodingKey, ArchiveKey: "archive-active", Offset: 0, Size: int64(len(body))}},
+	); err != nil {
+		t.Fatalf("seed casc index: %v", err)
+	}
+	var seen RequestContext
+	svc := NewAssetServiceWithContextFetch(db, rawcache.New(t.TempDir()), artifacts.NewStore(artifacts.Config{
+		Root:    t.TempDir(),
+		BaseURL: "http://example.test/files",
+	}, db), func(ctx context.Context, reqCtx RequestContext, gotEncodingKey string) ([]byte, error) {
+		seen = reqCtx
+		if gotEncodingKey != encodingKey {
+			return nil, fmt.Errorf("encoding key = %s, want %s", gotEncodingKey, encodingKey)
+		}
+		return body, nil
+	})
+
+	got, err := svc.FileExport(ctx, FileExportRequest{
+		Context:    RequestContext{Region: "cn", Product: "wow", Locale: "zhCN"},
+		FileDataID: 304,
+	})
+	if err != nil {
+		t.Fatalf("FileExport: %v", err)
+	}
+	if seen.BuildKey != active.BuildKey {
+		t.Fatalf("fetch context = %#v, want active build", seen)
+	}
+	if got.Size != int64(len(body)) || got.SHA256 != sha256HexForAssetTest(body) {
 		t.Fatalf("export = %#v", got)
 	}
 }

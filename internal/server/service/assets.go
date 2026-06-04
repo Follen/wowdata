@@ -10,6 +10,7 @@ import (
 	"wowdata/internal/server/storage/artifacts"
 	"wowdata/internal/server/storage/cascindex"
 	"wowdata/internal/server/storage/listfile"
+	"wowdata/internal/server/storage/metadata"
 	"wowdata/internal/server/storage/rawcache"
 	"wowdata/internal/shared/export"
 )
@@ -64,11 +65,14 @@ type AssetService interface {
 	IconExport(context.Context, IconExportRequest) (AssetRecord, error)
 }
 
+type ContextFetchFunc func(ctx context.Context, reqCtx RequestContext, encodingKey string) ([]byte, error)
+
 type ServerAssetService struct {
-	db        *sql.DB
-	rawCache  *rawcache.Cache
-	artifacts *artifacts.Store
-	fetch     rawcache.FetchFunc
+	db           *sql.DB
+	rawCache     *rawcache.Cache
+	artifacts    *artifacts.Store
+	fetch        rawcache.FetchFunc
+	contextFetch ContextFetchFunc
 }
 
 func NewAssetServiceForTest(db *sql.DB, raw *rawcache.Cache, store *artifacts.Store, fetch rawcache.FetchFunc) *ServerAssetService {
@@ -77,6 +81,10 @@ func NewAssetServiceForTest(db *sql.DB, raw *rawcache.Cache, store *artifacts.St
 
 func NewAssetService(db *sql.DB, raw *rawcache.Cache, store *artifacts.Store, fetch rawcache.FetchFunc) *ServerAssetService {
 	return &ServerAssetService{db: db, rawCache: raw, artifacts: store, fetch: fetch}
+}
+
+func NewAssetServiceWithContextFetch(db *sql.DB, raw *rawcache.Cache, store *artifacts.Store, fetch ContextFetchFunc) *ServerAssetService {
+	return &ServerAssetService{db: db, rawCache: raw, artifacts: store, contextFetch: fetch}
 }
 
 func (s *ServerAssetService) FileLookup(ctx context.Context, req FileLookupRequest) (AssetRecord, error) {
@@ -101,7 +109,11 @@ func (s *ServerAssetService) FileExists(ctx context.Context, req FileExistsReque
 	if fileDataID == 0 {
 		return FileExistsResult{Filename: filename, Exists: false}, nil
 	}
-	_, err := cascindex.ResolveFileDataIDForSource(ctx, s.db, cascSourceKey(req.Context), fileDataID)
+	resolvedCtx, err := s.resolveContext(ctx, req.Context)
+	if err != nil {
+		return FileExistsResult{FileDataID: fileDataID, Filename: filename, Exists: false}, err
+	}
+	_, err = cascindex.ResolveFileDataIDForSource(ctx, s.db, cascSourceKey(resolvedCtx), fileDataID)
 	return FileExistsResult{FileDataID: fileDataID, Filename: filename, Exists: err == nil}, nil
 }
 
@@ -180,12 +192,42 @@ func (s *ServerAssetService) readRawFile(ctx context.Context, reqCtx RequestCont
 	if s == nil || s.db == nil || s.rawCache == nil {
 		return nil, fmt.Errorf("server asset storage is unavailable")
 	}
+	reqCtx, err := s.resolveContext(ctx, reqCtx)
+	if err != nil {
+		return nil, err
+	}
 	span, err := cascindex.ResolveFileDataIDForSource(ctx, s.db, cascSourceKey(reqCtx), fileDataID)
 	if err != nil {
 		return nil, err
 	}
-	expectedSHA256 := strings.ToLower(span.EncodingKey)
-	return s.rawCache.Get(ctx, reqCtx.Region, reqCtx.Product, reqCtx.BuildKey, span.EncodingKey, expectedSHA256, s.fetch)
+	expectedSHA256 := expectedRawSHA256(span.EncodingKey)
+	fetch := s.fetch
+	if s.contextFetch != nil {
+		fetch = func(ctx context.Context, encodingKey string) ([]byte, error) {
+			return s.contextFetch(ctx, reqCtx, encodingKey)
+		}
+	}
+	return s.rawCache.Get(ctx, reqCtx.Region, reqCtx.Product, reqCtx.BuildKey, span.EncodingKey, expectedSHA256, fetch)
+}
+
+func (s *ServerAssetService) resolveContext(ctx context.Context, reqCtx RequestContext) (RequestContext, error) {
+	if reqCtx.BuildKey != "" {
+		return reqCtx, nil
+	}
+	active, err := metadata.ActiveBuild(ctx, s.db, reqCtx.Region, reqCtx.Product, reqCtx.Locale)
+	if err != nil {
+		return reqCtx, fmt.Errorf("resolve active build for asset request: %w", err)
+	}
+	reqCtx.BuildKey = active.Key.BuildKey
+	return reqCtx, nil
+}
+
+func expectedRawSHA256(encodingKey string) string {
+	key := strings.ToLower(strings.TrimSpace(encodingKey))
+	if len(key) == 64 {
+		return key
+	}
+	return ""
 }
 
 func cascSourceKey(reqCtx RequestContext) cascindex.SourceKey {

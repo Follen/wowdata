@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	serverbootstrap "wowdata/internal/server/bootstrap"
@@ -21,6 +22,7 @@ import (
 	"wowdata/internal/server/storage/artifacts"
 	"wowdata/internal/server/storage/metadata"
 	"wowdata/internal/server/storage/rawcache"
+	"wowdata/internal/shared/casc"
 	"wowdata/internal/shared/mcpserver"
 
 	"github.com/spf13/cobra"
@@ -226,11 +228,11 @@ func newHTTPHandlerStrict(opts httpOptions, healthProvider health.Provider) (htt
 		if artifactRoot == "" {
 			artifactRoot = cfg.Artifacts.Root
 		}
-		assetService = service.NewAssetService(
+		assetService = service.NewAssetServiceWithContextFetch(
 			metadataProvider.DB(),
 			rawcache.NewWithLimits(cfg.Cache.RawDir, cfg.Cache.CASCDiskLimitMB*1024*1024, cfg.Cache.CASCDiskTargetMB*1024*1024),
 			artifacts.NewStore(artifacts.Config{Root: artifactRoot, BaseURL: artifactBaseURL(cfg, opts.BaseURL)}, metadataProvider.DB()),
-			nil,
+			newCASCEncodingFetcher(cfg),
 		)
 	}
 	mcpServer := mcpserver.NewServer("wowdata", mcphttp.HTTPTools(mcphttp.Options{
@@ -255,6 +257,103 @@ func newHTTPHandlerStrict(opts httpOptions, healthProvider health.Provider) (htt
 		return closeableHandler{Handler: mux, close: sharedMetadataDB.Close}, nil
 	}
 	return mux, nil
+}
+
+type cascEncodingFetcher struct {
+	cacheRoot   string
+	limitBytes  int64
+	targetBytes int64
+	mu          sync.Mutex
+	remotes     map[string]*casc.CASCRemote
+}
+
+func newCASCEncodingFetcher(cfg config.Config) service.ContextFetchFunc {
+	cacheRoot := cfg.Cache.RawDir
+	if cacheRoot == "" {
+		cacheRoot = cfg.Cache.Root
+	}
+	fetcher := &cascEncodingFetcher{
+		cacheRoot:   cacheRoot,
+		limitBytes:  cfg.Cache.CASCDiskLimitMB * 1024 * 1024,
+		targetBytes: cfg.Cache.CASCDiskTargetMB * 1024 * 1024,
+		remotes:     map[string]*casc.CASCRemote{},
+	}
+	return fetcher.fetch
+}
+
+func (f *cascEncodingFetcher) fetch(ctx context.Context, reqCtx service.RequestContext, encodingKey string) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	remote, err := f.remote(reqCtx)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return remote.ReadEncodingData(encodingKey)
+}
+
+func (f *cascEncodingFetcher) remote(reqCtx service.RequestContext) (*casc.CASCRemote, error) {
+	cacheKey := strings.Join([]string{reqCtx.Region, reqCtx.Product, reqCtx.Locale, reqCtx.BuildKey}, "\x00")
+	f.mu.Lock()
+	if remote := f.remotes[cacheKey]; remote != nil {
+		f.mu.Unlock()
+		return remote, nil
+	}
+	f.mu.Unlock()
+
+	remote, err := openCASCRemoteForAsset(reqCtx, f.cacheRoot, f.limitBytes, f.targetBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	f.mu.Lock()
+	if existing := f.remotes[cacheKey]; existing != nil {
+		f.mu.Unlock()
+		return existing, nil
+	}
+	f.remotes[cacheKey] = remote
+	f.mu.Unlock()
+	return remote, nil
+}
+
+func openCASCRemoteForAsset(reqCtx service.RequestContext, cacheRoot string, limitBytes, targetBytes int64) (*casc.CASCRemote, error) {
+	locale, ok := casc.LocaleFlagByNameOK(reqCtx.Locale)
+	if !ok {
+		return nil, fmt.Errorf("unknown locale %q", reqCtx.Locale)
+	}
+	remote := casc.NewCASCRemote(reqCtx.Region)
+	remote.Products = []string{reqCtx.Product}
+	remote.Locale = locale
+	remote.CacheRoot = cacheRoot
+	remote.CacheLimitBytes = limitBytes
+	remote.CacheTargetBytes = targetBytes
+	if err := remote.Init(); err != nil {
+		return nil, err
+	}
+	buildIndex := -1
+	for i, build := range remote.Builds {
+		if build.Product != reqCtx.Product {
+			continue
+		}
+		buildKey := build.BuildConfig
+		if buildKey == "" {
+			buildKey = build.BuildKey
+		}
+		if buildKey == reqCtx.BuildKey {
+			buildIndex = i
+			break
+		}
+	}
+	if buildIndex < 0 {
+		return nil, fmt.Errorf("build %s not found for %s/%s/%s", reqCtx.BuildKey, reqCtx.Region, reqCtx.Product, reqCtx.Locale)
+	}
+	if err := remote.Preload(buildIndex); err != nil {
+		return nil, err
+	}
+	return remote, nil
 }
 
 func supportedMCPTargets() []mcphttp.SupportedTarget {
