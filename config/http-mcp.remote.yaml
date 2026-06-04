@@ -1,5 +1,5 @@
 server:
-  host: 127.0.0.1
+  host: 0.0.0.0
   port: 9788
   base_url: http://211.154.18.253:11223/wowdata
 
