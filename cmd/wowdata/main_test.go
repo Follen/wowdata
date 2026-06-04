@@ -136,6 +136,13 @@ func TestWarmupResultAddsStableFields(t *testing.T) {
 	}
 }
 
+func TestRemoteWarmupProductsOptInRequestedProduct(t *testing.T) {
+	products := remoteWarmupProducts("wow_classic_ptr")
+	if !reflect.DeepEqual(products, []string{"wow_classic_ptr"}) {
+		t.Fatalf("products = %#v", products)
+	}
+}
+
 func TestWarmupResultNormalizesNilTablesToEmptySlice(t *testing.T) {
 	result := map[string]interface{}{
 		"warm": map[string]interface{}{

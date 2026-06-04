@@ -291,6 +291,7 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 	switch opts.Source {
 	case "remote":
 		remote := casc.NewCASCRemote(opts.Region)
+		remote.Products = remoteWarmupProducts(opts.Product)
 		remote.CacheRoot = opts.CacheRoot
 		if err := applyWarmupLocale(remote.CASCSource, opts.Locale); err != nil {
 			return result, warmupStepError{Code: "invalid_locale", Err: err}
@@ -573,6 +574,14 @@ func buildIndexByProduct(builds []casc.VersionEntry, product string) int {
 		}
 	}
 	return -1
+}
+
+func remoteWarmupProducts(product string) []string {
+	product = strings.TrimSpace(product)
+	if product == "" {
+		return nil
+	}
+	return []string{product}
 }
 
 func warmupPrompt(rt *Runtime) map[string]interface{} {

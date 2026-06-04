@@ -5,6 +5,7 @@ AGENT.md
 AGENTS.md
 *.log
 cache/
+.regression/
 *.sqlite
 *.duckdb
 *.parquet
