@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	decoderVersion                = "runtime-db2-loader-v2"
+	decoderVersion                = "runtime-db2-loader-v3"
 	materializerVersion           = "server-prepare-bootstrap-v2"
 	manifestUnreadableErrorPrefix = "manifest unreadable: "
 	defaultRetryAttempts          = 3
