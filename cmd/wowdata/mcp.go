@@ -190,9 +190,19 @@ func executeCLIJSON(ctx context.Context, rt *Runtime, args []string) (interface{
 		}
 		return nil, err
 	}
+	decoded, err := decodeCLIJSONOutput(args, stdout.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	return decoded, nil
+}
+
+func decodeCLIJSONOutput(args []string, stdout []byte) (interface{}, error) {
 	var decoded interface{}
-	if err := json.Unmarshal(stdout.Bytes(), &decoded); err != nil {
-		return nil, fmt.Errorf("decode CLI JSON for %v: %w; stdout=%s", args, err, stdout.String())
+	decoder := json.NewDecoder(bytes.NewReader(stdout))
+	decoder.UseNumber()
+	if err := decoder.Decode(&decoded); err != nil {
+		return nil, fmt.Errorf("decode CLI JSON for %v: %w; stdout=%s", args, err, string(stdout))
 	}
 	return decoded, nil
 }

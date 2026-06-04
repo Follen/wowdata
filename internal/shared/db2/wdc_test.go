@@ -286,6 +286,113 @@ func TestWDCInlineIDNameKeysCommonDataWhenIDIndexDiffers(t *testing.T) {
 	}
 }
 
+func TestWDCCommonDataBeforeInlineIDUsesCapturedID(t *testing.T) {
+	reader := &WDCReader{
+		IsLoaded: true,
+		Schema: []SchemaField{
+			{Name: "Value", Type: FieldUInt32},
+			{Name: "ID", Type: FieldUInt32},
+		},
+		IDField:          "ID",
+		IDFieldIndex:     1,
+		FieldInfo:        []FieldStorageInfo{{FieldCompression: CompCommonData, FieldCompressionPacking: [3]uint32{10, 0, 0}}, {FieldCompression: CompBitpacked, FieldSizeBits: 32}},
+		CommonData:       []map[uint32]uint32{{2: 99}, nil},
+		RecordSize:       4,
+		TotalRecordCount: 2,
+		data:             []byte{1, 0, 0, 0, 2, 0, 0, 0},
+		Sections: []Section{{
+			Header:         SectionHeader{RecordCount: 2},
+			IsNormal:       true,
+			RecordDataOfs:  0,
+			RecordDataSize: 8,
+		}},
+	}
+
+	rows := reader.GetAllRows()
+	if rows[2]["Value"] != uint32(99) {
+		t.Fatalf("row 2 value = %v, want common-data override 99; rows=%#v", rows[2]["Value"], rows)
+	}
+}
+
+func TestWDCCommonDataWithoutInlineIDKeepsRecordIndexKey(t *testing.T) {
+	reader := &WDCReader{
+		IsLoaded: true,
+		Schema: []SchemaField{
+			{Name: "Value", Type: FieldUInt32},
+		},
+		IDField:          "ID",
+		IDFieldIndex:     -1,
+		FieldInfo:        []FieldStorageInfo{{FieldCompression: CompCommonData, FieldCompressionPacking: [3]uint32{10, 0, 0}}},
+		CommonData:       []map[uint32]uint32{{1: 99}},
+		RecordSize:       0,
+		TotalRecordCount: 2,
+		Sections: []Section{{
+			Header:         SectionHeader{RecordCount: 2},
+			IsNormal:       true,
+			RecordDataOfs:  0,
+			RecordDataSize: 0,
+		}},
+	}
+
+	rows := reader.GetAllRows()
+	if rows[1]["Value"] != uint32(99) {
+		t.Fatalf("row 1 value = %v, want record-index common-data override 99; rows=%#v", rows[1]["Value"], rows)
+	}
+}
+
+func TestWDCRelationUsesNonInlineRecordIDBeforeRecordIndex(t *testing.T) {
+	reader := &WDCReader{
+		IsLoaded: true,
+		Flags:    2,
+		Schema: []SchemaField{
+			{Name: "ID", Type: FieldNonInlineID},
+			{Name: "CollectableSourceInfoID", Type: FieldRelation},
+		},
+		IDField:          "ID",
+		IDFieldIndex:     0,
+		FieldInfo:        []FieldStorageInfo{},
+		RecordSize:       0,
+		TotalRecordCount: 1,
+		Sections: []Section{{
+			Header:          SectionHeader{RecordCount: 1},
+			IsNormal:        true,
+			IDList:          []uint32{2507},
+			RelationshipMap: map[uint32]uint32{2507: 19612},
+		}},
+	}
+
+	row := reader.GetRow(2507)
+	if row["CollectableSourceInfoID"] != uint32(19612) {
+		t.Fatalf("CollectableSourceInfoID = %v, want 19612; row=%#v", row["CollectableSourceInfoID"], row)
+	}
+}
+
+func TestWDCRelationUsesRecordIndexWithoutSecondaryKey(t *testing.T) {
+	reader := &WDCReader{
+		IsLoaded: true,
+		Schema: []SchemaField{
+			{Name: "ID", Type: FieldNonInlineID},
+			{Name: "ParentID", Type: FieldRelation},
+		},
+		IDField:          "ID",
+		IDFieldIndex:     0,
+		FieldInfo:        []FieldStorageInfo{},
+		RecordSize:       0,
+		TotalRecordCount: 1,
+		Sections: []Section{{
+			Header:          SectionHeader{RecordCount: 1},
+			IsNormal:        true,
+			IDList:          []uint32{2507},
+			RelationshipMap: map[uint32]uint32{0: 19612, 2507: 99999},
+		}},
+	}
+
+	row := reader.GetRow(2507)
+	if row["ParentID"] != uint32(19612) {
+		t.Fatalf("ParentID = %v, want record-index relation 19612; row=%#v", row["ParentID"], row)
+	}
+}
+
 func TestWDCDuplicateFieldInfoUsesCurrentCommonDataIndex(t *testing.T) {
 	reader := &WDCReader{
 		IsLoaded: true,

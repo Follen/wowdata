@@ -47,6 +47,20 @@ func TestMCPStdioCommandDoesNotRequireHTTPConfig(t *testing.T) {
 	}
 }
 
+func TestDecodeCLIJSONOutputPreservesUnsafeIntegers(t *testing.T) {
+	decoded, err := decodeCLIJSONOutput([]string{"query", "rows"}, []byte(`{"data":{"rows":[{"RaceMask":-6184943489809468494}]}}`))
+	if err != nil {
+		t.Fatalf("decodeCLIJSONOutput: %v", err)
+	}
+	data, err := json.Marshal(decoded)
+	if err != nil {
+		t.Fatalf("marshal decoded: %v", err)
+	}
+	if !strings.Contains(string(data), `-6184943489809468494`) {
+		t.Fatalf("unsafe integer was not preserved: %s", data)
+	}
+}
+
 func TestMCPToolInheritsRuntimePersistentFlags(t *testing.T) {
 	rt := NewRuntime()
 	rt.CacheRoot = "runtime-cache"

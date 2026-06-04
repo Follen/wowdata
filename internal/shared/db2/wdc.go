@@ -415,6 +415,17 @@ func (r *WDCReader) parseBinary(data []byte) error {
 			sPos += n
 			return nil
 		}
+		readOffsetMapIDs := func() ([]uint32, error) {
+			ids := make([]uint32, sh.OffsetMapIDCount)
+			for i := range ids {
+				id, err := readSectionU32()
+				if err != nil {
+					return nil, err
+				}
+				ids[i] = id
+			}
+			return ids, nil
+		}
 
 		// ID list
 		idList := make([]uint32, sh.IDListSize/4)
@@ -463,6 +474,18 @@ func (r *WDCReader) parseBinary(data []byte) error {
 			}
 		}
 
+		secondaryKey := r.Flags&2 != 0
+		readSparseIDsBeforeRelationship := r.WDCVersion > 3 && sh.OffsetMapIDCount > 0 && secondaryKey
+		if readSparseIDsBeforeRelationship {
+			sparseIDs, err := readOffsetMapIDs()
+			if err != nil {
+				return err
+			}
+			if len(idList) == 0 || len(idList) == len(sparseIDs) {
+				idList = sparseIDs
+			}
+		}
+
 		// Relationship data
 		var relationshipMap map[uint32]uint32
 		if sh.RelationshipDataSize > 0 {
@@ -497,7 +520,9 @@ func (r *WDCReader) parseBinary(data []byte) error {
 					r.RelationshipLookup[foreignID] = nil
 				}
 				recordID := recordIndex
-				if int(recordIndex) < len(idList) {
+				if secondaryKey {
+					recordID = recordIndex
+				} else if int(recordIndex) < len(idList) {
 					recordID = idList[recordIndex]
 				}
 				if !containsUint32(r.RelationshipLookup[foreignID], recordID) {
@@ -508,9 +533,13 @@ func (r *WDCReader) parseBinary(data []byte) error {
 		}
 
 		// Offset map ID list (WDC3+, duplicate)
-		if r.WDCVersion > 2 {
-			if err := skipSection(int64(sh.OffsetMapIDCount) * 4); err != nil {
+		if r.WDCVersion > 2 && sh.OffsetMapIDCount > 0 && !readSparseIDsBeforeRelationship {
+			sparseIDs, err := readOffsetMapIDs()
+			if err != nil {
 				return err
+			}
+			if len(idList) == 0 || len(idList) == len(sparseIDs) {
+				idList = sparseIDs
 			}
 		}
 
@@ -758,39 +787,64 @@ func (r *WDCReader) readRecord(recordID uint32) map[string]interface{} {
 }
 
 func rowIDUint32(value interface{}) uint32 {
-	switch v := value.(type) {
-	case uint8:
-		return uint32(v)
-	case uint16:
-		return uint32(v)
-	case uint32:
-		return v
-	case uint64:
-		return uint32(v)
-	case uint:
-		return uint32(v)
-	case int8:
-		if v > 0 {
-			return uint32(v)
-		}
-	case int16:
-		if v > 0 {
-			return uint32(v)
-		}
-	case int32:
-		if v > 0 {
-			return uint32(v)
-		}
-	case int64:
-		if v > 0 {
-			return uint32(v)
-		}
-	case int:
-		if v > 0 {
-			return uint32(v)
-		}
+	id, ok := rowIDUint32Value(value)
+	if ok && id != 0 {
+		return id
 	}
 	return 0
+}
+
+func rowIDUint32Value(value interface{}) (uint32, bool) {
+	maxUint32 := uint64(^uint32(0))
+	switch v := value.(type) {
+	case uint8:
+		return uint32(v), true
+	case uint16:
+		return uint32(v), true
+	case uint32:
+		return v, true
+	case uint64:
+		if v <= maxUint32 {
+			return uint32(v), true
+		}
+	case uint:
+		if uint64(v) <= maxUint32 {
+			return uint32(v), true
+		}
+	case int8:
+		if v >= 0 {
+			return uint32(v), true
+		}
+	case int16:
+		if v >= 0 {
+			return uint32(v), true
+		}
+	case int32:
+		if v >= 0 {
+			return uint32(v), true
+		}
+	case int64:
+		if v >= 0 && uint64(v) <= maxUint32 {
+			return uint32(v), true
+		}
+	case int:
+		if v >= 0 {
+			return uint32(v), true
+		}
+	}
+	return 0, false
+}
+
+func (r *WDCReader) schemaHasInlineIDField() bool {
+	for i, field := range r.Schema {
+		if field.Type == FieldNonInlineID || field.Type == FieldRelation {
+			continue
+		}
+		if i == r.IDFieldIndex || field.Name == r.IDField || field.Name == "ID" {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordID uint32) map[string]interface{} {
@@ -833,6 +887,13 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 	}
 
 	out := make(map[string]interface{})
+	type pendingCommonField struct {
+		name           string
+		fieldInfoIndex int
+		info           FieldStorageInfo
+		field          SchemaField
+	}
+	var pendingCommon []pendingCommonField
 	fieldInfoIndex := 0
 	recordBase := section.RecordDataOfs + int64(recordOfs)
 	if !isNormal {
@@ -850,10 +911,16 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 		cursor += n
 		return data, true
 	}
+	usesInlineID := !hasIDMap && r.schemaHasInlineIDField()
+	if !hasIDMap && !usesInlineID {
+		recordID = recordIndex
+	}
+	recordIDKnown := !usesInlineID
 	captureInlineRecordID := func(field SchemaField, fieldIndex int, value interface{}) {
 		if !hasIDMap && (fieldIndex == r.IDFieldIndex || field.Name == r.IDField || field.Name == "ID") {
-			if id := rowIDUint32(value); id != 0 {
+			if id, ok := rowIDUint32Value(value); ok {
 				recordID = id
+				recordIDKnown = true
 			}
 		}
 	}
@@ -861,7 +928,7 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 	for _, sf := range r.Schema {
 		if sf.Type == FieldRelation {
 			if section.RelationshipMap != nil {
-				if foreignID, ok := section.RelationshipMap[recordIndex]; ok {
+				if foreignID, ok := r.relationshipForeignID(section, recordIndex, recordID); ok {
 					out[sf.Name] = foreignID
 				} else {
 					out[sf.Name] = uint32(0)
@@ -891,6 +958,11 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 		fieldInfoIndex++
 
 		if rfi.FieldCompression != CompNone {
+			if rfi.FieldCompression == CompCommonData && !recordIDKnown {
+				out[sf.Name] = reinterpretCompressedValue(uint64(rfi.FieldCompressionPacking[0]), sf.Type)
+				pendingCommon = append(pendingCommon, pendingCommonField{name: sf.Name, fieldInfoIndex: fieldInfoIndex - 1, info: rfi, field: sf})
+				continue
+			}
 			out[sf.Name] = r.readCompressedField(section, fieldInfoIndex-1, rfi, sf, recordOfs, recordID)
 			captureInlineRecordID(sf, fieldInfoIndex-1, out[sf.Name])
 			continue
@@ -1026,8 +1098,14 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 		captureInlineRecordID(sf, fieldInfoIndex-1, out[sf.Name])
 	}
 
+	if recordIDKnown {
+		for _, pending := range pendingCommon {
+			out[pending.name] = r.readCompressedField(section, pending.fieldInfoIndex, pending.info, pending.field, recordOfs, recordID)
+		}
+	}
+
 	if section.RelationshipMap != nil {
-		if foreignID, ok := section.RelationshipMap[recordIndex]; ok {
+		if foreignID, ok := r.relationshipForeignID(section, recordIndex, recordID); ok {
 			lookup := r.RelationshipLookup[foreignID]
 			if lookup != nil && !containsUint32(lookup, recordID) {
 				r.RelationshipLookup[foreignID] = append(lookup, recordID)
@@ -1036,6 +1114,18 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 	}
 
 	return out
+}
+
+func (r *WDCReader) relationshipForeignID(section *Section, recordIndex, recordID uint32) (uint32, bool) {
+	if section == nil || section.RelationshipMap == nil {
+		return 0, false
+	}
+	key := recordIndex
+	if r.Flags&2 != 0 {
+		key = recordID
+	}
+	foreignID, ok := section.RelationshipMap[key]
+	return foreignID, ok
 }
 
 func containsUint32(values []uint32, needle uint32) bool {
