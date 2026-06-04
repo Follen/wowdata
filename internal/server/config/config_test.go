@@ -262,6 +262,39 @@ func TestExampleYAMLPrepareDefaultTablesMatchDefault(t *testing.T) {
 	}
 }
 
+func TestDeploymentYAMLConfigsAreSplitForRemoteAndWSL(t *testing.T) {
+	remote := readDeploymentYAML(t, "../../../config/http-mcp.remote.yaml")
+	if remote.Server.BaseURL != "http://211.154.18.253:11223/wowdata" {
+		t.Fatalf("remote base_url = %q", remote.Server.BaseURL)
+	}
+	if !reflect.DeepEqual(remote.Prepare.Targets, Default().Prepare.Targets) {
+		t.Fatalf("remote targets = %#v, want default targets", remote.Prepare.Targets)
+	}
+	if !reflect.DeepEqual(remote.Prepare.DefaultTables, []string{"*"}) {
+		t.Fatalf("remote default_tables = %#v, want full manifest sentinel", remote.Prepare.DefaultTables)
+	}
+
+	wsl := readDeploymentYAML(t, "../../../config/http-mcp.wsl.yaml")
+	if wsl.Server.BaseURL != "http://127.0.0.1:19788" {
+		t.Fatalf("wsl base_url = %q", wsl.Server.BaseURL)
+	}
+	if !reflect.DeepEqual(wsl.Prepare.Targets, Default().Prepare.Targets) {
+		t.Fatalf("wsl targets = %#v, want default targets", wsl.Prepare.Targets)
+	}
+	if wsl.Limits.MaxParallelContextPrepares != 5 {
+		t.Fatalf("wsl context prepares = %d, want 5", wsl.Limits.MaxParallelContextPrepares)
+	}
+	if wsl.Limits.MaxParallelTableMaterializations != 16 {
+		t.Fatalf("wsl table materializations = %d, want 16", wsl.Limits.MaxParallelTableMaterializations)
+	}
+	if wsl.Limits.MaxParallelQueries != 64 {
+		t.Fatalf("wsl queries = %d, want 64", wsl.Limits.MaxParallelQueries)
+	}
+	if !reflect.DeepEqual(wsl.Prepare.DefaultTables, []string{"*"}) {
+		t.Fatalf("wsl default_tables = %#v, want full manifest sentinel", wsl.Prepare.DefaultTables)
+	}
+}
+
 func containsString(values []string, want string) bool {
 	for _, value := range values {
 		if value == want {
@@ -355,6 +388,19 @@ func readExampleYAML(t *testing.T, out any) {
 	if err := yaml.Unmarshal(data, out); err != nil {
 		t.Fatalf("parse example YAML: %v", err)
 	}
+}
+
+func readDeploymentYAML(t *testing.T, path string) Config {
+	t.Helper()
+	cfg := Default()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read deployment YAML %s: %v", path, err)
+	}
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("parse deployment YAML %s: %v", path, err)
+	}
+	return cfg
 }
 
 func expectedPrepareTargets() []PrepareTarget {

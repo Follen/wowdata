@@ -1,0 +1,14 @@
+*
+
+!cmd/
+!cmd/**
+!internal/
+!internal/**
+!migrations/
+!migrations/**
+!config/
+!config/http-mcp*.yaml
+!go.mod
+!go.sum
+!Dockerfile.http
+!.dockerignore

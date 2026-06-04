@@ -31,7 +31,7 @@ RUN rm -f /etc/apt/sources.list.d/debian.sources && \
 
 COPY --from=builder /out/wowdata-server /usr/local/bin/wowdata-server
 COPY migrations /srv/wowdata/migrations
-COPY config/http-mcp.example.yaml /srv/wowdata/config/http-mcp.example.yaml
+COPY config/http-mcp*.yaml /srv/wowdata/config/
 
 EXPOSE 9788
 

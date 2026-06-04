@@ -1,0 +1,50 @@
+server:
+  host: 127.0.0.1
+  port: 9788
+  base_url: http://211.154.18.253:11223/wowdata
+
+cache:
+  root: /var/lib/wowdata/cache
+  metadata_db: /var/lib/wowdata/cache/metadata.sqlite
+  raw_dir: /var/lib/wowdata/cache/raw
+  db2_dir: /var/lib/wowdata/cache/db2
+  duckdb_path: /var/lib/wowdata/cache/duckdb/wowdata.duckdb
+  casc_disk_limit_mb: 61440
+  casc_disk_target_mb: 49152
+
+artifacts:
+  root: /var/lib/wowdata/artifacts
+  base_url: http://211.154.18.253:11223/wowdata/files
+
+prepare:
+  targets:
+    - label: CN Retail
+      region: cn
+      product: wow
+      locale: zhCN
+    - label: CN Classic
+      region: cn
+      product: wow_classic
+      locale: zhCN
+    - label: CN Classic Titan
+      region: cn
+      product: wow_classic_titan
+      locale: zhCN
+    - label: CN Retail PTR zhCN
+      region: cn
+      product: wowt
+      locale: zhCN
+    - label: CN Classic PTR zhCN
+      region: cn
+      product: wow_classic_ptr
+      locale: zhCN
+  default_tables:
+    - "*"
+
+limits:
+  max_parallel_context_prepares: 2
+  max_parallel_table_materializations: 2
+  max_parallel_downloads: 16
+  max_parallel_queries: 16
+  memory_soft_limit_mb: 4096
+  memory_hard_limit_mb: 8192
