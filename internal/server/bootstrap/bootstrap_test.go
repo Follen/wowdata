@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -631,6 +634,56 @@ func TestPrepareConfiguredTableFailsOnInvalidDBDDefinition(t *testing.T) {
 	err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx)
 	if err == nil || !strings.Contains(err.Error(), "Invalid DBD") {
 		t.Fatalf("Prepare error = %v, want explicit table invalid DBD failure", err)
+	}
+}
+
+func TestHTTPDBDSourceRefreshesStaleCachedDefinition(t *testing.T) {
+	cacheDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(cacheDir, "SpellOverrideName.dbd"), []byte("stale definition"), 0644); err != nil {
+		t.Fatalf("write stale cache: %v", err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/SpellOverrideName.dbd" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte("fresh definition"))
+	}))
+	t.Cleanup(server.Close)
+
+	source := newHTTPDBDSource(cacheDir, []string{server.URL + "/%s.dbd"})
+	got, err := source.Definition("SpellOverrideName")
+	if err != nil {
+		t.Fatalf("Definition: %v", err)
+	}
+	if got != "fresh definition" {
+		t.Fatalf("Definition = %q, want fresh definition", got)
+	}
+	cached, err := os.ReadFile(filepath.Join(cacheDir, "SpellOverrideName.dbd"))
+	if err != nil {
+		t.Fatalf("read refreshed cache: %v", err)
+	}
+	if string(cached) != "fresh definition" {
+		t.Fatalf("cache = %q, want fresh definition", string(cached))
+	}
+}
+
+func TestHTTPDBDSourceFallsBackToCachedDefinitionWhenRemoteFails(t *testing.T) {
+	cacheDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(cacheDir, "SpellOverrideName.dbd"), []byte("cached definition"), 0644); err != nil {
+		t.Fatalf("write cache: %v", err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "nope", http.StatusBadGateway)
+	}))
+	t.Cleanup(server.Close)
+
+	source := newHTTPDBDSource(cacheDir, []string{server.URL + "/%s.dbd"})
+	got, err := source.Definition("SpellOverrideName")
+	if err != nil {
+		t.Fatalf("Definition: %v", err)
+	}
+	if got != "cached definition" {
+		t.Fatalf("Definition = %q, want cached definition", got)
 	}
 }
 

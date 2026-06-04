@@ -1560,17 +1560,50 @@ type httpDBDSource struct {
 	cacheDir string
 	urls     []string
 	client   *http.Client
+	mu       sync.Mutex
+	memory   map[string]string
 }
 
 func newHTTPDBDSource(cacheDir string, urls []string) *httpDBDSource {
-	return &httpDBDSource{cacheDir: cacheDir, urls: urls, client: http.DefaultClient}
+	return &httpDBDSource{cacheDir: cacheDir, urls: urls, client: http.DefaultClient, memory: make(map[string]string)}
 }
 
 func (s *httpDBDSource) Definition(tableName string) (string, error) {
-	cachePath := filepath.Join(s.cacheDir, tableName+".dbd")
-	if data, err := os.ReadFile(cachePath); err == nil && len(data) > 0 {
-		return string(data), nil
+	s.mu.Lock()
+	if cached := s.memory[tableName]; cached != "" {
+		s.mu.Unlock()
+		return cached, nil
 	}
+	s.mu.Unlock()
+
+	cachePath := filepath.Join(s.cacheDir, tableName+".dbd")
+	if body, err := s.fetchDefinition(tableName); err == nil && len(body) > 0 {
+		if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
+			return "", err
+		}
+		_ = os.WriteFile(cachePath, body, 0644)
+		definition := string(body)
+		s.mu.Lock()
+		s.memory[tableName] = definition
+		s.mu.Unlock()
+		return definition, nil
+	} else {
+		if data, readErr := os.ReadFile(cachePath); readErr == nil && len(data) > 0 {
+			definition := string(data)
+			s.mu.Lock()
+			s.memory[tableName] = definition
+			s.mu.Unlock()
+			return definition, nil
+		}
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return "", fmt.Errorf("no DBD definition found for %s", tableName)
+}
+
+func (s *httpDBDSource) fetchDefinition(tableName string) ([]byte, error) {
 	var lastErr error
 	for _, tmpl := range s.urls {
 		url := fmt.Sprintf(tmpl, tableName)
@@ -1589,14 +1622,10 @@ func (s *httpDBDSource) Definition(tableName string) (string, error) {
 			lastErr = fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
 			continue
 		}
-		if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
-			return "", err
-		}
-		_ = os.WriteFile(cachePath, body, 0644)
-		return string(body), nil
+		return body, nil
 	}
 	if lastErr == nil {
 		lastErr = fmt.Errorf("no DBD URLs configured")
 	}
-	return "", lastErr
+	return nil, lastErr
 }
