@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -1211,8 +1212,16 @@ func (m ProductionMaterializer) MaterializeTable(ctx context.Context, target con
 	if err != nil {
 		return err
 	}
+	data, err := readDB2FileData(build.FileReader, fileDataID)
+	if err != nil {
+		return err
+	}
+	layoutHash, err := db2LayoutHash(data)
+	if err != nil {
+		return err
+	}
 	dbdHash := hashDBD(rawDBD)
-	schema, err := schemaForTable(rawDBD, build.BuildName)
+	schema, err := schemaForTable(rawDBD, build.BuildName, layoutHash)
 	if err != nil {
 		return err
 	}
@@ -1232,10 +1241,11 @@ func (m ProductionMaterializer) MaterializeTable(ctx context.Context, target con
 		Schema:              schema,
 	}
 	decoder := runtimeTableDecoder{
-		manifest:  manifest,
-		dbdSource: m.DBDSource,
-		files:     build.FileReader,
-		buildName: build.BuildName,
+		manifest:   manifest,
+		dbdSource:  m.DBDSource,
+		files:      fixedFileDataReader{data: data},
+		buildName:  build.BuildName,
+		layoutHash: layoutHash,
 	}
 	_, err = serverparquet.NewMaterializer(m.DB, decoder, serverparquetRowWriter{}).Materialize(ctx, spec)
 	return err
@@ -1262,10 +1272,11 @@ func (m ProductionMaterializer) AvailableTables(ctx context.Context) ([]string, 
 }
 
 type runtimeTableDecoder struct {
-	manifest  *dbd.Manifest
-	dbdSource dbdDefinitionSource
-	files     fileDataReader
-	buildName string
+	manifest   *dbd.Manifest
+	dbdSource  dbdDefinitionSource
+	files      fileDataReader
+	buildName  string
+	layoutHash string
 }
 
 func (d runtimeTableDecoder) DecodeTable(ctx context.Context, spec serverparquet.TableSpec, _ string) (serverparquet.DecodedTable, error) {
@@ -1292,7 +1303,14 @@ func (d runtimeTableDecoder) DecodeTable(ctx context.Context, spec serverparquet
 	if err != nil {
 		return serverparquet.DecodedTable{}, err
 	}
-	schema, err := db2SchemaForRuntime(rawDBD, d.buildName)
+	layoutHash := d.layoutHash
+	if layoutHash == "" {
+		layoutHash, err = db2LayoutHash(data)
+		if err != nil {
+			return serverparquet.DecodedTable{}, err
+		}
+	}
+	schema, err := db2SchemaForRuntime(rawDBD, d.buildName, layoutHash)
 	if err != nil {
 		return serverparquet.DecodedTable{}, err
 	}
@@ -1380,8 +1398,8 @@ func (s *wdcRowSource) Close() error {
 	return nil
 }
 
-func schemaForTable(rawDBD string, buildName string) ([]cacheparquet.Field, error) {
-	schema, err := db2SchemaForRuntime(rawDBD, buildName)
+func schemaForTable(rawDBD string, buildName string, layoutHash ...string) ([]cacheparquet.Field, error) {
+	schema, err := db2SchemaForRuntime(rawDBD, buildName, optionalLayoutHash(layoutHash))
 	if err != nil {
 		return nil, err
 	}
@@ -1396,12 +1414,12 @@ func schemaForTable(rawDBD string, buildName string) ([]cacheparquet.Field, erro
 	return out, nil
 }
 
-func db2SchemaForRuntime(rawDBD string, buildName string) ([]db2.SchemaField, error) {
+func db2SchemaForRuntime(rawDBD string, buildName string, layoutHash string) ([]db2.SchemaField, error) {
 	parser, err := dbd.Parse(strings.NewReader(rawDBD))
 	if err != nil {
 		return nil, err
 	}
-	entry := parser.GetStructure(buildName, "")
+	entry := parser.GetStructure(buildName, layoutHash)
 	if entry == nil {
 		return nil, fmt.Errorf("no DBD structure for build %s", buildName)
 	}
@@ -1410,6 +1428,51 @@ func db2SchemaForRuntime(rawDBD string, buildName string) ([]db2.SchemaField, er
 		return nil, err
 	}
 	return schema, nil
+}
+
+func optionalLayoutHash(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
+
+type fixedFileDataReader struct {
+	data []byte
+}
+
+func (r fixedFileDataReader) ReadFileData(uint32) ([]byte, error) {
+	return r.data, nil
+}
+
+func readDB2FileData(files fileDataReader, fileDataID uint32) ([]byte, error) {
+	if partialReader, ok := files.(partialFileDataReader); ok {
+		return partialReader.ReadFileDataPartial(fileDataID)
+	}
+	return files.ReadFileData(fileDataID)
+}
+
+func db2LayoutHash(data []byte) (string, error) {
+	if len(data) < 24 {
+		return "", fmt.Errorf("DB2 data too short for layout hash: %d bytes", len(data))
+	}
+	pos := 4
+	magic := binary.LittleEndian.Uint32(data[:4])
+	if magic == 0x35434457 {
+		if len(data) < 156 {
+			return "", fmt.Errorf("WDC5 data too short for layout hash: %d bytes", len(data))
+		}
+		pos += 4 + 128
+	}
+	pos += 4 // recordCount
+	pos += 4 // fieldCount
+	pos += 4 // recordSize
+	pos += 4 // stringTableSize
+	pos += 4 // tableHash
+	if pos+4 > len(data) {
+		return "", fmt.Errorf("DB2 data too short for layout hash: %d bytes", len(data))
+	}
+	return strings.ToUpper(fmt.Sprintf("%02x%02x%02x%02x", data[pos+3], data[pos+2], data[pos+1], data[pos])), nil
 }
 
 func hashDBD(raw string) string {

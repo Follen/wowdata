@@ -829,6 +829,53 @@ func TestSchemaForTablePreservesDBDStringArrays(t *testing.T) {
 	}
 }
 
+func TestSchemaForTableUsesLayoutHashWhenBuildNameDoesNotMatch(t *testing.T) {
+	rawDBD := strings.Join([]string{
+		"COLUMNS",
+		"int ID",
+		"int Field_10_2_5_52206_000",
+		"int Field_10_2_5_52206_001",
+		"",
+		"BUILD 10.2.5.52206",
+		"LAYOUT 4E2D58C1",
+		"$id,noninline$ID<u32>",
+		"Field_10_2_5_52206_000<32>",
+		"Field_10_2_5_52206_001<32>",
+		"",
+	}, "\n")
+
+	schema, err := schemaForTable(rawDBD, "12.0.5.67823", "4E2D58C1")
+	if err != nil {
+		t.Fatalf("schemaForTable: %v", err)
+	}
+	if len(schema) != 3 {
+		t.Fatalf("schema fields = %#v, want layout-hash entry fields", schema)
+	}
+	if schema[0] != (cacheparquet.Field{Name: "ID", Type: "dbFieldNonInlineID"}) {
+		t.Fatalf("ID schema = %#v, want non-inline ID", schema[0])
+	}
+	if schema[1].Name != "Field_10_2_5_52206_000" || schema[2].Name != "Field_10_2_5_52206_001" {
+		t.Fatalf("schema fields = %#v, want 10.2.5 layout fallback fields", schema)
+	}
+}
+
+func TestDB2LayoutHashReadsReversedHeaderHash(t *testing.T) {
+	data := make([]byte, 32)
+	data[0] = 'W'
+	data[1] = 'D'
+	data[2] = 'C'
+	data[3] = '2'
+	copy(data[24:28], []byte{0xC1, 0x58, 0x2D, 0x4E})
+
+	got, err := db2LayoutHash(data)
+	if err != nil {
+		t.Fatalf("db2LayoutHash: %v", err)
+	}
+	if got != "4E2D58C1" {
+		t.Fatalf("layout hash = %q, want 4E2D58C1", got)
+	}
+}
+
 func TestPrepareBootstrapsNewConfiguredTargetMissingFromMetadata(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
