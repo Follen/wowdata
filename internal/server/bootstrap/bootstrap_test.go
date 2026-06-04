@@ -1253,6 +1253,59 @@ func TestPrepareRematerializesOutdatedTableVersionsForReadyActiveBuild(t *testin
 	}
 }
 
+func TestPrepareRematerializesChangedDBDHashForReadyActiveBuild(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item", "Spell"})
+	key := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "ready-build"}
+	seedActiveBuildWithTables(t, ctx, db, key, cfg.Prepare.DefaultTables)
+	materializer := &fakeFingerprintMaterializer{
+		fakeMaterializer: &fakeMaterializer{db: db},
+		fingerprints: map[string]TableFingerprint{
+			"Item":  {TableName: "Item", DB2FileDataID: 1, DBDHash: "old-dbd-Item"},
+			"Spell": {TableName: "Spell", DB2FileDataID: 2, DBDHash: "new-dbd-Spell"},
+		},
+	}
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: key.BuildKey, BuildName: "Ready Build"},
+	}}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	if materializer.calls != 1 || strings.Join(materializer.tables, ",") != "Spell" {
+		t.Fatalf("materialized tables = %q (%d calls), want only changed DBD hash Spell", strings.Join(materializer.tables, ","), materializer.calls)
+	}
+}
+
+func TestPrepareRematerializesStaleTableForReadyActiveBuild(t *testing.T) {
+	ctx := context.Background()
+	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"*"})
+	key := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "ready-build"}
+	seedActiveBuildWithTables(t, ctx, db, key, []string{"Item", "Spell"})
+	if err := metadata.MarkMaterializedTableState(ctx, db, metadata.TableKey{
+		Region: key.Region, Product: key.Product, Locale: key.Locale, BuildKey: key.BuildKey, TableName: "Spell",
+	}, metadata.StateStale, "test stale"); err != nil {
+		t.Fatalf("mark Spell stale: %v", err)
+	}
+	materializer := &fakeMaterializer{db: db, availableTables: []string{"Item", "Spell"}}
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: key.BuildKey, BuildName: "Ready Build"},
+	}}
+
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	if materializer.calls != 1 || strings.Join(materializer.tables, ",") != "Spell" {
+		t.Fatalf("materialized tables = %q (%d calls), want only stale Spell", strings.Join(materializer.tables, ","), materializer.calls)
+	}
+}
+
 func TestPrepareReusesDB2TablesWhenActiveBuildHasAllDefaultTables(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
@@ -1740,6 +1793,19 @@ func (m *fakeMaterializer) MaterializeTable(ctx context.Context, target config.P
 
 func (m *fakeMaterializer) CurrentTableVersions() (string, string) {
 	return "fake-decoder", "fake-materializer"
+}
+
+type fakeFingerprintMaterializer struct {
+	*fakeMaterializer
+	fingerprints map[string]TableFingerprint
+}
+
+func (m *fakeFingerprintMaterializer) TableFingerprint(_ context.Context, _ config.PrepareTarget, _ DiscoveredBuild, tableName string) (TableFingerprint, error) {
+	fingerprint, ok := m.fingerprints[tableName]
+	if !ok {
+		return TableFingerprint{}, fmt.Errorf("missing fingerprint for %s", tableName)
+	}
+	return fingerprint, nil
 }
 
 func eventually(timeout time.Duration, condition func() bool) bool {

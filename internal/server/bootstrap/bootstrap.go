@@ -86,6 +86,16 @@ type TableVersionMaterializer interface {
 	CurrentTableVersions() (string, string)
 }
 
+type TableFingerprint struct {
+	TableName     string
+	DB2FileDataID int
+	DBDHash       string
+}
+
+type TableFingerprintMaterializer interface {
+	TableFingerprint(context.Context, config.PrepareTarget, DiscoveredBuild, string) (TableFingerprint, error)
+}
+
 type Runner struct {
 	Config                  config.Config
 	DB                      *sql.DB
@@ -258,7 +268,10 @@ func (r Runner) materializeTarget(ctx context.Context, target config.PrepareTarg
 			tables = append(tables, knownUnreadable...)
 		}
 		desiredDecoderVersion, desiredMaterializerVersion := currentTableVersions(materializer)
-		tablesToMaterialize = missingDefaultTables(requiredTables, tables, desiredDecoderVersion, desiredMaterializerVersion)
+		tablesToMaterialize, err = tablesNeedingMaterialization(ctx, requiredTables, tables, desiredDecoderVersion, desiredMaterializerVersion, materializer, target, build)
+		if err != nil {
+			return err
+		}
 		if len(tablesToMaterialize) == 0 {
 			ready, err := r.resourceIndexesReady(ctx, buildKey)
 			if err != nil {
@@ -582,22 +595,101 @@ func isAllManifestTables(configured []string) bool {
 	return len(configured) == 1 && configured[0] == "*"
 }
 
-func missingDefaultTables(defaultTables []string, validTables []metadata.MaterializedTable, desiredDecoderVersion string, desiredMaterializerVersion string) []string {
-	validByName := make(map[string]bool, len(validTables))
+func tablesNeedingMaterialization(ctx context.Context, defaultTables []string, validTables []metadata.MaterializedTable, desiredDecoderVersion string, desiredMaterializerVersion string, materializer TableMaterializer, target config.PrepareTarget, build DiscoveredBuild) ([]string, error) {
+	tableByName := make(map[string]metadata.MaterializedTable, len(validTables))
 	for _, table := range validTables {
-		if table.State != metadata.StateValid {
-			validByName[table.Key.TableName] = true
+		tableByName[table.Key.TableName] = table
+	}
+	fingerprintMaterializer, hasFingerprints := materializer.(TableFingerprintMaterializer)
+	var missing []string
+	var fingerprintCandidates []string
+	for _, tableName := range defaultTables {
+		table, ok := tableByName[tableName]
+		if !ok {
+			missing = append(missing, tableName)
 			continue
 		}
-		validByName[table.Key.TableName] = table.DecoderVersion == desiredDecoderVersion && table.MaterializerVersion == desiredMaterializerVersion
-	}
-	var missing []string
-	for _, tableName := range defaultTables {
-		if !validByName[tableName] {
+		if table.State != metadata.StateValid {
+			continue
+		}
+		if table.DecoderVersion != desiredDecoderVersion || table.MaterializerVersion != desiredMaterializerVersion {
 			missing = append(missing, tableName)
+			continue
+		}
+		if !hasFingerprints {
+			continue
+		}
+		fingerprintCandidates = append(fingerprintCandidates, tableName)
+	}
+	fmt.Fprintf(os.Stderr, "wowdata-server prepare table selection: %s %s/%s/%s build=%s required=%d known=%d immediate=%d fingerprint=%d\n", target.Label, target.Region, target.Product, target.Locale, build.BuildKey, len(defaultTables), len(validTables), len(missing), len(fingerprintCandidates))
+	if len(fingerprintCandidates) == 0 {
+		return missing, nil
+	}
+
+	changed, err := changedFingerprintTables(ctx, fingerprintCandidates, tableByName, fingerprintMaterializer, target, build)
+	if err != nil {
+		return nil, err
+	}
+	missing = append(missing, changed...)
+	fmt.Fprintf(os.Stderr, "wowdata-server prepare table selection done: %s %s/%s/%s build=%s immediate=%d fingerprintChanged=%d total=%d\n", target.Label, target.Region, target.Product, target.Locale, build.BuildKey, len(missing)-len(changed), len(changed), len(missing))
+	return missing, nil
+}
+
+func changedFingerprintTables(ctx context.Context, candidates []string, tableByName map[string]metadata.MaterializedTable, materializer TableFingerprintMaterializer, target config.PrepareTarget, build DiscoveredBuild) ([]string, error) {
+	maxParallel := 32
+	if maxParallel > len(candidates) {
+		maxParallel = len(candidates)
+	}
+	type result struct {
+		index   int
+		changed bool
+	}
+	jobs := make(chan int)
+	results := make(chan result, len(candidates))
+	var checked atomic.Int64
+	var wg sync.WaitGroup
+	for i := 0; i < maxParallel; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for index := range jobs {
+				tableName := candidates[index]
+				table := tableByName[tableName]
+				fingerprint, err := materializer.TableFingerprint(ctx, target, build, tableName)
+				changed := err != nil || table.DB2FileDataID != fingerprint.DB2FileDataID || table.DBDHash != fingerprint.DBDHash
+				done := checked.Add(1)
+				if done%100 == 0 || done == int64(len(candidates)) {
+					fmt.Fprintf(os.Stderr, "wowdata-server prepare fingerprint progress: %s %s/%s/%s build=%s checked=%d/%d\n", target.Label, target.Region, target.Product, target.Locale, build.BuildKey, done, len(candidates))
+				}
+				results <- result{index: index, changed: changed}
+			}
+		}()
+	}
+sendJobs:
+	for index := range candidates {
+		select {
+		case <-ctx.Done():
+			break sendJobs
+		case jobs <- index:
 		}
 	}
-	return missing
+	close(jobs)
+	wg.Wait()
+	close(results)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	changedByIndex := make([]bool, len(candidates))
+	for result := range results {
+		changedByIndex[result.index] = result.changed
+	}
+	var changed []string
+	for index, tableName := range candidates {
+		if changedByIndex[index] {
+			changed = append(changed, tableName)
+		}
+	}
+	return changed, nil
 }
 
 func currentTableVersions(materializer TableMaterializer) (string, string) {
@@ -1255,6 +1347,37 @@ func (m ProductionMaterializer) MaterializeTable(ctx context.Context, target con
 
 func (m ProductionMaterializer) CurrentTableVersions() (string, string) {
 	return decoderVersion, materializerVersion
+}
+
+func (m ProductionMaterializer) TableFingerprint(ctx context.Context, target config.PrepareTarget, build DiscoveredBuild, tableName string) (TableFingerprint, error) {
+	select {
+	case <-ctx.Done():
+		return TableFingerprint{}, ctx.Err()
+	default:
+	}
+	if m.ManifestSource == nil {
+		return TableFingerprint{}, errors.New("DBD manifest source is required")
+	}
+	if m.DBDSource == nil {
+		return TableFingerprint{}, errors.New("DBD definition source is required")
+	}
+	manifest, err := m.ManifestSource.Manifest()
+	if err != nil {
+		return TableFingerprint{}, err
+	}
+	fileDataID, ok := manifest.GetByTableName(tableName)
+	if !ok {
+		return TableFingerprint{}, fmt.Errorf("table not found in DBD manifest: %s", tableName)
+	}
+	rawDBD, err := m.DBDSource.Definition(tableName)
+	if err != nil {
+		return TableFingerprint{}, err
+	}
+	return TableFingerprint{
+		TableName:     tableName,
+		DB2FileDataID: int(fileDataID),
+		DBDHash:       hashDBD(rawDBD),
+	}, nil
 }
 
 func (m ProductionMaterializer) AvailableTables(ctx context.Context) ([]string, error) {
