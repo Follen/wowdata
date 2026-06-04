@@ -42,6 +42,7 @@ type ForeignKeyRequest struct {
 type StreamRequest struct {
 	Context RequestContext
 	Table   string
+	Fields  []string
 	Limit   int
 	Offset  int
 }

@@ -287,6 +287,7 @@ func TestMetadataQueryServiceSearchForeignKeyAndStreamDispatchSafeQueries(t *tes
 	if _, err := svc.Stream(ctx, StreamRequest{
 		Context: RequestContext{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "build-1"},
 		Table:   "SpellName",
+		Fields:  []string{"ID", "Name_lang"},
 		Limit:   5,
 		Offset:  6,
 	}); err != nil {
@@ -308,7 +309,7 @@ func TestMetadataQueryServiceSearchForeignKeyAndStreamDispatchSafeQueries(t *tes
 		t.Fatalf("foreign key args = %#v", fk.args)
 	}
 	stream := engine.calls[2]
-	if !strings.Contains(stream.query, `SELECT * FROM read_parquet(?) AS "SpellName" LIMIT ? OFFSET ?`) {
+	if !strings.Contains(stream.query, `SELECT "ID", "Name_lang" FROM read_parquet(?) AS "SpellName" LIMIT ? OFFSET ?`) {
 		t.Fatalf("stream SQL = %q", stream.query)
 	}
 	if !interfaceSlicesEqual(stream.args, []interface{}{parquetPath, 5, 6}) {

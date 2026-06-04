@@ -113,11 +113,12 @@ func TestWowQueryModesDispatchToQueryService(t *testing.T) {
 		},
 		{
 			name:   "stream",
-			args:   map[string]interface{}{"mode": "stream", "table": "CreatureDisplayInfo", "limit": float64(9), "offset": float64(2)},
+			args:   map[string]interface{}{"mode": "stream", "table": "CreatureDisplayInfo", "fields": []interface{}{"ID", "Name"}, "limit": float64(9), "offset": float64(2)},
 			want:   "query stream",
 			called: "stream",
 			wantReq: service.StreamRequest{
 				Table:  "CreatureDisplayInfo",
+				Fields: []string{"ID", "Name"},
 				Limit:  9,
 				Offset: 2,
 			},

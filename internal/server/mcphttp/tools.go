@@ -352,6 +352,7 @@ func queryTool(queryService service.QueryService, supportedTargets []SupportedTa
 				rows, err := queryService.Stream(ctx, service.StreamRequest{
 					Context: rc,
 					Table:   table,
+					Fields:  stringListArg(args, "fields"),
 					Limit:   limit,
 					Offset:  offset,
 				})

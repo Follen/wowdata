@@ -188,8 +188,9 @@ func (s *MetadataQueryService) Stream(ctx context.Context, req StreamRequest) ([
 		return nil, err
 	}
 	query, args, err := s.queryBuilder.BuildStreamSQL(s.tableRef(table), storageduckdb.StreamQuery{
-		Limit:  req.Limit,
-		Offset: req.Offset,
+		Columns: req.Fields,
+		Limit:   req.Limit,
+		Offset:  req.Offset,
 	})
 	if err != nil {
 		return nil, err
