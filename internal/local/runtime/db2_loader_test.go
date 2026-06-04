@@ -55,3 +55,10 @@ Value<u32>
 		t.Fatalf("unexpected rows: %#v", rows)
 	}
 }
+
+func TestSchemaForRuntimeAddsSyntheticID(t *testing.T) {
+	schema := schemaForRuntime([]db2.SchemaField{{Name: "Name", Type: db2.FieldString}})
+	if len(schema) != 2 || schema[0].Name != "ID" || schema[0].Type != "dbFieldUInt32" || schema[1].Name != "Name" {
+		t.Fatalf("schema = %#v, want synthetic ID then Name", schema)
+	}
+}

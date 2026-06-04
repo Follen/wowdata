@@ -840,7 +840,7 @@ func (r *WDCReader) schemaHasInlineIDField() bool {
 		if field.Type == FieldNonInlineID || field.Type == FieldRelation {
 			continue
 		}
-		if i == r.IDFieldIndex || field.Name == r.IDField || field.Name == "ID" {
+		if field.IsID || i == r.IDFieldIndex || field.Name == r.IDField || field.Name == "ID" {
 			return true
 		}
 	}
@@ -917,10 +917,13 @@ func (r *WDCReader) readRecordFromSection(sectionIndex int, recordIndex, recordI
 	}
 	recordIDKnown := !usesInlineID
 	captureInlineRecordID := func(field SchemaField, fieldIndex int, value interface{}) {
-		if !hasIDMap && (fieldIndex == r.IDFieldIndex || field.Name == r.IDField || field.Name == "ID") {
+		if !hasIDMap && (field.IsID || fieldIndex == r.IDFieldIndex || field.Name == r.IDField || field.Name == "ID") {
 			if id, ok := rowIDUint32Value(value); ok {
 				recordID = id
 				recordIDKnown = true
+				if field.Name != "ID" {
+					out["ID"] = id
+				}
 			}
 		}
 	}

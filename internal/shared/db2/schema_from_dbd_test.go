@@ -21,7 +21,7 @@ func TestSchemaFromDBDConvertsDBDFieldRules(t *testing.T) {
 	}
 
 	want := []SchemaField{
-		{Name: "ID", Type: FieldNonInlineID},
+		{Name: "ID", Type: FieldNonInlineID, IsID: true},
 		{Name: "ParentID", Type: FieldRelation},
 		{Name: "Name_lang", Type: FieldString},
 		{Name: "Amount", Type: FieldInt16},
@@ -34,6 +34,9 @@ func TestSchemaFromDBDConvertsDBDFieldRules(t *testing.T) {
 		if schema[i].Name != want[i].Name || schema[i].Type != want[i].Type {
 			t.Fatalf("schema[%d] = %#v, want %#v", i, schema[i], want[i])
 		}
+	}
+	if !schema[0].IsID {
+		t.Fatalf("schema[0].IsID = false, want true")
 	}
 }
 

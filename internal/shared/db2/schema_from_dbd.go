@@ -21,7 +21,7 @@ func SchemaFromDBD(entry *dbd.DBDEntry) ([]SchemaField, error) {
 		if field.ArrayLen > -1 {
 			arrayLen = field.ArrayLen
 		}
-		schema = append(schema, SchemaField{Name: field.Name, Type: fieldType, ArrayLen: arrayLen})
+		schema = append(schema, SchemaField{Name: field.Name, Type: fieldType, ArrayLen: arrayLen, IsID: field.IsID})
 	}
 	return schema, nil
 }

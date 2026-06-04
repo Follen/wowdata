@@ -1364,7 +1364,8 @@ var errWDCRowSourceClosed = errors.New("WDC row source closed")
 func (s *wdcRowSource) streamRows(reader *db2.WDCReader) {
 	defer close(s.done)
 	defer close(s.rows)
-	err := reader.ForEachRow(func(_ uint32, row map[string]interface{}) error {
+	err := reader.ForEachRow(func(recordID uint32, row map[string]interface{}) error {
+		row = rowWithSyntheticID(row, recordID)
 		select {
 		case <-s.stop:
 			return errWDCRowSourceClosed
@@ -1405,6 +1406,7 @@ func schemaForTable(rawDBD string, buildName string, layoutHash ...string) ([]ca
 	if err != nil {
 		return nil, err
 	}
+	schema = db2.SchemaWithSyntheticID(schema)
 	out := make([]cacheparquet.Field, 0, len(schema))
 	for _, field := range schema {
 		out = append(out, cacheparquet.Field{
@@ -1414,6 +1416,21 @@ func schemaForTable(rawDBD string, buildName string, layoutHash ...string) ([]ca
 		})
 	}
 	return out, nil
+}
+
+func rowWithSyntheticID(row map[string]interface{}, recordID uint32) map[string]interface{} {
+	if row == nil {
+		return nil
+	}
+	if _, ok := row["ID"]; ok {
+		return row
+	}
+	out := make(map[string]interface{}, len(row)+1)
+	out["ID"] = recordID
+	for key, value := range row {
+		out[key] = value
+	}
+	return out
 }
 
 func db2SchemaForRuntime(rawDBD string, buildName string, layoutHash string) ([]db2.SchemaField, error) {

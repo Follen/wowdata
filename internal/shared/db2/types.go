@@ -32,6 +32,7 @@ type SchemaField struct {
 	Name     string
 	Type     FieldType
 	ArrayLen int // 0 = scalar
+	IsID     bool
 }
 
 type FieldStorageInfo struct {

@@ -35,6 +35,7 @@ func GetRows(reader RowReader, ids []uint32, fields []string, filterFn func(map[
 		for _, id := range ids {
 			row := reader.GetRow(id)
 			if row != nil {
+				row = rowWithRecordID(row, id)
 				if filterFn == nil || filterFn(row) {
 					results = append(results, projectFields(row, fields))
 				}
@@ -47,7 +48,7 @@ func GetRows(reader RowReader, ids []uint32, fields []string, filterFn func(map[
 	rowIDs := sortedRowIDs(allRows)
 
 	for _, id := range rowIDs {
-		row := allRows[uint32(id)]
+		row := rowWithRecordID(allRows[uint32(id)], uint32(id))
 		if filterFn != nil && !filterFn(row) {
 			continue
 		}
@@ -66,7 +67,7 @@ func SearchRows(reader RowReader, field string, query string, caseSensitive bool
 
 	rowIDs := sortedRowIDs(allRows)
 	for _, id := range rowIDs {
-		row := allRows[uint32(id)]
+		row := rowWithRecordID(allRows[uint32(id)], uint32(id))
 		val, ok := row[field]
 		if !ok {
 			continue
@@ -101,7 +102,7 @@ func GetForeignRows(reader RowReader, table string, fkField string, fkValue uint
 
 	rowIDs := sortedRowIDs(allRows)
 	for _, id := range rowIDs {
-		row := allRows[uint32(id)]
+		row := rowWithRecordID(allRows[uint32(id)], uint32(id))
 		if val, ok := row[fkField]; ok {
 			var rowVal uint32
 			switch v := val.(type) {
@@ -140,5 +141,32 @@ func projectFields(row map[string]interface{}, fields []string) map[string]inter
 			out[f] = v
 		}
 	}
+	return out
+}
+
+func rowWithRecordID(row map[string]interface{}, recordID uint32) map[string]interface{} {
+	if row == nil {
+		return nil
+	}
+	if _, ok := row["ID"]; ok {
+		return row
+	}
+	out := make(map[string]interface{}, len(row)+1)
+	out["ID"] = recordID
+	for key, value := range row {
+		out[key] = value
+	}
+	return out
+}
+
+func SchemaWithSyntheticID(schema []SchemaField) []SchemaField {
+	for _, field := range schema {
+		if field.Name == "ID" {
+			return schema
+		}
+	}
+	out := make([]SchemaField, 0, len(schema)+1)
+	out = append(out, SchemaField{Name: "ID", Type: FieldUInt32})
+	out = append(out, schema...)
 	return out
 }

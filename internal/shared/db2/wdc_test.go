@@ -286,6 +286,40 @@ func TestWDCInlineIDNameKeysCommonDataWhenIDIndexDiffers(t *testing.T) {
 	}
 }
 
+func TestWDCInlineDBDIDFieldAddsIDAlias(t *testing.T) {
+	reader := &WDCReader{
+		IsLoaded: true,
+		Schema: []SchemaField{
+			{Name: "LoreTextID", Type: FieldUInt32, IsID: true},
+			{Name: "Value", Type: FieldUInt32},
+		},
+		IDField:          "ID",
+		IDFieldIndex:     99,
+		FieldInfo:        []FieldStorageInfo{{}, {}},
+		RecordSize:       8,
+		TotalRecordCount: 2,
+		data: []byte{
+			10, 0, 0, 0, 100, 0, 0, 0,
+			11, 0, 0, 0, 110, 0, 0, 0,
+		},
+		Sections: []Section{{
+			Header:         SectionHeader{RecordCount: 2},
+			IsNormal:       true,
+			RecordDataOfs:  0,
+			RecordDataSize: 16,
+		}},
+	}
+
+	rows := reader.GetAllRows()
+	if rows[10]["ID"] != uint32(10) || rows[10]["LoreTextID"] != uint32(10) || rows[10]["Value"] != uint32(100) {
+		t.Fatalf("row 10 = %#v, want ID alias from LoreTextID", rows[10])
+	}
+	row := reader.GetRow(11)
+	if row == nil || row["ID"] != uint32(11) || row["LoreTextID"] != uint32(11) {
+		t.Fatalf("GetRow(11) = %#v, want ID alias from LoreTextID", row)
+	}
+}
+
 func TestWDCCommonDataBeforeInlineIDUsesCapturedID(t *testing.T) {
 	reader := &WDCReader{
 		IsLoaded: true,

@@ -801,12 +801,12 @@ func TestWDCRowSourceStreamsRowsAndEOF(t *testing.T) {
 	defer source.Close()
 
 	first, ok, err := source.NextRow()
-	if err != nil || !ok || first["Value"] != uint32(100) {
-		t.Fatalf("first row = %#v ok=%v err=%v, want Value 100", first, ok, err)
+	if err != nil || !ok || first["ID"] != uint32(1) || first["Value"] != uint32(100) {
+		t.Fatalf("first row = %#v ok=%v err=%v, want ID 1 and Value 100", first, ok, err)
 	}
 	second, ok, err := source.NextRow()
-	if err != nil || !ok || second["Value"] != uint32(200) {
-		t.Fatalf("second row = %#v ok=%v err=%v, want Value 200", second, ok, err)
+	if err != nil || !ok || second["ID"] != uint32(2) || second["Value"] != uint32(200) {
+		t.Fatalf("second row = %#v ok=%v err=%v, want ID 2 and Value 200", second, ok, err)
 	}
 	_, ok, err = source.NextRow()
 	if err != nil || ok {
@@ -830,14 +830,17 @@ func TestSchemaForTablePreservesDBDStringArrays(t *testing.T) {
 	if err != nil {
 		t.Fatalf("schemaForTable: %v", err)
 	}
-	if len(schema) != 2 {
-		t.Fatalf("schema fields = %#v, want ParamLabel and ParamTypeEnum", schema)
+	if len(schema) != 3 {
+		t.Fatalf("schema fields = %#v, want ID, ParamLabel and ParamTypeEnum", schema)
 	}
-	if schema[0] != (cacheparquet.Field{Name: "ParamLabel", Type: "dbFieldString", ArrayLen: 6}) {
-		t.Fatalf("ParamLabel schema = %#v, want dbFieldString array", schema[0])
+	if schema[0] != (cacheparquet.Field{Name: "ID", Type: "dbFieldUInt32"}) {
+		t.Fatalf("ID schema = %#v, want synthetic uint32 ID", schema[0])
 	}
-	if schema[1] != (cacheparquet.Field{Name: "ParamTypeEnum", Type: "dbFieldUInt8", ArrayLen: 6}) {
-		t.Fatalf("ParamTypeEnum schema = %#v, want numeric array preserved", schema[1])
+	if schema[1] != (cacheparquet.Field{Name: "ParamLabel", Type: "dbFieldString", ArrayLen: 6}) {
+		t.Fatalf("ParamLabel schema = %#v, want dbFieldString array", schema[1])
+	}
+	if schema[2] != (cacheparquet.Field{Name: "ParamTypeEnum", Type: "dbFieldUInt8", ArrayLen: 6}) {
+		t.Fatalf("ParamTypeEnum schema = %#v, want numeric array preserved", schema[2])
 	}
 }
 
