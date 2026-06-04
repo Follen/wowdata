@@ -71,11 +71,13 @@ The front door owns the public prefixes and rewrites them to the internal
 service routes:
 
 ```text
-/wowdata       -> /mcp
+/wowdata       -> /help
+/wowdata/mcp   -> /mcp
 /wowdata/help  -> /help
 /wowdata/health -> /health
 /wowdata/files/ -> /files/
-/wowdoc        -> /mcp
+/wowdoc        -> /help
+/wowdoc/mcp    -> /mcp
 /wowdoc/help   -> /help
 /wowdoc/health -> /health
 ```
