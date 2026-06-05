@@ -69,7 +69,7 @@ func Parse(r io.Reader) (*Parser, error) {
 	var lines []string
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
+		lines = append(lines, stripLineComment(scanner.Text()))
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
@@ -79,6 +79,13 @@ func Parse(r io.Reader) (*Parser, error) {
 		return nil, err
 	}
 	return p, nil
+}
+
+func stripLineComment(line string) string {
+	if idx := strings.Index(line, "//"); idx >= 0 {
+		return strings.TrimRight(line[:idx], " \t")
+	}
+	return line
 }
 
 func (p *Parser) parse(lines []string) error {

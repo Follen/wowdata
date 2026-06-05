@@ -129,6 +129,34 @@ func TestFieldAnnotations(t *testing.T) {
 	}
 }
 
+func TestParseFieldWithLineComment(t *testing.T) {
+	raw := `
+COLUMNS
+int ID
+int Ui_order
+int IconFileID
+
+BUILD 5.5.4.67969
+$id$ID<32>
+$relation$Ui_order<16> // DBAnalyser:
+IconFileID<32>
+`
+	p, err := Parse(strings.NewReader(raw))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	entry := p.GetStructure("5.5.4.67969", "")
+	if entry == nil {
+		t.Fatal("expected entry")
+	}
+	if len(entry.Fields) != 3 {
+		t.Fatalf("fields = %#v, want ID, Ui_order, IconFileID", entry.Fields)
+	}
+	if entry.Fields[1].Name != "Ui_order" || !entry.Fields[1].IsRelation || entry.Fields[1].Size != 16 {
+		t.Fatalf("parsed comment field = %#v, want relation Ui_order<16>", entry.Fields[1])
+	}
+}
+
 func TestEmptyColumnsError(t *testing.T) {
 	_, err := Parse(strings.NewReader("garbage\nwithout\ncolumns"))
 	if err == nil {
