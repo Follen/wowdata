@@ -74,6 +74,62 @@ func TestPrepareActivatesBuildOnlyAfterEveryRequiredTableMaterializes(t *testing
 	}
 }
 
+func TestPrepareSuccessRunsLatestOnlyCacheGC(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	metadataPath := filepath.Join(root, "metadata.sqlite")
+	db := openMetadataDBAt(t, metadataPath)
+	cfg := testConfig(metadataPath, []string{"Item"})
+	cfg.Cache.Root = root
+	cfg.Cache.DB2Dir = filepath.Join(root, "db2")
+	cfg.Cache.RawDir = filepath.Join(root, "raw")
+
+	oldKey := metadata.BuildKey{Region: "us", Product: "wow", Locale: "enUS", BuildKey: "old-build"}
+	if err := metadata.UpsertDiscoveredBuild(ctx, db, metadata.Build{Key: oldKey, BuildName: "old-build", State: metadata.StateValid}); err != nil {
+		t.Fatalf("upsert old build: %v", err)
+	}
+	oldParquet := filepath.Join(cfg.Cache.DB2Dir, "us", "wow", "old-build", "enUS", "Item.parquet")
+	writeTestFile(t, oldParquet, "old parquet")
+	writeTestFile(t, filepath.Join(cfg.Cache.RawDir, "casc", "us", "wow", "old-build", "data", "abc"), "old raw")
+	if err := metadata.UpsertMaterializedTable(ctx, db, metadata.MaterializedTable{
+		Key: metadata.TableKey{
+			Region: oldKey.Region, Product: oldKey.Product, Locale: oldKey.Locale, BuildKey: oldKey.BuildKey, TableName: "Item",
+		},
+		DB2FileDataID:       1,
+		DBDHash:             "old-dbd",
+		DecoderVersion:      "fake-decoder",
+		MaterializerVersion: "fake-materializer",
+		ParquetPath:         oldParquet,
+		RowCount:            1,
+		State:               metadata.StateValid,
+	}); err != nil {
+		t.Fatalf("upsert old table: %v", err)
+	}
+
+	discoverer := fakeDiscoverer{builds: map[string]DiscoveredBuild{
+		"us/wow/enUS": {BuildKey: "new-build", BuildName: "New Build"},
+	}}
+	materializer := &fakeMaterializer{db: db}
+	if err := (Runner{Config: cfg, DB: db, Discoverer: discoverer, Materializer: materializer}).Prepare(ctx); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+
+	var oldRows int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM server_builds WHERE build_key = 'old-build'`).Scan(&oldRows); err != nil {
+		t.Fatalf("count old build: %v", err)
+	}
+	if oldRows != 0 {
+		t.Fatalf("old build rows = %d, want automatic GC to delete it", oldRows)
+	}
+	if _, err := os.Stat(oldParquet); !os.IsNotExist(err) {
+		t.Fatalf("old parquet stat err = %v, want missing after automatic GC", err)
+	}
+	active := activeBuild(t, ctx, db, "us", "wow", "enUS")
+	if active.Key.BuildKey != "new-build" {
+		t.Fatalf("active build = %s, want new-build", active.Key.BuildKey)
+	}
+}
+
 func TestPrepareEmptyDefaultTablesMaterializesManifestTableSet(t *testing.T) {
 	ctx := context.Background()
 	metadataPath := filepath.Join(t.TempDir(), "metadata.sqlite")
@@ -1874,6 +1930,16 @@ func seedActiveBuildWithTables(t *testing.T, ctx context.Context, db *sql.DB, ke
 		}); err != nil {
 			t.Fatalf("upsert old table %s: %v", tableName, err)
 		}
+	}
+}
+
+func writeTestFile(t *testing.T, path string, body string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatalf("mkdir %s: %v", path, err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
 	}
 }
 

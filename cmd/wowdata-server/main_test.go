@@ -102,6 +102,110 @@ func TestServerHTTPCommandInvokesRunnerWithConfig(t *testing.T) {
 	}
 }
 
+func TestServerCacheGCCommandDefaultsToDryRun(t *testing.T) {
+	root := t.TempDir()
+	metadataPath := filepath.Join(root, "metadata.sqlite")
+	db, err := metadata.Open(metadataPath)
+	if err != nil {
+		t.Fatalf("open metadata: %v", err)
+	}
+	ctx := context.Background()
+	seedServerCacheGCOldAndLatest(t, ctx, db, root)
+	db.Close()
+
+	configPath := filepath.Join(root, "http-mcp.yaml")
+	body := strings.Join([]string{
+		"cache:",
+		"  root: " + filepath.ToSlash(root),
+		"  metadata_db: " + filepath.ToSlash(metadataPath),
+		"  db2_dir: " + filepath.ToSlash(filepath.Join(root, "db2")),
+		"  raw_dir: " + filepath.ToSlash(filepath.Join(root, "raw")),
+		"artifacts:",
+		"  root: " + filepath.ToSlash(filepath.Join(root, "artifacts")),
+	}, "\n")
+	if err := os.WriteFile(configPath, []byte(body), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cmd := newRootCommandWithHTTPRunner(func(opts httpOptions) error {
+		return errors.New("http runner should not be called")
+	})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"cache", "gc", "--config", configPath})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute cache gc: %v", err)
+	}
+	if !strings.Contains(out.String(), "mode=dry-run") {
+		t.Fatalf("gc output missing dry-run mode:\n%s", out.String())
+	}
+	db, err = metadata.Open(metadataPath)
+	if err != nil {
+		t.Fatalf("reopen metadata: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM server_builds WHERE build_key = 'old'`).Scan(&count); err != nil {
+		t.Fatalf("query old build: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("old build count = %d, want dry-run to keep metadata", count)
+	}
+}
+
+func TestServerCacheGCCommandApplyDeletesOldBuild(t *testing.T) {
+	root := t.TempDir()
+	metadataPath := filepath.Join(root, "metadata.sqlite")
+	db, err := metadata.Open(metadataPath)
+	if err != nil {
+		t.Fatalf("open metadata: %v", err)
+	}
+	ctx := context.Background()
+	seedServerCacheGCOldAndLatest(t, ctx, db, root)
+	db.Close()
+
+	configPath := filepath.Join(root, "http-mcp.yaml")
+	body := strings.Join([]string{
+		"cache:",
+		"  root: " + filepath.ToSlash(root),
+		"  metadata_db: " + filepath.ToSlash(metadataPath),
+		"  db2_dir: " + filepath.ToSlash(filepath.Join(root, "db2")),
+		"  raw_dir: " + filepath.ToSlash(filepath.Join(root, "raw")),
+		"artifacts:",
+		"  root: " + filepath.ToSlash(filepath.Join(root, "artifacts")),
+	}, "\n")
+	if err := os.WriteFile(configPath, []byte(body), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cmd := newRootCommandWithHTTPRunner(func(opts httpOptions) error {
+		return errors.New("http runner should not be called")
+	})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"cache", "gc", "--config", configPath, "--apply"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute cache gc apply: %v", err)
+	}
+	if !strings.Contains(out.String(), "mode=apply") {
+		t.Fatalf("gc output missing apply mode:\n%s", out.String())
+	}
+	db, err = metadata.Open(metadataPath)
+	if err != nil {
+		t.Fatalf("reopen metadata: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM server_builds WHERE build_key = 'old'`).Scan(&count); err != nil {
+		t.Fatalf("query old build: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("old build count = %d, want apply to delete metadata", count)
+	}
+}
+
 func TestServerConfigHostPortUsedWhenCLIOptionsAreDefaults(t *testing.T) {
 	configPath := writeServerBindConfig(t, "127.0.0.1", 11223)
 
@@ -1142,4 +1246,48 @@ func writeHealthConfigWithDefaultTables(t *testing.T, metadataPath, label, regio
 		t.Fatalf("write config: %v", err)
 	}
 	return configPath
+}
+
+func seedServerCacheGCOldAndLatest(t *testing.T, ctx context.Context, db *sql.DB, root string) {
+	t.Helper()
+	insertServerGCTestBuild(t, db, "old", "2026-01-01 00:00:00")
+	insertServerGCTestBuild(t, db, "latest", "2026-01-02 00:00:00")
+	for _, buildKey := range []string{"old", "latest"} {
+		parquetPath := filepath.Join(root, "db2", "us", "wow", buildKey, "enUS", "Spell.parquet")
+		if err := os.MkdirAll(filepath.Dir(parquetPath), 0755); err != nil {
+			t.Fatalf("mkdir parquet path: %v", err)
+		}
+		if err := os.WriteFile(parquetPath, []byte("parquet-"+buildKey), 0644); err != nil {
+			t.Fatalf("write parquet: %v", err)
+		}
+		if err := metadata.UpsertMaterializedTable(ctx, db, metadata.MaterializedTable{
+			Key: metadata.TableKey{
+				Region:    "us",
+				Product:   "wow",
+				Locale:    "enUS",
+				BuildKey:  buildKey,
+				TableName: "Spell",
+			},
+			DB2FileDataID:       1,
+			DBDHash:             "dbd",
+			DecoderVersion:      "loader",
+			MaterializerVersion: "test",
+			ParquetPath:         parquetPath,
+			RowCount:            1,
+			State:               metadata.StateValid,
+		}); err != nil {
+			t.Fatalf("upsert materialized table: %v", err)
+		}
+	}
+}
+
+func insertServerGCTestBuild(t *testing.T, db *sql.DB, buildKey, timestamp string) {
+	t.Helper()
+	if _, err := db.Exec(`
+INSERT INTO server_builds(region, product, locale, build_key, build_name, state, active, discovered_at, updated_at)
+VALUES ('us', 'wow', 'enUS', ?, ?, 'valid', 0, ?, ?)`,
+		buildKey, buildKey, timestamp, timestamp,
+	); err != nil {
+		t.Fatalf("insert build %s: %v", buildKey, err)
+	}
 }

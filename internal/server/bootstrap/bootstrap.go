@@ -25,6 +25,7 @@ import (
 	cacheparquet "wowdata/internal/cache/parquet"
 	sharedlistfile "wowdata/internal/listfile"
 	"wowdata/internal/server/config"
+	serverprune "wowdata/internal/server/prune"
 	"wowdata/internal/server/storage/cascindex"
 	serverlistfile "wowdata/internal/server/storage/listfile"
 	"wowdata/internal/server/storage/metadata"
@@ -105,6 +106,7 @@ type Runner struct {
 	DiscoverRetryDelay      time.Duration
 	RetrySleeper            func(context.Context, time.Duration) error
 	AfterTableMemoryRelease func()
+	DisablePostPrepareGC    bool
 }
 
 type discoveredTarget struct {
@@ -206,6 +208,11 @@ func (r Runner) Prepare(ctx context.Context) error {
 		}(item)
 	}
 	wg.Wait()
+	if !r.DisablePostPrepareGC && firstErr == nil && ctx.Err() == nil {
+		if _, err := serverprune.RunFromConfig(ctx, r.Config, r.DB, true, os.Stderr); err != nil {
+			fmt.Fprintf(os.Stderr, "wowdata-server cache gc after prepare failed: %v\n", err)
+		}
+	}
 	return firstErr
 }
 

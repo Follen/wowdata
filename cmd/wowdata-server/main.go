@@ -16,6 +16,7 @@ import (
 	"wowdata/internal/server/config"
 	"wowdata/internal/server/health"
 	"wowdata/internal/server/mcphttp"
+	serverprune "wowdata/internal/server/prune"
 	"wowdata/internal/server/refresh"
 	serverruntime "wowdata/internal/server/runtime"
 	"wowdata/internal/server/service"
@@ -71,6 +72,51 @@ func newRootCommandWithHTTPRunner(runHTTP httpRunner) *cobra.Command {
 		SilenceUsage: true,
 	}
 	cmd.AddCommand(newMCPCommand(rt, runHTTP))
+	cmd.AddCommand(newCacheCommand())
+	return cmd
+}
+
+func newCacheCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cache",
+		Short: "Manage server cache.",
+	}
+	cmd.AddCommand(newCacheGCCommand())
+	return cmd
+}
+
+func newCacheGCCommand() *cobra.Command {
+	var configPath string
+	var apply bool
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "gc",
+		Short: "Garbage collect old per-target builds.",
+		Long: `Garbage collect old per-target builds.
+
+By default this is a dry-run. Use --apply to delete metadata and files. The GC
+always keeps the latest build for each target and refuses to delete active or
+preparing builds.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !dryRun && !apply {
+				return fmt.Errorf("--dry-run=false requires --apply")
+			}
+			cfg, err := loadServerConfig(configPath)
+			if err != nil {
+				return err
+			}
+			db, err := metadata.Open(cfg.Cache.MetadataDB)
+			if err != nil {
+				return err
+			}
+			defer db.Close()
+			_, err = serverprune.RunFromConfig(cmd.Context(), cfg, db, apply, cmd.OutOrStdout())
+			return err
+		},
+	}
+	cmd.Flags().StringVar(&configPath, "config", "", "HTTP service config file")
+	cmd.Flags().BoolVar(&apply, "apply", false, "Delete old build metadata and files")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", true, "Preview deletions without changing metadata or files")
 	return cmd
 }
 
