@@ -72,9 +72,7 @@ func TestRuntimeDB2RowsAcceptsMultipleIDs(t *testing.T) {
 
 func TestRuntimeDB2RowsRejectsInvalidID(t *testing.T) {
 	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "db2", "rows", "SpellName", "--ids", "nope")
-	if err != nil {
-		t.Fatalf("db2 rows returned command error: %v stderr=%s", err, stderr)
-	}
+	requireCommandError(t, err, "invalid_argument", stderr)
 	if !strings.Contains(stdout, `"ok": false`) || !strings.Contains(stdout, `"invalid_argument"`) {
 		t.Fatalf("db2 rows should reject invalid IDs:\n%s", stdout)
 	}
@@ -144,9 +142,7 @@ func TestRuntimeDB2StreamSupportsJSONFormat(t *testing.T) {
 
 func TestRuntimeDB2StreamRejectsUnknownFormat(t *testing.T) {
 	stdout, stderr, err := executeCommandWithService(t, &Service{DB2: NewDB2HandlerWithStore(fakeDB2Store{})}, "db2", "stream", "SpellEffect", "--format", "yaml")
-	if err != nil {
-		t.Fatalf("db2 stream returned command error: %v stderr=%s", err, stderr)
-	}
+	requireCommandError(t, err, "invalid_argument", stderr)
 	if !strings.Contains(stdout, `"ok": false`) || !strings.Contains(stdout, `"invalid_argument"`) {
 		t.Fatalf("db2 stream should reject unknown format:\n%s", stdout)
 	}

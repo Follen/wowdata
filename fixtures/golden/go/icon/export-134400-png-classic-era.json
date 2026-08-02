@@ -22,6 +22,6 @@
     "fixtures/golden/go/icon/export-134400-classic-era.png"
   ],
   "exitCode": 0,
-  "stdout": "{\n  \"ok\": true,\n  \"command\": \"icon export\",\n  \"data\": {\n    \"ok\": true,\n    \"status\": \"extracted\",\n    \"path\": \"D:\\\\Code\\\\MCP\\\\wow_mcp\\\\fixtures\\\\golden\\\\go\\\\icon\\\\export-134400-classic-era.png\",\n    \"width\": 64,\n    \"height\": 64,\n    \"format\": \"png\",\n    \"mipmap\": 0,\n    \"hash\": \"2b661d2525336a19dfe059bc8b1a0f95\"\n  },\n  \"warnings\": []\n}\n",
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"icon export\",\n  \"data\": {\n    \"ok\": true,\n    \"status\": \"extracted\",\n    \"path\": \"D:\\\\Code\\\\wow\\\\wowdata\\\\fixtures\\\\golden\\\\go\\\\icon\\\\export-134400-classic-era.png\",\n    \"width\": 64,\n    \"height\": 64,\n    \"format\": \"png\",\n    \"mipmap\": 0,\n    \"hash\": \"2b661d2525336a19dfe059bc8b1a0f95\"\n  },\n  \"warnings\": []\n}\n",
   "stderr": ""
 }

@@ -12,6 +12,7 @@ import (
 
 	"wowdata/internal/casc"
 	"wowdata/internal/listfile"
+	"wowdata/internal/storage"
 )
 
 type HTTPListfileSource struct {
@@ -20,10 +21,11 @@ type HTTPListfileSource struct {
 	binaryURLTmpls []string
 	client         *http.Client
 	textOnly       bool
+	workers        int
 }
 
 func NewHTTPListfileSource(cacheDir string, urls []string) *HTTPListfileSource {
-	return &HTTPListfileSource{cacheDir: cacheDir, urls: urls, client: http.DefaultClient}
+	return &HTTPListfileSource{cacheDir: cacheDir, urls: urls, client: http.DefaultClient, workers: storage.DefaultWorkers}
 }
 
 func (s *HTTPListfileSource) WithBinaryURLs(urls []string) *HTTPListfileSource {
@@ -33,6 +35,13 @@ func (s *HTTPListfileSource) WithBinaryURLs(urls []string) *HTTPListfileSource {
 
 func (s *HTTPListfileSource) WithTextOnly() *HTTPListfileSource {
 	s.textOnly = true
+	return s
+}
+
+func (s *HTTPListfileSource) WithWorkers(workers int) *HTTPListfileSource {
+	if workers > 0 {
+		s.workers = workers
+	}
 	return s
 }
 
@@ -53,7 +62,7 @@ func (s *HTTPListfileSource) textListfile() (*listfile.Listfile, error) {
 	}
 	var lastErr error
 	for _, url := range s.urls {
-		body, err := downloadListfileURL(s.client, url)
+		body, err := downloadListfileURLWithWorkers(s.client, url, s.workers)
 		if err != nil {
 			lastErr = err
 			continue
@@ -66,7 +75,7 @@ func (s *HTTPListfileSource) textListfile() (*listfile.Listfile, error) {
 		if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
 			return nil, err
 		}
-		_ = os.WriteFile(cachePath, body, 0644)
+		_ = storage.AtomicWriteFile(cachePath, body, 0o644)
 		return lf, nil
 	}
 	if lastErr == nil {
@@ -97,7 +106,10 @@ func (s *HTTPListfileSource) binaryListfile() (*listfile.Listfile, error) {
 	jobs := make(chan string)
 	errCh := make(chan error, 1)
 	var wg sync.WaitGroup
-	workerCount := 4
+	workerCount := s.workers
+	if workerCount <= 0 {
+		workerCount = storage.DefaultWorkers
+	}
 	if len(components) < workerCount {
 		workerCount = len(components)
 	}
@@ -143,7 +155,7 @@ func (s *HTTPListfileSource) downloadBinaryComponent(component string) error {
 	var lastErr error
 	for _, tmpl := range s.binaryURLTmpls {
 		url := fmt.Sprintf(tmpl, component)
-		body, err := downloadListfileURL(s.client, url)
+		body, err := downloadListfileURLWithWorkers(s.client, url, s.workers)
 		if err != nil {
 			lastErr = err
 			continue
@@ -151,7 +163,7 @@ func (s *HTTPListfileSource) downloadBinaryComponent(component string) error {
 		if err := os.MkdirAll(s.cacheDir, 0755); err != nil {
 			return err
 		}
-		return os.WriteFile(filepath.Join(s.cacheDir, component), body, 0644)
+		return storage.AtomicWriteFile(filepath.Join(s.cacheDir, component), body, 0o644)
 	}
 	if lastErr == nil {
 		lastErr = fmt.Errorf("no binary listfile URLs configured")
@@ -160,7 +172,11 @@ func (s *HTTPListfileSource) downloadBinaryComponent(component string) error {
 }
 
 func downloadListfileURL(client *http.Client, url string) ([]byte, error) {
-	if body, err := casc.DownloadHTTPConcurrent(url); err == nil {
+	return downloadListfileURLWithWorkers(client, url, storage.DefaultWorkers)
+}
+
+func downloadListfileURLWithWorkers(client *http.Client, url string, workers int) ([]byte, error) {
+	if body, err := casc.DownloadHTTPConcurrentWithWorkers(url, workers); err == nil {
 		return body, nil
 	}
 	if client == nil {

@@ -19,7 +19,7 @@ func NewSpellHandler(svc *wowdata.SpellService) func(cmd *cobra.Command, args []
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell info", "not_ready", warmupRequiredMessage))
 			}
 			if !svc.Ready() {
-				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell info", "not_ready", "SpellEffect table is not loaded; run warmup with --tables SpellEffect"))
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell info", "not_ready", "SpellEffect table is not loaded; retry with a complete target or --profile"))
 			}
 			spellID, _ := cmd.Flags().GetUint32("spell-id")
 			maxDepth, _ := cmd.Flags().GetInt("max-depth")
@@ -36,7 +36,7 @@ func NewSpellHandler(svc *wowdata.SpellService) func(cmd *cobra.Command, args []
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell auras", "not_ready", warmupRequiredMessage))
 			}
 			if !svc.Ready() {
-				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell auras", "not_ready", "SpellEffect table is not loaded; run warmup with --tables SpellEffect"))
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell auras", "not_ready", "SpellEffect table is not loaded; retry with a complete target or --profile"))
 			}
 			spellID, _ := cmd.Flags().GetUint32("spell-id")
 			result := svc.DetectAuras(spellID)
@@ -58,7 +58,7 @@ func NewSpellHandler(svc *wowdata.SpellService) func(cmd *cobra.Command, args []
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell summons", "not_ready", warmupRequiredMessage))
 			}
 			if !svc.Ready() {
-				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell summons", "not_ready", "SpellEffect table is not loaded; run warmup with --tables SpellEffect"))
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("spell summons", "not_ready", "SpellEffect table is not loaded; retry with a complete target or --profile"))
 			}
 			spellID, _ := cmd.Flags().GetUint32("spell-id")
 			npcID, _ := cmd.Flags().GetUint32("npc-id")

@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "cli-only-wowdata",
+    "sourceRevision": 5,
+    "contractHash": "fd24d3eed314af4c582edfcee8962ee56aacc42c2df36efcdba5a3096640f687",
+    "scopeHash": "bfd05e95f7c5f1450d54e21da81cc455f6aaf58e5c6e4833a34142efc4001ff3",
+    "snapshotHash": "07eaf9717e5f52cd3e9ef21b1383087886b1bec25357916b7d5f7a7564be040e",
+    "artifactHash": "54c4b31e0705905737706d844ff8658beaa81b9c206c3d66a321b40f1d2a767c"
+  },
+  "acceptanceIds": [
+    "acceptance-cfdfd28df973d290d5d9066e3b297f45bdb69daa352f7a72710c6bff05be3e54"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-02T17:04:18.258Z",
+  "evidence": {
+    "steps": [
+      "Inspect pre-command target construction"
+    ],
+    "observations": [
+      "The Skill requires a complete target or Profile before every data command and keeps product selection responsibility outside the CLI."
+    ]
+  },
+  "receiptHash": "e42408c8c5f1ea2f67683099bc67939e7659b80b9e561f5ef2f48912186d7361"
+}

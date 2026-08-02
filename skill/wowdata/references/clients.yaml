@@ -1,0 +1,29 @@
+schema: wowdata.clients.v1
+clients:
+  retail: wow
+  ptr: wowt
+  正式服测试服: wowt
+  "正式服 PTR": wowt
+  ptr2: wowxptr
+  beta: wow_beta
+  classic: wow_classic
+  怀旧服: wow_classic
+  classic-ptr: wow_classic_ptr
+  "怀旧服 PTR": wow_classic_ptr
+  怀旧服测试服: wow_classic_ptr
+  classic-beta: wow_classic_beta
+  classic-era: wow_classic_era
+  怀中怀: wow_classic_era
+  "60级": wow_classic_era
+  香草服: wow_classic_era
+  classic-era-ptr: wow_classic_era_ptr
+  classic-anniversary: wow_anniversary
+  classic-titan: wow_classic_titan
+  泰坦服: wow_classic_titan
+  泰坦重铸: wow_classic_titan
+  时光服: wow_classic_titan
+contextualAliases:
+  硬核服:
+    type: realm-rule
+    products: [wow_classic_era, wow_anniversary]
+    instruction: Do not treat as a product. Resolve the underlying classic-era or anniversary product from context; ask which one when unclear.

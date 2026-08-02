@@ -1,0 +1,52 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "cli-only-wowdata",
+    "sourceRevision": 5,
+    "contractHash": "fd24d3eed314af4c582edfcee8962ee56aacc42c2df36efcdba5a3096640f687",
+    "scopeHash": "bfd05e95f7c5f1450d54e21da81cc455f6aaf58e5c6e4833a34142efc4001ff3",
+    "snapshotHash": "07eaf9717e5f52cd3e9ef21b1383087886b1bec25357916b7d5f7a7564be040e",
+    "artifactHash": "54c4b31e0705905737706d844ff8658beaa81b9c206c3d66a321b40f1d2a767c"
+  },
+  "acceptanceIds": [
+    "acceptance-13fe363c092190306b98368494422976fba1b3c5bc5b003849462eecd9699200",
+    "acceptance-582cde84dc214519e2fb335cc53b829457e9024c4790c960f1ef4ccd822221a8"
+  ],
+  "actor": "native-runtime:command:powershell.exe",
+  "issuedAt": "2026-08-02T17:02:45.925Z",
+  "evidence": {
+    "executable": "powershell.exe",
+    "args": [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      ".local/verify-package.ps1"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 180000,
+    "startedAt": "2026-08-02T17:02:39.445Z",
+    "endedAt": "2026-08-02T17:02:45.925Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "0c617eb1c825dfa76722cac695310803b1a31a51",
+      "afterCommit": "0c617eb1c825dfa76722cac695310803b1a31a51"
+    },
+    "afterFence": {
+      "snapshotHash": "07eaf9717e5f52cd3e9ef21b1383087886b1bec25357916b7d5f7a7564be040e",
+      "scopeHash": "bfd05e95f7c5f1450d54e21da81cc455f6aaf58e5c6e4833a34142efc4001ff3",
+      "matched": true
+    },
+    "outputHash": "af6157d7283654b047e437a8f675baf50d251a27bb7cf8b30133df87347abf33",
+    "outputSummary": "builds=5 package=@follen/wowdata@0.0.0-development files=22",
+    "outputTruncated": false
+  },
+  "receiptHash": "2865dc7fe1745399129a98f5f8f2c380ae0a77da2fde1e8c44f7f82cacca9f04"
+}

@@ -12,7 +12,7 @@ func NewEncounterHandler(svc *wowdata.EncounterService) func(cmd *cobra.Command,
 			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("encounter get", "not_ready", warmupRequiredMessage))
 		}
 		if !svc.Ready() {
-			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("encounter get", "not_ready", "JournalEncounterSection table is not loaded; run warmup with --tables JournalEncounterSection"))
+			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("encounter get", "not_ready", "JournalEncounterSection table is not loaded; retry with a complete target or --profile"))
 		}
 		encounterID, _ := cmd.Flags().GetUint32("journal-encounter-id")
 		result := svc.GetEncounter(encounterID)

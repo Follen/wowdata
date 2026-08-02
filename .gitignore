@@ -1,6 +1,7 @@
 output/
 dist/
 .local/
+docs/comet/runtime/transactions/
 AGENT.md
 AGENTS.md
 *.log

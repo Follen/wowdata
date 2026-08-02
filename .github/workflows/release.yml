@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: go test ./... -count=1
+      - run: npm test
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            artifact: wowdata-windows-amd64.exe
+          - goos: linux
+            goarch: amd64
+            artifact: wowdata-linux-amd64
+          - goos: linux
+            goarch: arm64
+            artifact: wowdata-linux-arm64
+          - goos: darwin
+            goarch: amd64
+            artifact: wowdata-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            artifact: wowdata-darwin-arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          VERSION: ${{ github.ref_name }}
+        run: |
+          VERSION="${VERSION#v}"
+          go build -trimpath -ldflags="-s -w -X wowdata/internal/app.Version=${VERSION}" -o "dist/${{ matrix.artifact }}" ./cmd/wowdata
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - name: Use OIDC-capable npm
+        run: |
+          npm install --global npm@11.18.0
+          node --version
+          npm --version
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Verify tag and prepare package
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          node -e "const v=process.argv[1]; if (!/^\\d+\\.\\d+\\.\\d+$/.test(v)) process.exit(1)" "$VERSION"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          printf '%s\n' "$VERSION" > skill/wowdata/VERSION
+          sha256sum dist/* > dist/SHA256SUMS
+          npm test
+          npm pack --dry-run
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" dist/* --verify-tag --generate-notes --title "$TAG"
+      - name: Publish npm package
+        run: npm publish --access public --provenance

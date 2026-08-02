@@ -15,6 +15,11 @@ type Service struct {
 	Decor     func(cmd *cobra.Command, args []string) error
 	Video     func(cmd *cobra.Command, args []string) error
 	Golden    func(cmd *cobra.Command, args []string) error
+	Profile   func(cmd *cobra.Command, args []string) error
+	Cache     func(cmd *cobra.Command, args []string) error
+	Doctor    func(cmd *cobra.Command, args []string) error
+	Update    func(cmd *cobra.Command, args []string) error
+	Uninstall func(cmd *cobra.Command, args []string) error
 }
 
 type cmdFlag struct {
@@ -36,14 +41,16 @@ type commandSpec struct {
 
 func registerCommands(root *cobra.Command, svc *Service) {
 	specs := []commandSpec{
-		{use: "warmup", short: "Initialize local or remote WoW data context.", example: "  wowdata warmup --source remote --region cn --product wow", group: "warmup",
+		{use: "warmup", short: "Prepare a complete local or remote WoW data target.", example: "  wowdata warmup --source remote --region cn --product wow --build latest --locale zhCN", group: "warmup",
 			flags: []cmdFlag{
-				{name: "source", typ: "string", dflt: "remote", desc: "Data source: local or remote"},
+				{name: "source", typ: "string", desc: "Data source: local or remote"},
 				{name: "path", typ: "string", desc: "Local WoW client path when source=local"},
-				{name: "region", typ: "string", dflt: "cn", desc: "WoW region"},
-				{name: "product", typ: "string", dflt: "wow", desc: "WoW product"},
-				{name: "locale", typ: "string", dflt: "zhCN", desc: "WoW locale, such as zhCN or enUS"},
-				{name: "cache", typ: "string", desc: "Cache directory; defaults to cache next to the executable"},
+				{name: "region", typ: "string", desc: "WoW region"},
+				{name: "product", typ: "string", desc: "WoW product"},
+				{name: "build", typ: "string", desc: "Build selection: latest, version, build ID, or config key"},
+				{name: "locale", typ: "string", desc: "WoW locale, such as zhCN or enUS"},
+				{name: "profile", typ: "string", desc: "Named target profile"},
+				{name: "cache", typ: "string", desc: "Cache directory; defaults to ~/.wowdata/cache"},
 				{name: "tables", typ: "string", dflt: "SpellName,Spell,SpellEffect,SpellMisc,SpellCastTimes,SpellDuration,SpellRange,JournalEncounterSection", desc: "Comma-separated DB2 tables to preload"},
 				{name: "listfile", typ: "bool", dflt: "true", desc: "Warm listfile cache"},
 				{name: "listfile-format", typ: "string", dflt: "binary", desc: "Listfile source format: binary for current full listfile, text for community CSV listfile"},
@@ -147,9 +154,9 @@ func registerCommands(root *cobra.Command, svc *Service) {
 			{use: "info", short: "Show current build and cache state.", example: "  wowdata casc info", group: "casc"},
 			{use: "products", short: "List available products and builds.", example: "  wowdata casc products --source remote --region cn", group: "casc",
 				flags: []cmdFlag{
-					{name: "source", typ: "string", dflt: "remote", desc: "Data source"},
+					{name: "source", typ: "string", desc: "Data source"},
 					{name: "path", typ: "string", desc: "Local WoW client path when source=local"},
-					{name: "region", typ: "string", dflt: "cn", desc: "WoW region"},
+					{name: "region", typ: "string", desc: "WoW region"},
 				}},
 			{use: "diagnose", short: "Inspect CDN, archive, root, encoding, cache, and TACT state.", example: "  wowdata casc diagnose", group: "casc"},
 		}},
@@ -191,6 +198,29 @@ func registerCommands(root *cobra.Command, svc *Service) {
 					{name: "input", typ: "string", desc: "Input AVI file path"},
 					{name: "output", typ: "string", desc: "Output directory for frames"},
 				}},
+		}},
+		{use: "profile", short: "Manage complete data target profiles.", example: "  wowdata profile set retail-cn --source remote --region cn --product wow --build latest --locale zhCN", group: "profile", child: []commandSpec{
+			{use: "list", short: "List named target profiles.", example: "  wowdata profile list", group: "profile"},
+			{use: "show <name>", short: "Show a named target profile.", example: "  wowdata profile show retail-cn", group: "profile"},
+			{use: "set <name>", short: "Create or replace a complete target profile.", example: "  wowdata profile set retail-cn --source remote --region cn --product wow --build latest --locale zhCN", group: "profile"},
+			{use: "remove <name>", short: "Remove a named target profile.", example: "  wowdata profile remove retail-cn", group: "profile"},
+		}},
+		{use: "cache", short: "Inspect, verify, configure, and clean managed cache.", example: "  wowdata cache status", group: "cache", child: []commandSpec{
+			{use: "status", short: "Show cache size and configured limit.", example: "  wowdata cache status", group: "cache"},
+			{use: "verify", short: "Verify cached object integrity.", example: "  wowdata cache verify", group: "cache"},
+			{use: "prune", short: "Prune old unprotected Build caches.", example: "  wowdata cache prune", group: "cache"},
+			{use: "clear", short: "Delete all rebuildable cache data.", example: "  wowdata cache clear", group: "cache"},
+			{use: "config", short: "Show or update cache limits and workers.", example: "  wowdata cache config --max-gb 20 --workers 4", group: "cache", flags: []cmdFlag{
+				{name: "max-gb", typ: "int", desc: "Cache capacity in GiB"},
+				{name: "workers", typ: "int", desc: "Concurrent download workers"},
+			}},
+		}},
+		{use: "doctor", short: "Diagnose installation, target, cache, and network basics.", example: "  wowdata doctor", group: "doctor"},
+		{use: "update", short: "Update wowdata through npm.", example: "  wowdata update", group: "update", flags: []cmdFlag{
+			{name: "version", typ: "string", dflt: "latest", desc: "npm version or dist-tag"},
+		}},
+		{use: "uninstall", short: "Uninstall wowdata, its Skill, and managed data.", example: "  wowdata uninstall", group: "uninstall", flags: []cmdFlag{
+			{name: "keep-data", typ: "bool", desc: "Keep configuration, profiles, Builds, and cache"},
 		}},
 		{use: "golden", short: "Capture and compare golden fixtures.", example: "  wowdata golden compare --fixture warmup/remote-cn-wow.json", group: "golden", child: []commandSpec{
 			{use: "capture", short: "Capture Go command output.", example: "  wowdata golden capture --name db2-spellname-123 -- wowdata db2 rows SpellName --id 123", group: "golden",
@@ -293,6 +323,26 @@ func resolveHandler(spec commandSpec, svc *Service) func(cmd *cobra.Command, arg
 	case "golden":
 		if svc.Golden != nil {
 			return svc.Golden
+		}
+	case "profile":
+		if svc.Profile != nil {
+			return svc.Profile
+		}
+	case "cache":
+		if svc.Cache != nil {
+			return svc.Cache
+		}
+	case "doctor":
+		if svc.Doctor != nil {
+			return svc.Doctor
+		}
+	case "update":
+		if svc.Update != nil {
+			return svc.Update
+		}
+	case "uninstall":
+		if svc.Uninstall != nil {
+			return svc.Uninstall
 		}
 	}
 	return handler

@@ -100,6 +100,47 @@ func TestHTTPListfileSourceDownloadsBinaryComponentsConcurrently(t *testing.T) {
 	}
 }
 
+func TestHTTPListfileSourceUsesConfiguredComponentWorkers(t *testing.T) {
+	started := make(chan struct{}, 32)
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		started <- struct{}{}
+		<-release
+		name := filepath.Base(r.URL.Path)
+		switch name {
+		case "listfile-id-index.dat":
+			_, _ = w.Write([]byte{0, 0, 0, 7, 0, 0, 0, 0, 0})
+		case "listfile-strings.dat":
+			_, _ = w.Write([]byte("interface/icons/remote.blp\x00"))
+		case "listfile-tree-nodes.dat":
+			_, _ = w.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0})
+		default:
+			_, _ = w.Write([]byte{0, 0, 0, 0})
+		}
+	}))
+	defer server.Close()
+
+	source := NewHTTPListfileSource(t.TempDir(), nil).
+		WithBinaryURLs([]string{server.URL + "/%s"}).
+		WithWorkers(2)
+	done := make(chan error, 1)
+	go func() {
+		_, err := source.Listfile()
+		done <- err
+	}()
+	<-started
+	<-started
+	select {
+	case <-started:
+		t.Fatal("more than two listfile workers started before a slot was released")
+	default:
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatalf("Listfile: %v", err)
+	}
+}
+
 func TestHTTPListfileSourceTextUsesRangeChunksForLargeCSV(t *testing.T) {
 	body := bytes.Repeat([]byte("1;interface/icons/test.blp\n"), 50*1024)
 	rangeHeaders := make([]string, 0)

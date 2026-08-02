@@ -29,7 +29,7 @@ func TestCASCLocalInitReadsBuildInfo(t *testing.T) {
 	if err := local.Init(); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
-	if len(local.Builds) != 1 {
+	if len(local.Builds) != 2 {
 		t.Fatalf("build count = %d", len(local.Builds))
 	}
 	if local.Builds[0].Product != "wow" || local.Builds[0].Branch != "retail" {
@@ -39,8 +39,11 @@ func TestCASCLocalInitReadsBuildInfo(t *testing.T) {
 		t.Fatalf("config keys = %q/%q", local.Builds[0].BuildConfig, local.Builds[0].CDNConfig)
 	}
 	products := local.GetProductList()
-	if len(products) != 1 || products[0].BuildIndex != 0 || !strings.Contains(products[0].Label, "World of Warcraft") {
+	if len(products) != 2 || products[0].BuildIndex != 0 || !strings.Contains(products[0].Label, "World of Warcraft") {
 		t.Fatalf("products = %#v", products)
+	}
+	if products[1].Product != "unknown" || !strings.Contains(products[1].Label, "unknown") {
+		t.Fatalf("unknown product should be preserved: %#v", products[1])
 	}
 }
 

@@ -1,13 +1,16 @@
 package casc
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+
+	"wowdata/internal/storage"
 )
 
 type CacheMeta struct {
@@ -71,13 +74,21 @@ func (dc *DataCache) FilePath(file string, dir string) string {
 	return filepath.ToSlash(filepath.Join(base, file))
 }
 
+func (dc *DataCache) integrityKey(filePath string) string {
+	rel, err := filepath.Rel(dc.root, filePath)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return filepath.ToSlash(filePath)
+	}
+	return filepath.ToSlash(rel)
+}
+
 func (dc *DataCache) GetFile(file string, dir string) ([]byte, error) {
 	dc.mu.Lock()
 	defer dc.mu.Unlock()
 
 	filePath := dc.FilePath(file, dir)
 
-	intHash, ok := dc.integrity[filePath]
+	intHash, ok := dc.integrity[dc.integrityKey(filePath)]
 	if !ok {
 		return nil, fmt.Errorf("integrity not available for: %s", filePath)
 	}
@@ -87,7 +98,7 @@ func (dc *DataCache) GetFile(file string, dir string) ([]byte, error) {
 		return nil, err
 	}
 
-	actualHash := fmt.Sprintf("%x", sha1.Sum(data))
+	actualHash := fmt.Sprintf("%x", sha256.Sum256(data))
 	if actualHash != intHash {
 		return nil, fmt.Errorf("bad integrity for %s: expected %s, got %s", filePath, intHash, actualHash)
 	}
@@ -106,13 +117,13 @@ func (dc *DataCache) StoreFile(file string, data []byte, dir string) error {
 		return err
 	}
 
-	// Compute integrity hash
-	hash := fmt.Sprintf("%x", sha1.Sum(data))
-	dc.integrity[filePath] = hash
-
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := storage.AtomicWriteFile(filePath, data, 0o644); err != nil {
 		return err
 	}
+
+	// Publish integrity only after the complete cache object is visible.
+	hash := fmt.Sprintf("%x", sha256.Sum256(data))
+	dc.integrity[dc.integrityKey(filePath)] = hash
 
 	dc.meta.LastAccess = time.Now().UnixMilli()
 	dc.saveManifest()
@@ -126,7 +137,7 @@ func (dc *DataCache) saveManifest() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dc.manifestPath, data, 0644)
+	return storage.AtomicWriteFile(dc.manifestPath, data, 0o644)
 }
 
 func (dc *DataCache) saveIntegrity() error {
@@ -135,5 +146,5 @@ func (dc *DataCache) saveIntegrity() error {
 		return err
 	}
 	intPath := filepath.Join(dc.root, "cache_integrity.json")
-	return os.WriteFile(intPath, data, 0644)
+	return storage.AtomicWriteFile(intPath, data, 0o644)
 }

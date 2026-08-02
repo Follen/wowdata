@@ -1,0 +1,4 @@
+interface:
+  display_name: "wowdata"
+  short_description: "Query and export World of Warcraft data with the wowdata CLI"
+  default_prompt: "Use $wowdata to query or export WoW data with an explicit product and a complete target."

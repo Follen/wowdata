@@ -131,16 +131,6 @@ func CompareJSON(expected []byte, actual []byte) (CompareResult, error) {
 			return compareCapturedPayload(expectedCapture, actualCapture), nil
 		}
 	}
-	if expectedWrapper, ok := mcpResultWrapperPayload(expectedValue); ok {
-		if actualCapture, ok := capturePayload(actualValue); ok {
-			return compareBusinessPayloads(expectedWrapper, capturedStdoutPayload(actualCapture)), nil
-		}
-	}
-	if expectedCapture, ok := capturePayload(expectedValue); ok {
-		if actualWrapper, ok := mcpResultWrapperPayload(actualValue); ok {
-			return compareBusinessPayloads(capturedStdoutPayload(expectedCapture), actualWrapper), nil
-		}
-	}
 	if expectedBusiness, ok := businessPayload(expectedValue); ok {
 		if actualBusiness, ok := businessPayload(actualValue); ok {
 			return compareBusinessPayloads(expectedBusiness, actualBusiness), nil
@@ -208,18 +198,6 @@ func normalizeComparable(value interface{}) interface{} {
 	default:
 		return value
 	}
-}
-
-func mcpResultWrapperPayload(value interface{}) (interface{}, bool) {
-	obj, ok := value.(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-	result, ok := obj["result"]
-	if !ok {
-		return nil, false
-	}
-	return businessPayload(result)
 }
 
 func capturedStdoutPayload(capture captureData) interface{} {
@@ -295,26 +273,7 @@ func businessPayload(value interface{}) (interface{}, bool) {
 		return map[string]interface{}{"error": nil}, true
 	}
 
-	content, ok := obj["content"].([]interface{})
-	if !ok || len(content) == 0 {
-		return nil, false
-	}
-	first, ok := content[0].(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-	text, ok := first["text"].(string)
-	if !ok {
-		return nil, false
-	}
-	if isError, _ := obj["isError"].(bool); isError {
-		return map[string]interface{}{"error": strings.TrimPrefix(text, "Error: ")}, true
-	}
-	var payload interface{}
-	if err := json.Unmarshal([]byte(text), &payload); err == nil {
-		return payload, true
-	}
-	return text, true
+	return nil, false
 }
 
 func CompareArtifacts(baseDir string, entry ManifestEntry) []CompareResult {
@@ -393,6 +352,9 @@ func compareCapturedPayload(expected captureData, actual captureData) CompareRes
 	actualStdout := strings.TrimSpace(actual.Stdout)
 	if expectedStdout == "" && actualStdout == "" {
 		return CompareResult{Equal: true}
+	}
+	if expectedPayload, actualPayload := capturedStdoutPayload(expected), capturedStdoutPayload(actual); expectedPayload != nil && actualPayload != nil {
+		return compareBusinessPayloads(expectedPayload, actualPayload)
 	}
 	var expectedJSON interface{}
 	expectedJSONErr := json.Unmarshal([]byte(expectedStdout), &expectedJSON)

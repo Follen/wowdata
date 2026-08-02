@@ -52,6 +52,22 @@ func TestResponseEnvelopeError(t *testing.T) {
 	}
 }
 
+func TestResponseWriterErrorWritesJSONAndReturnsCommandError(t *testing.T) {
+	var stdout bytes.Buffer
+	err := NewResponseWriter(&stdout).Error("wowdata bad", "bad_input", "bad input")
+	if !IsCommandError(err) {
+		t.Fatalf("error = %v, want CommandError", err)
+	}
+
+	var resp Response
+	if decodeErr := json.Unmarshal(stdout.Bytes(), &resp); decodeErr != nil {
+		t.Fatalf("decode stdout: %v", decodeErr)
+	}
+	if resp.OK || resp.Error == nil || resp.Error.Code != "bad_input" {
+		t.Fatalf("response = %#v", resp)
+	}
+}
+
 func TestRootHelp(t *testing.T) {
 	stdout, stderr, err := executeCommand(t, "--help")
 	if err != nil {
@@ -95,7 +111,7 @@ func TestWarmupHelp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("warmup --help returned error: %v stderr=%s", err, stderr)
 	}
-	if !strings.Contains(stdout, "Initialize local or remote WoW data context") {
+	if !strings.Contains(stdout, "Prepare a complete local or remote WoW data target") {
 		t.Fatalf("warmup help missing description:\n%s", stdout)
 	}
 	for _, want := range []string{"--tables", "--listfile", "--listfile-format", "--dbd-manifest", "--locale", "--cache"} {
@@ -127,8 +143,8 @@ func TestCreatureDisplayHelpIncludesFileDataID(t *testing.T) {
 
 func TestCascInfoReturnsServiceUnavailableWithoutInjectedRuntime(t *testing.T) {
 	stdout, stderr, err := executeCommand(t, "casc", "info")
-	if err != nil {
-		t.Fatalf("casc info returned error: %v stderr=%s", err, stderr)
+	if !IsCommandError(err) {
+		t.Fatalf("casc info error = %v, want CommandError; stderr=%s", err, stderr)
 	}
 	if !strings.Contains(stdout, `"ok": false`) {
 		t.Fatalf("expected ok=false:\n%s", stdout)
@@ -178,6 +194,9 @@ func TestAllPlannedCommandHelp(t *testing.T) {
 		{"creature"}, {"creature", "display"}, {"creature", "model"},
 		{"decor"}, {"decor", "list"}, {"decor", "get"},
 		{"video"}, {"video", "demux"},
+		{"profile"}, {"profile", "list"}, {"profile", "show"}, {"profile", "set"}, {"profile", "remove"},
+		{"cache"}, {"cache", "status"}, {"cache", "verify"}, {"cache", "prune"}, {"cache", "clear"}, {"cache", "config"},
+		{"doctor"}, {"update"}, {"uninstall"},
 		{"golden"}, {"golden", "capture"}, {"golden", "compare"},
 	}
 

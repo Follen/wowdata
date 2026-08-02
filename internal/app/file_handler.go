@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const warmupRequiredMessage = "CASC 未就绪，请先调用 wow_warmup"
+const warmupRequiredMessage = "CASC 未就绪，请提供完整目标或检查准备错误"
 
 func NewFileHandler(lf *listfile.Listfile, fs *casc.FileService) func(cmd *cobra.Command, args []string) error {
 	if lf == nil && fs == nil {

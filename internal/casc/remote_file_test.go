@@ -148,9 +148,43 @@ func TestHTTPRangeLargeFileUsesConcurrentChunks(t *testing.T) {
 	}
 }
 
-func TestHTTPRangeConcurrentUsesSixteenWorkersByDefault(t *testing.T) {
-	if rangeWorkerCount != 16 {
-		t.Fatalf("rangeWorkerCount = %d, want 16", rangeWorkerCount)
+func TestHTTPRangeConcurrentUsesFourWorkersByDefault(t *testing.T) {
+	if rangeWorkerCount != 4 {
+		t.Fatalf("rangeWorkerCount = %d, want 4", rangeWorkerCount)
+	}
+}
+
+func TestHTTPRangeConcurrentUsesConfiguredWorkers(t *testing.T) {
+	payload := bytes.Repeat([]byte("x"), rangeChunkSize*4)
+	started := make(chan struct{}, 4)
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var start, end int
+		if _, err := fmt.Sscanf(r.Header.Get("Range"), "bytes=%d-%d", &start, &end); err != nil {
+			t.Fatalf("bad range header %q: %v", r.Header.Get("Range"), err)
+		}
+		started <- struct{}{}
+		<-release
+		w.WriteHeader(http.StatusPartialContent)
+		_, _ = w.Write(payload[start : end+1])
+	}))
+	defer server.Close()
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := httpRangeConcurrentWithWorkers(server.URL, 0, len(payload)-1, 2)
+		done <- err
+	}()
+	<-started
+	<-started
+	select {
+	case <-started:
+		t.Fatal("more than two range workers started before a slot was released")
+	default:
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatalf("httpRangeConcurrentWithWorkers: %v", err)
 	}
 }
 

@@ -31,6 +31,18 @@ jobs:
       - name: Run tests
         run: go test ./... -count=1
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Run npm tests
+        run: npm test
+
+      - name: Check npm package contents
+        run: npm pack --dry-run
+
   build:
     name: Build ${{ matrix.goos }}-${{ matrix.goarch }}
     runs-on: ubuntu-latest
@@ -70,7 +82,7 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
-        run: go build -trimpath -ldflags="-s -w" -o "dist/${{ matrix.artifact }}" ./cmd/wowdata
+        run: go build -trimpath -ldflags="-s -w -X wowdata/internal/app.Version=0.0.0-development" -o "dist/${{ matrix.artifact }}" ./cmd/wowdata
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

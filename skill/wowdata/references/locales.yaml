@@ -1,0 +1,16 @@
+schema: wowdata.locales.v1
+default: zhCN
+locales:
+  zhCN: [简体中文, 国服中文, cn]
+  zhTW: [繁体中文, 台湾中文, tw]
+  enUS: [英文, 美式英文, us]
+  enGB: [英式英文, gb]
+  koKR: [韩文, kr]
+  frFR: [法文, fr]
+  deDE: [德文, de]
+  esES: [西班牙文, es]
+  esMX: [拉美西语, mx]
+  ruRU: [俄文, ru]
+  ptBR: [巴西葡语, br]
+  itIT: [意大利文, it]
+  ptPT: [葡萄牙文, pt]

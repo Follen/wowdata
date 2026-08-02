@@ -1,5 +1,7 @@
 package casc
 
+import "sort"
+
 type LocaleFlag uint32
 
 const (
@@ -47,4 +49,13 @@ func (f LocaleFlag) Name() string {
 		return n
 	}
 	return "zhCN"
+}
+
+func LocaleNames() []string {
+	names := make([]string, 0, len(localeNames))
+	for _, name := range localeNames {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }

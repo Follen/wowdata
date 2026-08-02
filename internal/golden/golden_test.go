@@ -69,7 +69,9 @@ func TestCompareJSONCapturedStdoutBarePayloadMatchesGoEnvelope(t *testing.T) {
 
 func TestCompareJSONCapturedJSONLinesMatchesStreamPayload(t *testing.T) {
 	expected := []byte(`{
-		"result": {"content": [{"type":"text","text":"{\"table\":\"SpellEffect\",\"mode\":\"stream\",\"count\":2,\"rows\":[{\"ID\":1},{\"ID\":2}]}"}]}
+		"exitCode": 0,
+		"stdout": "{\"ok\":true,\"command\":\"db2 stream\",\"data\":{\"table\":\"SpellEffect\",\"mode\":\"stream\",\"count\":2,\"rows\":[{\"ID\":1},{\"ID\":2}]},\"warnings\":[]}\n",
+		"stderr": ""
 	}`)
 	actual := []byte(`{
 		"exitCode": 0,
@@ -96,79 +98,6 @@ func TestCompareJSONCapturedStdoutMismatch(t *testing.T) {
 	}
 	if result.Equal {
 		t.Fatal("expected captured stdout mismatch")
-	}
-}
-
-func TestCompareJSONMCPTextResultMatchesGoEnvelopeData(t *testing.T) {
-	expected := []byte(`{
-		"content": [{
-			"type": "text",
-			"text": "{\"fileDataID\":456,\"fileName\":\"interface/icons/spell.blp\"}"
-		}]
-	}`)
-	actual := []byte(`{
-		"ok": true,
-		"command": "file lookup",
-		"data": {"fileName":"interface/icons/spell.blp","fileDataID":456},
-		"warnings": []
-	}`)
-
-	result, err := CompareJSON(expected, actual)
-	if err != nil {
-		t.Fatalf("CompareJSON: %v", err)
-	}
-	if !result.Equal {
-		t.Fatalf("expected MCP text payload to match Go data envelope: %#v", result)
-	}
-}
-
-func TestCompareJSONCapturedMCPResultMatchesCapturedGoStdout(t *testing.T) {
-	expected := []byte(`{
-		"name": "errors/file-lookup-without-warmup",
-		"tool": "wow_file",
-		"args": {"action":"lookup","fileDataID":456},
-		"result": {
-			"isError": true,
-			"content": [{"type":"text","text":"Error: file runtime is not initialized"}]
-		}
-	}`)
-	actual := []byte(`{
-		"name": "errors/file-lookup-without-warmup",
-		"command": "wowdata",
-		"args": ["file","lookup","--file-data-id","456"],
-		"exitCode": 0,
-		"stdout": "{\"ok\":false,\"error\":{\"code\":\"not_ready\",\"message\":\"file runtime is not initialized\"}}\n",
-		"stderr": ""
-	}`)
-
-	result, err := CompareJSON(expected, actual)
-	if err != nil {
-		t.Fatalf("CompareJSON: %v", err)
-	}
-	if !result.Equal {
-		t.Fatalf("expected captured MCP result to match captured Go stdout: %#v", result)
-	}
-}
-
-func TestCompareJSONMCPErrorResultMatchesGoErrorEnvelope(t *testing.T) {
-	expected := []byte(`{
-		"isError": true,
-		"content": [{"type":"text","text":"Error: CASC 未就绪，请先调用 wow_warmup"}]
-	}`)
-	actual := []byte(`{
-		"ok": false,
-		"command": "file lookup",
-		"data": null,
-		"warnings": [],
-		"error": {"code":"not_ready","message":"CASC 未就绪，请先调用 wow_warmup"}
-	}`)
-
-	result, err := CompareJSON(expected, actual)
-	if err != nil {
-		t.Fatalf("CompareJSON: %v", err)
-	}
-	if !result.Equal {
-		t.Fatalf("expected MCP error payload to match Go error envelope: %#v", result)
 	}
 }
 

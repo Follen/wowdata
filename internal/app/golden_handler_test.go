@@ -53,9 +53,7 @@ func TestGoldenCompareReportsMismatch(t *testing.T) {
 	os.WriteFile(actual, []byte(`{"ok":false}`), 0644)
 
 	stdout, stderr, err := executeCommandWithService(t, &Service{Golden: NewGoldenHandler()}, "golden", "compare", "--fixture", fixture, "--actual", actual)
-	if err != nil {
-		t.Fatalf("golden compare returned command error: %v stderr=%s", err, stderr)
-	}
+	requireCommandError(t, err, "compare_failed", stderr)
 	if !strings.Contains(stdout, `"ok": false`) || !strings.Contains(stdout, `"compare_failed"`) {
 		t.Fatalf("expected compare failure:\n%s", stdout)
 	}
@@ -93,9 +91,7 @@ func TestGoldenCompareAllFailsWhenRequiredGroupsMissing(t *testing.T) {
 	}`), 0644)
 
 	stdout, stderr, err := executeCommandWithService(t, &Service{Golden: NewGoldenHandler()}, "golden", "compare", "--all", "--fixture", manifest)
-	if err != nil {
-		t.Fatalf("golden compare --all returned command error: %v stderr=%s", err, stderr)
-	}
+	requireCommandError(t, err, "missing_required_groups", stderr)
 	if !strings.Contains(stdout, `"ok": false`) || !strings.Contains(stdout, `"missing_required_groups"`) || !strings.Contains(stdout, "spell") {
 		t.Fatalf("expected missing required groups failure:\n%s", stdout)
 	}
@@ -106,9 +102,7 @@ func TestGoldenCompareAllFailsForEmptyRequiredManifest(t *testing.T) {
 	os.WriteFile(manifest, []byte(`{"version":1,"requiredGroups":["db2"],"fixtures":[]}`), 0644)
 
 	stdout, stderr, err := executeCommandWithService(t, &Service{Golden: NewGoldenHandler()}, "golden", "compare", "--all", "--fixture", manifest)
-	if err != nil {
-		t.Fatalf("golden compare --all returned command error: %v stderr=%s", err, stderr)
-	}
+	requireCommandError(t, err, "missing_required_groups", stderr)
 	if !strings.Contains(stdout, `"ok": false`) || !strings.Contains(stdout, `"missing_required_groups"`) {
 		t.Fatalf("expected empty manifest failure:\n%s", stdout)
 	}
@@ -164,9 +158,7 @@ func TestGoldenCompareAllFailsWhenArtifactHashDiffers(t *testing.T) {
 	}`), 0644)
 
 	stdout, stderr, err := executeCommandWithService(t, &Service{Golden: NewGoldenHandler()}, "golden", "compare", "--all", "--fixture", manifest)
-	if err != nil {
-		t.Fatalf("golden compare --all returned command error: %v stderr=%s", err, stderr)
-	}
+	requireCommandError(t, err, "compare_failed", stderr)
 	if !strings.Contains(stdout, `"ok": false`) || !strings.Contains(stdout, `"compare_failed"`) || !strings.Contains(stdout, "sha256") {
 		t.Fatalf("expected artifact hash failure:\n%s", stdout)
 	}

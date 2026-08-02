@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 )
 
@@ -16,6 +17,22 @@ type Response struct {
 type ErrorResponse struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+// CommandError marks a structured command failure that has already been
+// written to stdout. CLI entry points should return a non-zero status without
+// printing this error again.
+type CommandError struct {
+	Code string
+}
+
+func (e *CommandError) Error() string {
+	return e.Code
+}
+
+func IsCommandError(err error) bool {
+	var commandErr *CommandError
+	return errors.As(err, &commandErr)
 }
 
 func NewSuccessResponse(command string, data any) Response {
@@ -63,5 +80,15 @@ func (rw *ResponseWriter) write(resp Response) error {
 func writeJSON(w io.Writer, resp Response) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(resp)
+	if err := encoder.Encode(resp); err != nil {
+		return err
+	}
+	if !resp.OK {
+		code := "command_failed"
+		if resp.Error != nil && resp.Error.Code != "" {
+			code = resp.Error.Code
+		}
+		return &CommandError{Code: code}
+	}
+	return nil
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"wowdata/internal/dbd"
+	"wowdata/internal/storage"
 )
 
 type HTTPDBDManifestSource struct {
@@ -23,9 +24,6 @@ func NewHTTPDBDManifestSource(cacheDir string, urls []string) *HTTPDBDManifestSo
 
 func (s *HTTPDBDManifestSource) Manifest() (*dbd.Manifest, error) {
 	cachePath := filepath.Join(s.cacheDir, "dbd-manifest.json")
-	if data, err := os.ReadFile(cachePath); err == nil && len(data) > 0 {
-		return dbd.ParseManifest(strings.NewReader(string(data)))
-	}
 	var lastErr error
 	for _, url := range s.urls {
 		resp, err := s.client.Get(url)
@@ -51,8 +49,11 @@ func (s *HTTPDBDManifestSource) Manifest() (*dbd.Manifest, error) {
 		if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
 			return nil, err
 		}
-		_ = os.WriteFile(cachePath, body, 0644)
+		_ = storage.AtomicWriteFile(cachePath, body, 0o644)
 		return manifest, nil
+	}
+	if data, err := os.ReadFile(cachePath); err == nil && len(data) > 0 {
+		return dbd.ParseManifest(strings.NewReader(string(data)))
 	}
 	if lastErr == nil {
 		lastErr = fmt.Errorf("no DBD manifest URLs configured")

@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "cli-only-wowdata",
+    "sourceRevision": 5,
+    "contractHash": "fd24d3eed314af4c582edfcee8962ee56aacc42c2df36efcdba5a3096640f687",
+    "scopeHash": "bfd05e95f7c5f1450d54e21da81cc455f6aaf58e5c6e4833a34142efc4001ff3",
+    "snapshotHash": "07eaf9717e5f52cd3e9ef21b1383087886b1bec25357916b7d5f7a7564be040e",
+    "artifactHash": "54c4b31e0705905737706d844ff8658beaa81b9c206c3d66a321b40f1d2a767c"
+  },
+  "acceptanceIds": [
+    "acceptance-5798e260e4354e946f8948268df83ec56fa2a72e14f9508e2fd374e9d21b847b"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-02T17:04:17.046Z",
+  "evidence": {
+    "steps": [
+      "Inspect product selection rule"
+    ],
+    "observations": [
+      "The Skill states that product has no default and requires a user question when words or context do not identify one product."
+    ]
+  },
+  "receiptHash": "cb5984fcb8149a9a84b51b8d8d58193d24e8cc03022666f5b4c85376056b18f9"
+}

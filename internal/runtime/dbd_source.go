@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"wowdata/internal/storage"
 )
 
 type HTTPDBDSource struct {
@@ -20,9 +22,6 @@ func NewHTTPDBDSource(cacheDir string, urls []string) *HTTPDBDSource {
 
 func (s *HTTPDBDSource) Definition(tableName string) (string, error) {
 	cachePath := filepath.Join(s.cacheDir, tableName+".dbd")
-	if data, err := os.ReadFile(cachePath); err == nil && len(data) > 0 {
-		return string(data), nil
-	}
 	var lastErr error
 	for _, tmpl := range s.urls {
 		url := fmt.Sprintf(tmpl, tableName)
@@ -44,8 +43,11 @@ func (s *HTTPDBDSource) Definition(tableName string) (string, error) {
 		if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
 			return "", err
 		}
-		_ = os.WriteFile(cachePath, body, 0644)
+		_ = storage.AtomicWriteFile(cachePath, body, 0o644)
 		return string(body), nil
+	}
+	if data, err := os.ReadFile(cachePath); err == nil && len(data) > 0 {
+		return string(data), nil
 	}
 	if lastErr == nil {
 		lastErr = fmt.Errorf("no DBD URLs configured")

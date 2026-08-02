@@ -11,20 +11,25 @@ import (
 	"time"
 
 	"wowdata/internal/blte"
+	"wowdata/internal/storage"
 )
 
 const (
 	cdnHostTemplate      = "http://%s.patch.battle.net:1119/"
 	cdnHostTemplateChina = "http://cn.patch.battle.net:1119/"
 	rangeChunkSize       = 1 << 20
-	rangeWorkerCount     = 16
+	rangeWorkerCount     = 4
 	httpDownloadAttempts = 3
 )
 
 var downloadProgressWriter io.Writer = os.Stderr
 
-func SetDownloadProgressWriterForTest(w io.Writer) {
+func SetDownloadProgressWriter(w io.Writer) {
 	downloadProgressWriter = w
+}
+
+func SetDownloadProgressWriterForTest(w io.Writer) {
+	SetDownloadProgressWriter(w)
 }
 
 func DownloadProgressWriterForTest() io.Writer {
@@ -52,6 +57,7 @@ type CASCRemote struct {
 	Server    *VersionEntry
 	Cache     *DataCache
 	CacheRoot string
+	Workers   int
 	fetchFull func(cdnFile string) ([]byte, error)
 
 	fetchPartial func(cdnFile string, offset, length int) ([]byte, error)
@@ -61,6 +67,7 @@ func NewCASCRemote(region string) *CASCRemote {
 	r := &CASCRemote{
 		CASCSource: NewCASCSource(),
 		Region:     region,
+		Workers:    4,
 	}
 	if region == "cn" {
 		r.PatchHost = cdnHostTemplateChina
@@ -86,22 +93,61 @@ func (r *CASCRemote) GetBuildKey() string {
 }
 
 func (r *CASCRemote) Init() error {
-	// Fetch version configs for all products
-	builds := make([]VersionEntry, len(defaultProducts))
+	builds := make([]VersionEntry, len(KnownProducts))
+	type versionResult struct {
+		index int
+		entry VersionEntry
+		err   error
+	}
+	workers := r.Workers
+	if workers <= 0 {
+		workers = 4
+	}
+	if workers > len(KnownProducts) {
+		workers = len(KnownProducts)
+	}
+	jobs := make(chan int)
+	results := make(chan versionResult, len(KnownProducts))
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for productIndex := range jobs {
+				product := KnownProducts[productIndex]
+				config, err := r.getVersionConfig(product)
+				if err != nil {
+					results <- versionResult{index: productIndex, err: fmt.Errorf("%s: %w", product, err)}
+					continue
+				}
+				var entry VersionEntry
+				for i := range config {
+					if config[i].Region == r.Region {
+						config[i].Product = product
+						entry = config[i]
+						break
+					}
+				}
+				results <- versionResult{index: productIndex, entry: entry}
+			}
+		}()
+	}
+	go func() {
+		for i := range KnownProducts {
+			jobs <- i
+		}
+		close(jobs)
+		wg.Wait()
+		close(results)
+	}()
+
 	var failures []string
-	for productIndex, product := range defaultProducts {
-		config, err := r.getVersionConfig(product)
-		if err != nil {
-			failures = append(failures, product+": "+err.Error())
+	for result := range results {
+		if result.err != nil {
+			failures = append(failures, result.err.Error())
 			continue
 		}
-		for i := range config {
-			if config[i].Region == r.Region {
-				config[i].Product = product
-				builds[productIndex] = config[i]
-				break
-			}
-		}
+		builds[result.index] = result.entry
 	}
 	r.Builds = builds
 	loaded := 0
@@ -119,20 +165,38 @@ func (r *CASCRemote) Init() error {
 	return nil
 }
 
-var defaultProducts = []string{"wow", "wowt", "wowxptr", "wow_classic", "wow_classic_titan", "wow_classic_era"}
+var KnownProducts = []string{
+	"wow", "wowt", "wowxptr", "wow_beta",
+	"wow_classic", "wow_classic_ptr", "wow_classic_beta",
+	"wow_classic_era", "wow_classic_era_ptr", "wow_anniversary", "wow_classic_titan",
+}
 
 func (r *CASCRemote) getVersionConfig(product string) ([]VersionEntry, error) {
 	url := r.PatchHost + product + "/versions"
 	resp, err := httpGet(url)
-	if err != nil {
-		return nil, err
+	cachePath := r.manifestPath(product + "-versions")
+	if err == nil {
+		defer resp.Body.Close()
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr == nil {
+			_ = storage.AtomicWriteFile(cachePath, body, 0o644)
+			return ParseVersionConfig(string(body)), nil
+		}
+		err = readErr
 	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	if body, cacheErr := os.ReadFile(cachePath); cacheErr == nil && len(body) > 0 {
+		fmt.Fprintf(downloadProgressWriter, "cache source=offline-manifest path=%s\n", filepath.ToSlash(cachePath))
+		return ParseVersionConfig(string(body)), nil
 	}
-	return ParseVersionConfig(string(body)), nil
+	return nil, err
+}
+
+func (r *CASCRemote) manifestPath(name string) string {
+	root := r.CacheRoot
+	if root == "" {
+		root = "cache"
+	}
+	return filepath.Join(root, "manifests", r.Region, name)
 }
 
 func (r *CASCRemote) GetConfig(url string) (map[string]string, error) {
@@ -150,7 +214,7 @@ func (r *CASCRemote) GetConfig(url string) (map[string]string, error) {
 
 func (r *CASCRemote) GetDataFile(cdnFile string) ([]byte, error) {
 	url := r.Host + "data/" + cdnFile
-	if data, err := DownloadHTTPConcurrent(url); err == nil {
+	if data, err := DownloadHTTPConcurrentWithWorkers(url, r.Workers); err == nil {
 		return data, nil
 	}
 	resp, err := httpGet(url)
@@ -163,7 +227,7 @@ func (r *CASCRemote) GetDataFile(cdnFile string) ([]byte, error) {
 
 func (r *CASCRemote) GetDataFilePartial(cdnFile string, offset, length int) ([]byte, error) {
 	url := r.Host + "data/" + cdnFile
-	data, err := httpRange(url, offset, offset+length-1)
+	data, err := httpRangeWithWorkers(url, offset, offset+length-1, r.Workers)
 	if err != nil {
 		return nil, err
 	}
@@ -283,13 +347,13 @@ func (r *CASCRemote) Preload(buildIndex int) error {
 	}
 
 	// Load configs
-	cdnCfg, err := r.GetConfig(r.Host + "config/" + FormatCDNKey(r.Build.CDNConfig))
+	cdnCfg, err := r.getConfigWithCache("cdn_config", r.Host+"config/"+FormatCDNKey(r.Build.CDNConfig))
 	if err != nil {
 		return fmt.Errorf("cdn config: %w", err)
 	}
 	r.SetCDNConfig(cdnCfg)
 
-	buildCfg, err := r.GetConfig(r.Host + "config/" + FormatCDNKey(r.Build.BuildConfig))
+	buildCfg, err := r.getConfigWithCache("build_config", r.Host+"config/"+FormatCDNKey(r.Build.BuildConfig))
 	if err != nil {
 		return fmt.Errorf("build config: %w", err)
 	}
@@ -317,13 +381,15 @@ func (r *CASCRemote) loadArchives() error {
 	if len(archiveKeys) == 0 {
 		return nil
 	}
-	const workers = 32
 	jobs := make(chan string)
 	var mu sync.Mutex
 	var failures []string
 	var wg sync.WaitGroup
 
-	workerCount := workers
+	workerCount := r.Workers
+	if workerCount <= 0 {
+		workerCount = 4
+	}
 	if len(archiveKeys) < workerCount {
 		workerCount = len(archiveKeys)
 	}
@@ -360,13 +426,21 @@ func (r *CASCRemote) loadServerConfig() error {
 	}
 	url := r.PatchHost + r.Build.Product + "/cdns"
 	resp, err := httpGet(url)
-	if err != nil {
-		return err
+	cachePath := r.manifestPath(r.Build.Product + "-cdns")
+	var body []byte
+	if err == nil {
+		defer resp.Body.Close()
+		body, err = io.ReadAll(resp.Body)
+		if err == nil {
+			_ = storage.AtomicWriteFile(cachePath, body, 0o644)
+		}
 	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		body, err = os.ReadFile(cachePath)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(downloadProgressWriter, "cache source=offline-manifest path=%s\n", filepath.ToSlash(cachePath))
 	}
 	servers := ParseVersionConfig(string(body))
 	for i := range servers {
@@ -376,6 +450,31 @@ func (r *CASCRemote) loadServerConfig() error {
 		}
 	}
 	return fmt.Errorf("CDN config does not contain entry for region %s", r.Region)
+}
+
+func (r *CASCRemote) getConfigWithCache(name, url string) (map[string]string, error) {
+	if r.Cache != nil {
+		if body, err := r.Cache.GetFile(name, ""); err == nil && len(body) > 0 {
+			return ParseCDNConfig(string(body))
+		}
+	}
+	resp, err := httpGet(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	config, err := ParseCDNConfig(string(body))
+	if err != nil {
+		return nil, err
+	}
+	if r.Cache != nil {
+		_ = r.Cache.StoreFile(name, body, "")
+	}
+	return config, nil
 }
 
 func (r *CASCRemote) bestCDNHost(server *VersionEntry) string {
@@ -463,13 +562,40 @@ func (r *CASCRemote) GetProductList() []Product {
 		if build.Product == "" {
 			continue
 		}
-		label := fmt.Sprintf("%s %s", knownProductTitle(build.Product), build.VersionsName)
+		title := knownProductTitle(build.Product)
+		if title == "" {
+			title = build.Product
+		}
+		label := fmt.Sprintf("%s %s", title, build.VersionsName)
 		products = append(products, Product{
-			Label:      strings.TrimSpace(label),
-			BuildIndex: i,
+			Label:          strings.TrimSpace(label),
+			BuildIndex:     i,
+			Product:        build.Product,
+			Region:         build.Region,
+			Version:        buildVersion(build),
+			BuildID:        buildID(build),
+			BuildConfigKey: build.BuildConfig,
+			CDNConfigKey:   build.CDNConfig,
+			Branch:         build.Branch,
+			Locales:        LocaleNames(),
 		})
 	}
 	return products
+}
+
+func buildVersion(build VersionEntry) string {
+	if build.VersionsName != "" {
+		return build.VersionsName
+	}
+	return build.Version
+}
+
+func buildID(build VersionEntry) string {
+	version := buildVersion(build)
+	if index := strings.LastIndex(version, "."); index >= 0 && index+1 < len(version) {
+		return version[index+1:]
+	}
+	return ""
 }
 
 var httpClient = &http.Client{Timeout: 120 * time.Second}
@@ -491,10 +617,14 @@ func httpGet(url string) (*http.Response, error) {
 // servers without range support return an error so callers can use a normal
 // GET fallback.
 func DownloadHTTPConcurrent(url string) ([]byte, error) {
-	return httpGetConcurrent(url)
+	return DownloadHTTPConcurrentWithWorkers(url, rangeWorkerCount)
 }
 
-func httpGetConcurrent(url string) ([]byte, error) {
+func DownloadHTTPConcurrentWithWorkers(url string, workers int) ([]byte, error) {
+	return httpGetConcurrent(url, workers)
+}
+
+func httpGetConcurrent(url string, workers int) ([]byte, error) {
 	req, err := http.NewRequest("HEAD", url, nil)
 	if err != nil {
 		return nil, err
@@ -514,13 +644,17 @@ func httpGetConcurrent(url string) ([]byte, error) {
 	if size <= rangeChunkSize {
 		return nil, fmt.Errorf("file is below concurrent download threshold")
 	}
-	return httpRangeConcurrent(url, 0, size-1)
+	return httpRangeConcurrentWithWorkers(url, 0, size-1, workers)
 }
 
 func httpRange(url string, start, end int) ([]byte, error) {
+	return httpRangeWithWorkers(url, start, end, rangeWorkerCount)
+}
+
+func httpRangeWithWorkers(url string, start, end, workers int) ([]byte, error) {
 	length := end - start + 1
 	if length > rangeChunkSize {
-		return httpRangeConcurrent(url, start, end)
+		return httpRangeConcurrentWithWorkers(url, start, end, workers)
 	}
 	return httpRangeSingle(url, start, end)
 }
@@ -558,6 +692,10 @@ func httpRangeSingleOnce(url string, start, end int) ([]byte, error) {
 }
 
 func httpRangeConcurrent(url string, start, end int) ([]byte, error) {
+	return httpRangeConcurrentWithWorkers(url, start, end, rangeWorkerCount)
+}
+
+func httpRangeConcurrentWithWorkers(url string, start, end, workers int) ([]byte, error) {
 	startedAt := time.Now()
 	length := end - start + 1
 	if length <= 0 {
@@ -572,7 +710,9 @@ func httpRangeConcurrent(url string, start, end int) ([]byte, error) {
 	errCh := make(chan error, 1)
 	var wg sync.WaitGroup
 
-	workers := rangeWorkerCount
+	if workers <= 0 {
+		workers = rangeWorkerCount
+	}
 	chunkCount := (length + rangeChunkSize - 1) / rangeChunkSize
 	if chunkCount < workers {
 		workers = chunkCount

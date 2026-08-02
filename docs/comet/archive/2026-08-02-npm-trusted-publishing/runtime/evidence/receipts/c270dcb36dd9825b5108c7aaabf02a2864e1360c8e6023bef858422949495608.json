@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "npm-trusted-publishing",
+    "sourceRevision": 3,
+    "contractHash": "fdded82af7b28bd020721a3b6e31c78193c7630a8f750a3dfc4f7fea6de4c574",
+    "scopeHash": "af7b0e8f964d43648deb44bbd7c4ab5d478c1b6265027d06940ae23bf3a1827b",
+    "snapshotHash": "191911fe15420e0ee0633bb175f9baaeb5f85efed8d993496fecd5042e1f6dda",
+    "artifactHash": "e352892a56dd1014305c647d193063af198aded906c5627444172715c31ae239"
+  },
+  "acceptanceIds": [
+    "acceptance-016a01485ad266ff92d8467624cbf50f2e8bfd356709632c18eacde5bed77be6"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-02T17:32:22.654Z",
+  "evidence": {
+    "steps": [
+      "Inspect immutable-version behavior"
+    ],
+    "observations": [
+      "The workflow derives one exact version from the immutable tag and uses standard npm publish without unpublish, force, delete, or overwrite behavior; npm registry immutability remains authoritative."
+    ]
+  },
+  "receiptHash": "c270dcb36dd9825b5108c7aaabf02a2864e1360c8e6023bef858422949495608"
+}

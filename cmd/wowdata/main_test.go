@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -8,6 +10,38 @@ import (
 	"wowdata/internal/app"
 	"wowdata/internal/casc"
 )
+
+func TestRunCLIReturnsNonZeroForStructuredCommandError(t *testing.T) {
+	t.Setenv("WOWDATA_HOME", filepath.Join(t.TempDir(), ".wowdata"))
+	var stdout, stderr bytes.Buffer
+
+	exitCode := runCLI([]string{"db2", "rows", "SpellName", "--id", "133"}, &stdout, &stderr)
+
+	if exitCode != 1 {
+		t.Fatalf("exit code = %d, want 1", exitCode)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr should not duplicate a structured error: %q", stderr.String())
+	}
+	var resp app.Response
+	if err := json.Unmarshal(stdout.Bytes(), &resp); err != nil {
+		t.Fatalf("decode stdout: %v\n%s", err, stdout.String())
+	}
+	if resp.OK || resp.Error == nil || resp.Error.Code != "target_required" {
+		t.Fatalf("response = %#v", resp)
+	}
+}
+
+func TestRunCLIReturnsZeroForSuccess(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exitCode := runCLI([]string{"--version"}, &stdout, &stderr)
+	if exitCode != 0 {
+		t.Fatalf("exit code = %d, stderr=%q", exitCode, stderr.String())
+	}
+	if stdout.String() == "" {
+		t.Fatal("version output is empty")
+	}
+}
 
 func TestWarmupOptionsIncludeLocale(t *testing.T) {
 	cmd := app.NewRootCommandWithService(nil)
@@ -34,15 +68,15 @@ func TestResolveCacheRootUsesExplicitPath(t *testing.T) {
 	}
 }
 
-func TestResolveCacheRootDefaultsNextToExecutable(t *testing.T) {
-	exeDir := t.TempDir()
-	exe := filepath.Join(exeDir, "wowdata.exe")
+func TestResolveCacheRootDefaultsToWowdataHome(t *testing.T) {
+	home := filepath.Join(t.TempDir(), ".wowdata")
+	t.Setenv("WOWDATA_HOME", home)
 
 	got := resolveCacheRoot("", func() (string, error) {
-		return exe, nil
+		return filepath.Join(t.TempDir(), "wowdata.exe"), nil
 	})
 
-	want := filepath.Join(exeDir, "cache")
+	want := filepath.Join(home, "cache")
 	if got != want {
 		t.Fatalf("cache root = %q, want %q", got, want)
 	}
@@ -137,38 +171,6 @@ func TestWarmupResultNormalizesNilTablesToEmptySlice(t *testing.T) {
 	if !reflect.DeepEqual(warmed["tables"], []string{}) {
 		t.Fatalf("tables = %#v, want empty slice", warmed["tables"])
 	}
-}
-
-func TestRuntimeHTTPWarmupGateRejectsConcurrentWarmup(t *testing.T) {
-	rt := NewRuntime()
-
-	release, err := rt.beginHTTPWarmup()
-	if err != nil {
-		t.Fatalf("ungated warmup should not be rejected: %v", err)
-	}
-	release()
-
-	rt.enableHTTPWarmupGate()
-	release, err = rt.beginHTTPWarmup()
-	if err != nil {
-		t.Fatalf("begin first HTTP warmup: %v", err)
-	}
-
-	_, err = rt.beginHTTPWarmup()
-	if err == nil {
-		t.Fatal("expected concurrent HTTP warmup to be rejected")
-	}
-	step, ok := err.(warmupStepError)
-	if !ok || step.Code != "warmup_in_progress" {
-		t.Fatalf("error = %#v, want warmup_in_progress step error", err)
-	}
-
-	release()
-	release, err = rt.beginHTTPWarmup()
-	if err != nil {
-		t.Fatalf("begin warmup after release: %v", err)
-	}
-	release()
 }
 
 func validRootEntries(source *casc.CASCSource) map[uint32]bool {

@@ -1,0 +1,7 @@
+schema: wowdata.tables.v1
+intents:
+  spell: [SpellName, Spell, SpellEffect, SpellMisc, SpellCastTimes, SpellDuration, SpellRange]
+  encounter: [JournalEncounterSection]
+  item: [Item, ItemSparse, ModelFileData, TextureFileData, ComponentModelFileData, ItemDisplayInfo, HelmetGeosetData, ItemDisplayInfoMaterialRes, ItemModifiedAppearance, ItemAppearance]
+  creature: [CreatureDisplayInfo, CreatureModelData, CreatureDisplayInfoGeosetData]
+  decor: [HouseDecor]

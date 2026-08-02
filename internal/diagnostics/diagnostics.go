@@ -30,8 +30,16 @@ type CASCProducts struct {
 }
 
 type Product struct {
-	Label      string `json:"label"`
-	BuildIndex int    `json:"buildIndex"`
+	Label          string   `json:"label"`
+	BuildIndex     int      `json:"buildIndex"`
+	Product        string   `json:"product"`
+	Region         string   `json:"region,omitempty"`
+	Version        string   `json:"version,omitempty"`
+	BuildID        string   `json:"buildId,omitempty"`
+	BuildConfigKey string   `json:"buildConfigKey,omitempty"`
+	CDNConfigKey   string   `json:"cdnConfigKey,omitempty"`
+	Branch         string   `json:"branch,omitempty"`
+	Locales        []string `json:"locales,omitempty"`
 }
 
 type CASCDiagnose struct {
@@ -100,7 +108,7 @@ func (ds *DiagnosticsService) Diagnose() CASCDiagnose {
 	if ds.info.BuildKey == "" {
 		checks = append(checks, DiagnoseCheck{
 			Name: "build_key", Status: "unknown",
-			Detail: "no build selected; run warmup first",
+			Detail: "no build selected; run a data command with a complete target or profile",
 		})
 	} else {
 		checks = append(checks, DiagnoseCheck{

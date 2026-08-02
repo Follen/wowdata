@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 )
 
@@ -31,4 +32,15 @@ func executeCommandWithService(t *testing.T, svc *Service, args ...string) (stri
 
 	err := cmd.Execute()
 	return stdout.String(), stderr.String(), err
+}
+
+func requireCommandError(t *testing.T, err error, code, stderr string) {
+	t.Helper()
+	var commandErr *CommandError
+	if !errors.As(err, &commandErr) {
+		t.Fatalf("error = %v, want CommandError(%s); stderr=%s", err, code, stderr)
+	}
+	if commandErr.Code != code {
+		t.Fatalf("command error code = %q, want %q; stderr=%s", commandErr.Code, code, stderr)
+	}
 }

@@ -19,7 +19,7 @@ func NewItemHandler(svc *wowdata.ItemService) func(cmd *cobra.Command, args []st
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("item get", "not_ready", warmupRequiredMessage))
 			}
 			if !svc.Ready() {
-				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("item get", "not_ready", "Item and ItemSparse tables are not loaded; run warmup with item tables"))
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("item get", "not_ready", "Item and ItemSparse tables are not loaded; retry with a complete target or --profile"))
 			}
 			itemID, _ := cmd.Flags().GetUint32("item-id")
 			item := svc.GetItem(itemID)
@@ -35,7 +35,7 @@ func NewItemHandler(svc *wowdata.ItemService) func(cmd *cobra.Command, args []st
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("item models", "not_ready", warmupRequiredMessage))
 			}
 			if !svc.Ready() {
-				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("item models", "not_ready", "Item tables are not loaded; run warmup with item model tables"))
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("item models", "not_ready", "Item tables are not loaded; retry with a complete target or --profile"))
 			}
 			itemID, _ := cmd.Flags().GetUint32("item-id")
 			raceID, _ := cmd.Flags().GetInt("race-id")
@@ -50,7 +50,7 @@ func NewItemHandler(svc *wowdata.ItemService) func(cmd *cobra.Command, args []st
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("item geosets", "not_ready", warmupRequiredMessage))
 			}
 			if !svc.Ready() {
-				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("item geosets", "not_ready", "Item tables are not loaded; run warmup with item geoset tables"))
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("item geosets", "not_ready", "Item tables are not loaded; retry with a complete target or --profile"))
 			}
 			itemID, _ := cmd.Flags().GetUint32("item-id")
 			result := svc.GetItemGeosets(itemID)
@@ -71,7 +71,7 @@ func NewItemHandler(svc *wowdata.ItemService) func(cmd *cobra.Command, args []st
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("item textures", "not_ready", warmupRequiredMessage))
 			}
 			if !svc.Ready() {
-				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("item textures", "not_ready", "Item tables are not loaded; run warmup with item texture tables"))
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("item textures", "not_ready", "Item tables are not loaded; retry with a complete target or --profile"))
 			}
 			itemID, _ := cmd.Flags().GetUint32("item-id")
 			result := svc.GetItemTextures(itemID)

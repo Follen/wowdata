@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "cli-only-wowdata",
+    "sourceRevision": 5,
+    "contractHash": "fd24d3eed314af4c582edfcee8962ee56aacc42c2df36efcdba5a3096640f687",
+    "scopeHash": "bfd05e95f7c5f1450d54e21da81cc455f6aaf58e5c6e4833a34142efc4001ff3",
+    "snapshotHash": "07eaf9717e5f52cd3e9ef21b1383087886b1bec25357916b7d5f7a7564be040e",
+    "artifactHash": "54c4b31e0705905737706d844ff8658beaa81b9c206c3d66a321b40f1d2a767c"
+  },
+  "acceptanceIds": [
+    "acceptance-bb93dc83644bf88bf5c401e4cf7375247e996b82277cdcafb3618981acfbf3b3"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-02T17:04:28.688Z",
+  "evidence": {
+    "steps": [
+      "Inspect release permissions and package scripts"
+    ],
+    "observations": [
+      "The workflow defaults to contents read, grants contents write and id-token write only to publish, uses npm provenance, and ships readable JavaScript lifecycle scripts."
+    ]
+  },
+  "receiptHash": "54f870c3f87404505a9a2860487939acae03fc3ab5ade5c8f6c7e951dae9ac61"
+}

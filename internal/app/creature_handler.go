@@ -19,7 +19,7 @@ func NewCreatureHandler(svc *wowdata.CreatureService) func(cmd *cobra.Command, a
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("creature display", "not_ready", warmupRequiredMessage))
 			}
 			if !svc.Ready() {
-				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("creature display", "not_ready", "CreatureDisplayInfo and CreatureModelData tables are not loaded; run warmup with creature tables"))
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("creature display", "not_ready", "CreatureDisplayInfo and CreatureModelData tables are not loaded; retry with a complete target or --profile"))
 			}
 			displayID, _ := cmd.Flags().GetUint32("display-id")
 			fdid, _ := cmd.Flags().GetUint32("file-data-id")
@@ -41,7 +41,7 @@ func NewCreatureHandler(svc *wowdata.CreatureService) func(cmd *cobra.Command, a
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("creature model", "not_ready", warmupRequiredMessage))
 			}
 			if !svc.Ready() {
-				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("creature model", "not_ready", "CreatureDisplayInfo and CreatureModelData tables are not loaded; run warmup with creature tables"))
+				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("creature model", "not_ready", "CreatureDisplayInfo and CreatureModelData tables are not loaded; retry with a complete target or --profile"))
 			}
 			fdid, _ := cmd.Flags().GetUint32("file-data-id")
 			displays := svc.GetCreatureDisplaysByFileDataID(fdid)

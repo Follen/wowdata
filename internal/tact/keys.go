@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"wowdata/internal/storage"
 )
 
 type MissingKeyError struct {
@@ -103,7 +105,7 @@ func LoadKeyRing(cachePath string, urls []string) (*KeyRing, error) {
 		if keyRing.LoadFromText(body) > 0 {
 			_ = os.MkdirAll(filepath.Dir(cachePath), 0755)
 			if data, err := json.MarshalIndent(keyRing.keys, "", "\t"); err == nil {
-				_ = os.WriteFile(cachePath, data, 0644)
+				_ = storage.AtomicWriteFile(cachePath, data, 0o644)
 			}
 			return keyRing, nil
 		}

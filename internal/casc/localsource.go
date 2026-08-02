@@ -44,7 +44,7 @@ func (l *CASCLocal) Init() error {
 	builds := ParseVersionConfig(string(data))
 	l.Builds = l.Builds[:0]
 	for _, build := range builds {
-		if knownProductTitle(build.Product) != "" {
+		if strings.TrimSpace(build.Product) != "" {
 			l.Builds = append(l.Builds, build)
 		}
 	}
@@ -59,7 +59,11 @@ func (l *CASCLocal) GetProductList() []Product {
 			title = build.Product
 		}
 		label := strings.TrimSpace(fmt.Sprintf("%s (%s) %s", title, strings.ToUpper(build.Branch), build.Version))
-		products = append(products, Product{Label: label, BuildIndex: i})
+		products = append(products, Product{
+			Label: label, BuildIndex: i, Product: build.Product, Region: build.Region,
+			Version: buildVersion(build), BuildID: buildID(build), BuildConfigKey: build.BuildConfig,
+			CDNConfigKey: build.CDNConfig, Branch: build.Branch, Locales: LocaleNames(),
+		})
 	}
 	return products
 }
@@ -267,12 +271,22 @@ func knownProductTitle(product string) string {
 		return "PTR: World of Warcraft"
 	case "wowxptr":
 		return "Beta: World of Warcraft"
+	case "wow_beta":
+		return "Beta: World of Warcraft"
 	case "wow_classic":
 		return "World of Warcraft Classic"
+	case "wow_classic_ptr":
+		return "PTR: World of Warcraft Classic"
+	case "wow_classic_beta":
+		return "Beta: World of Warcraft Classic"
 	case "wow_classic_titan":
 		return "World of Warcraft Classic Titan Reforged"
 	case "wow_classic_era":
 		return "World of Warcraft Classic Era"
+	case "wow_classic_era_ptr":
+		return "PTR: World of Warcraft Classic Era"
+	case "wow_anniversary":
+		return "World of Warcraft Classic Anniversary"
 	default:
 		return ""
 	}

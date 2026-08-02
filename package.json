@@ -1,0 +1,37 @@
+{
+  "name": "@follenfang/wowdata",
+  "version": "0.0.2",
+  "description": "Auditable CLI for querying World of Warcraft CASC and DB2 data",
+  "license": "AGPL-3.0-or-later",
+  "type": "commonjs",
+  "bin": {
+    "wowdata": "npm/bin/wowdata.js"
+  },
+  "files": [
+    "dist/",
+    "npm/",
+    "skill/wowdata/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "postinstall": "node npm/scripts/install.js",
+    "preuninstall": "node npm/scripts/uninstall.js",
+    "test": "node --test npm/test/*.test.js",
+    "pack:check": "npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Follen/wowdata.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Follen/wowdata/issues"
+  },
+  "homepage": "https://github.com/Follen/wowdata#readme"
+}

@@ -12,8 +12,16 @@ func (k SourceKind) Valid() bool {
 }
 
 type Product struct {
-	Label      string `json:"label"`
-	BuildIndex int    `json:"buildIndex"`
+	Label          string   `json:"label"`
+	BuildIndex     int      `json:"buildIndex"`
+	Product        string   `json:"product"`
+	Region         string   `json:"region,omitempty"`
+	Version        string   `json:"version,omitempty"`
+	BuildID        string   `json:"buildId,omitempty"`
+	BuildConfigKey string   `json:"buildConfigKey,omitempty"`
+	CDNConfigKey   string   `json:"cdnConfigKey,omitempty"`
+	Branch         string   `json:"branch,omitempty"`
+	Locales        []string `json:"locales,omitempty"`
 }
 
 type Context struct {
