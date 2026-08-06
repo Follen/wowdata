@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"wowdata/internal/resource"
 )
 
 var (
@@ -50,6 +52,17 @@ type Parser struct {
 	Entries []DBDEntry
 }
 
+type countingReader struct {
+	reader io.Reader
+	bytes  int
+}
+
+func (r *countingReader) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	r.bytes += n
+	return n, err
+}
+
 func NewDBDField(name, typ string) DBDField {
 	return DBDField{
 		Name:     name,
@@ -67,10 +80,12 @@ func Parse(r io.Reader) (*Parser, error) {
 	}
 
 	var lines []string
-	scanner := bufio.NewScanner(r)
+	counted := &countingReader{reader: r}
+	scanner := bufio.NewScanner(counted)
 	for scanner.Scan() {
 		lines = append(lines, scanner.Text())
 	}
+	resource.RecordDBDInput(counted.bytes, len(lines))
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
@@ -171,6 +186,7 @@ func (p *Parser) parseChunk(chunk []string) error {
 		}
 	}
 	p.Entries = append(p.Entries, entry)
+	resource.RecordDBDDefinition(len(entry.Fields))
 	return nil
 }
 
@@ -231,18 +247,17 @@ func isBuildInRange(buildStr, minStr, maxStr string) bool {
 	build := parseBuildID(buildStr)
 	min := parseBuildID(minStr)
 	max := parseBuildID(maxStr)
+	return compareBuild(build, min) >= 0 && compareBuild(build, max) <= 0
+}
 
-	if build.Major < min.Major || build.Major > max.Major {
-		return false
+func compareBuild(a, b BuildParts) int {
+	for _, pair := range [][2]int{{a.Major, b.Major}, {a.Minor, b.Minor}, {a.Patch, b.Patch}, {a.Rev, b.Rev}} {
+		if pair[0] < pair[1] {
+			return -1
+		}
+		if pair[0] > pair[1] {
+			return 1
+		}
 	}
-	if build.Minor < min.Minor || build.Minor > max.Minor {
-		return false
-	}
-	if build.Patch < min.Patch || build.Patch > max.Patch {
-		return false
-	}
-	if build.Rev < min.Rev || build.Rev > max.Rev {
-		return false
-	}
-	return true
+	return 0
 }

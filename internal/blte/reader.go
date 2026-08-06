@@ -8,8 +8,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"sync"
 
 	"wowdata/internal/crypto"
+	"wowdata/internal/resource"
 	"wowdata/internal/tact"
 )
 
@@ -74,7 +76,11 @@ func ParseBLTEHeader(data []byte) *BLTEHeader {
 		return nil
 	}
 
-	headerSize := int(int32(binary.BigEndian.Uint32(data[4:])))
+	rawHeaderSize := uint64(binary.BigEndian.Uint32(data[4:]))
+	if rawHeaderSize > uint64(size) || rawHeaderSize > uint64(^uint(0)>>1) {
+		return nil
+	}
+	headerSize := int(rawHeaderSize)
 	numBlocks := 1
 	dataStart := 8
 
@@ -106,13 +112,21 @@ func ParseBLTEHeader(data []byte) *BLTEHeader {
 	for i := 0; i < numBlocks; i++ {
 		if headerSize != 0 {
 			pos := 12 + i*24
-			blocks[i].CompSize = int(int32(binary.BigEndian.Uint32(data[pos:])))
-			blocks[i].DecompSize = int(int32(binary.BigEndian.Uint32(data[pos+4:])))
+			compressed := uint64(binary.BigEndian.Uint32(data[pos:]))
+			decompressed := uint64(binary.BigEndian.Uint32(data[pos+4:]))
+			if compressed == 0 || decompressed > uint64(^uint(0)>>1) || compressed > uint64(^uint(0)>>1) {
+				return nil
+			}
+			blocks[i].CompSize = int(compressed)
+			blocks[i].DecompSize = int(decompressed)
 			blocks[i].Hash = hex.EncodeToString(data[pos+8 : pos+24])
 		} else {
 			blocks[i].CompSize = size - 8
 			blocks[i].DecompSize = size - 9
 			blocks[i].Hash = emptyHash
+		}
+		if blocks[i].CompSize < 0 || blocks[i].DecompSize < 0 || fileOffset > int(^uint(0)>>1)-blocks[i].CompSize || totalDecompSize > int(^uint(0)>>1)-blocks[i].DecompSize {
+			return nil
 		}
 		blocks[i].FileOffset = fileOffset
 		fileOffset += blocks[i].CompSize
@@ -131,12 +145,15 @@ type Reader struct {
 	header  *BLTEHeader
 	keys    KeyProvider
 	partial bool
+	meter   bool
 
 	blockIndex      int
 	blockWriteIndex int
 	buf             bytes.Buffer
 	bltePos         int
 	originalOffset  int
+	rangeMu         sync.Mutex
+	rangeBlocks     map[int][]byte
 }
 
 func NewReader(data []byte) (*Reader, error) {
@@ -171,6 +188,7 @@ func newReader(data []byte, keys KeyProvider, partial bool) (*Reader, error) {
 		header:  header,
 		keys:    keys,
 		partial: partial,
+		meter:   true,
 		bltePos: header.DataStart,
 	}, nil
 }
@@ -182,6 +200,243 @@ func (r *Reader) ReadAll() ([]byte, error) {
 		}
 	}
 	return r.buf.Bytes(), nil
+}
+
+// ReadAllParallel decodes independent BLTE blocks concurrently while writing
+// them into their deterministic decompressed offsets. Memory is bounded by the
+// final output plus at most one compressed block result per worker.
+func (r *Reader) ReadAllParallel(workers int) ([]byte, error) {
+	if workers <= 1 || len(r.header.Blocks) <= 1 {
+		return r.ReadAll()
+	}
+	if r.blockIndex != 0 || r.buf.Len() != 0 {
+		return nil, fmt.Errorf("[BLTE] parallel read requires a fresh reader")
+	}
+	if workers > len(r.header.Blocks) {
+		workers = len(r.header.Blocks)
+	}
+	offsets := make([]int, len(r.header.Blocks))
+	total := 0
+	for i, block := range r.header.Blocks {
+		if block.DecompSize < 0 || total > int(^uint(0)>>1)-block.DecompSize {
+			return nil, fmt.Errorf("[BLTE] invalid decompressed size for block %d", i)
+		}
+		offsets[i] = total
+		total += block.DecompSize
+	}
+	output := make([]byte, total)
+	jobs := make(chan int)
+	var wg sync.WaitGroup
+	var firstErr error
+	var errMu sync.Mutex
+	for worker := 0; worker < workers; worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for index := range jobs {
+				decoded, err := r.decodeBlock(index)
+				if err == nil && len(decoded) != r.header.Blocks[index].DecompSize {
+					err = fmt.Errorf("[BLTE] Block %d decoded size %d, expected %d", index, len(decoded), r.header.Blocks[index].DecompSize)
+				}
+				if err != nil {
+					errMu.Lock()
+					if firstErr == nil {
+						firstErr = err
+					}
+					errMu.Unlock()
+					continue
+				}
+				copy(output[offsets[index]:], decoded)
+			}
+		}()
+	}
+	for index := range r.header.Blocks {
+		jobs <- index
+	}
+	close(jobs)
+	wg.Wait()
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	r.blockIndex = len(r.header.Blocks)
+	r.bltePos = len(r.data)
+	return output, nil
+}
+
+func (r *Reader) Size() int { return r.header.TotalSize }
+
+// StreamReader decodes one BLTE block at a time and releases it before moving
+// to the next block. It is intended for forward-only parsers that should not
+// materialize or cache the full decompressed payload.
+func (r *Reader) StreamReader() io.Reader {
+	return &streamReader{reader: r}
+}
+
+type streamReader struct {
+	reader *Reader
+	index  int
+	block  []byte
+	offset int
+	err    error
+}
+
+func (s *streamReader) Read(output []byte) (int, error) {
+	if len(output) == 0 {
+		return 0, nil
+	}
+	for s.offset >= len(s.block) {
+		if s.err != nil {
+			return 0, s.err
+		}
+		if s.index >= len(s.reader.header.Blocks) {
+			return 0, io.EOF
+		}
+		s.block, s.err = s.reader.decodeBlock(s.index)
+		s.index++
+		s.offset = 0
+		if s.err != nil {
+			return 0, s.err
+		}
+	}
+	n := copy(output, s.block[s.offset:])
+	s.offset += n
+	if s.offset == len(s.block) {
+		s.block = nil
+		s.offset = 0
+	}
+	return n, nil
+}
+
+// ReadRange decodes only BLTE blocks overlapping a decompressed byte range.
+// Decoded blocks are retained for subsequent range probes on the same reader.
+func (r *Reader) ReadRange(offset, length, workers int) ([]byte, error) {
+	if offset < 0 || length < 0 || offset > r.header.TotalSize || length > r.header.TotalSize-offset {
+		return nil, fmt.Errorf("[BLTE] decompressed range %d+%d exceeds size %d", offset, length, r.header.TotalSize)
+	}
+	if length == 0 {
+		return []byte{}, nil
+	}
+	type overlap struct {
+		index, outputOffset, blockOffset, length int
+	}
+	overlaps := make([]overlap, 0, 2)
+	decompressedOffset := 0
+	end := offset + length
+	for index, block := range r.header.Blocks {
+		blockEnd := decompressedOffset + block.DecompSize
+		if blockEnd > offset && decompressedOffset < end {
+			start := offset
+			if decompressedOffset > start {
+				start = decompressedOffset
+			}
+			stop := end
+			if blockEnd < stop {
+				stop = blockEnd
+			}
+			overlaps = append(overlaps, overlap{index: index, outputOffset: start - offset, blockOffset: start - decompressedOffset, length: stop - start})
+		}
+		decompressedOffset = blockEnd
+		if decompressedOffset >= end {
+			break
+		}
+	}
+	if workers < 1 {
+		workers = 1
+	}
+	if workers > len(overlaps) {
+		workers = len(overlaps)
+	}
+	output := make([]byte, length)
+	jobs := make(chan overlap)
+	var wg sync.WaitGroup
+	var firstErr error
+	var errMu sync.Mutex
+	for worker := 0; worker < workers; worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for item := range jobs {
+				decoded, err := r.decodeRangeBlock(item.index)
+				if err == nil && item.blockOffset+item.length > len(decoded) {
+					err = fmt.Errorf("[BLTE] Block %d range exceeds decoded size", item.index)
+				}
+				if err != nil {
+					errMu.Lock()
+					if firstErr == nil {
+						firstErr = err
+					}
+					errMu.Unlock()
+					continue
+				}
+				copy(output[item.outputOffset:], decoded[item.blockOffset:item.blockOffset+item.length])
+			}
+		}()
+	}
+	for _, item := range overlaps {
+		jobs <- item
+	}
+	close(jobs)
+	wg.Wait()
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	return output, nil
+}
+
+func (r *Reader) decodeRangeBlock(index int) ([]byte, error) {
+	r.rangeMu.Lock()
+	if decoded, ok := r.rangeBlocks[index]; ok {
+		r.rangeMu.Unlock()
+		return decoded, nil
+	}
+	r.rangeMu.Unlock()
+	decoded, err := r.decodeBlock(index)
+	if err != nil {
+		return nil, err
+	}
+	// Normal blocks alias immutable input. Compressed blocks own their buffer.
+	r.rangeMu.Lock()
+	if r.rangeBlocks == nil {
+		r.rangeBlocks = make(map[int][]byte)
+	}
+	if existing, ok := r.rangeBlocks[index]; ok {
+		decoded = existing
+	} else {
+		r.rangeBlocks[index] = decoded
+	}
+	r.rangeMu.Unlock()
+	return decoded, nil
+}
+
+func (r *Reader) decodeBlock(index int) ([]byte, error) {
+	block := r.header.Blocks[index]
+	blockStart := r.header.DataStart + block.FileOffset
+	blockEnd := blockStart + block.CompSize
+	if block.CompSize < 0 || blockStart < 0 || blockEnd < blockStart || blockEnd > len(r.data) {
+		return nil, fmt.Errorf("[BLTE] Block %d bounds %d-%d exceed data size %d", index, blockStart, blockEnd, len(r.data))
+	}
+	if block.Hash != emptyHash {
+		actualHash := fmt.Sprintf("%x", md5.Sum(r.data[blockStart:blockEnd]))
+		if actualHash != block.Hash {
+			return nil, &IntegrityError{Expected: block.Hash, Actual: actualHash}
+		}
+	}
+	if blockStart < blockEnd && r.data[blockStart] == 0x4e {
+		decoded := r.data[blockStart+1 : blockEnd]
+		if r.meter {
+			resource.RecordBLTEBlock(r.data[blockStart], block.CompSize, len(decoded))
+		}
+		return decoded, nil
+	}
+	decoder := &Reader{data: r.data, header: r.header, keys: r.keys, partial: r.partial}
+	if err := decoder.handleBlockData(r.data, blockStart, blockEnd, index); err != nil {
+		return nil, err
+	}
+	decoded := decoder.buf.Bytes()
+	if r.meter {
+		resource.RecordBLTEBlock(r.data[blockStart], block.CompSize, len(decoded))
+	}
+	return decoded, nil
 }
 
 func (r *Reader) processBlock() error {
@@ -204,8 +459,12 @@ func (r *Reader) processBlock() error {
 		}
 	}
 
+	before := r.buf.Len()
 	if err := r.handleBlock(blockStart, blockEnd, r.blockIndex); err != nil {
 		return err
+	}
+	if r.meter {
+		resource.RecordBLTEBlock(r.data[blockStart], block.CompSize, r.buf.Len()-before)
 	}
 
 	r.bltePos = blockEnd
@@ -258,6 +517,7 @@ func (r *Reader) decodeFrameBlock(data []byte, blockStart, blockEnd int) error {
 	if err != nil {
 		return err
 	}
+	nested.meter = false
 	decoded, err := nested.ReadAll()
 	if err != nil {
 		return err

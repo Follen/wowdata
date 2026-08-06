@@ -3,20 +3,22 @@ package db2
 import (
 	"encoding/binary"
 	"fmt"
+
+	"wowdata/internal/resource"
 )
 
 const dbcMagic = 0x43424457 // WDBC
 
 type DBCReader struct {
-	FileName         string
-	Schema           []SchemaField
-	BuildID          string
-	IsLoaded         bool
-	Data             []byte
-	RecordCount      uint32
-	FieldCount       uint32
-	RecordSize       uint32
-	StringBlockSize  uint32
+	FileName          string
+	Schema            []SchemaField
+	BuildID           string
+	IsLoaded          bool
+	Data              []byte
+	RecordCount       uint32
+	FieldCount        uint32
+	RecordSize        uint32
+	StringBlockSize   uint32
 	StringBlockOffset int64
 }
 
@@ -54,14 +56,27 @@ func (r *DBCReader) Parse() error {
 	r.StringBlockSize = binary.LittleEndian.Uint32(data[16:])
 
 	r.StringBlockOffset = 20 + int64(r.RecordCount)*int64(r.RecordSize)
+	if r.RecordCount > 0 && r.RecordSize == 0 {
+		return fmt.Errorf("invalid DBC record size 0 for %d records", r.RecordCount)
+	}
+	if r.StringBlockOffset < 20 || r.StringBlockOffset > int64(len(data)) {
+		return fmt.Errorf("invalid DBC record region: offset %d exceeds file size %d", r.StringBlockOffset, len(data))
+	}
+	if int64(r.StringBlockSize) > int64(len(data))-r.StringBlockOffset {
+		return fmt.Errorf("invalid DBC string block size %d at offset %d", r.StringBlockSize, r.StringBlockOffset)
+	}
 	r.IsLoaded = true
+	resource.RecordDBCOpen(len(data), 20)
 	return nil
 }
+
+func (r *DBCReader) MetadataBytes() int { return 20 }
 
 func (r *DBCReader) GetRow(recordID uint32) map[string]interface{} {
 	if !r.IsLoaded {
 		return nil
 	}
+	resource.RecordDBCQuery(1, 0, 0, 0)
 
 	ofs := int64(20 + recordID*r.RecordSize)
 	if ofs+int64(r.RecordSize) > int64(len(r.Data)) {
@@ -81,6 +96,7 @@ func (r *DBCReader) GetAllRows() map[uint32]map[string]interface{} {
 
 	rows := make(map[uint32]map[string]interface{})
 	for i := uint32(0); i < r.RecordCount; i++ {
+		resource.RecordDBCQuery(1, 0, 0, 0)
 		ofs := int64(20 + i*r.RecordSize)
 		row := r.readRecord(ofs)
 		if row != nil {
@@ -184,6 +200,7 @@ func (r *DBCReader) readRecord(ofs int64) map[string]interface{} {
 		}
 	}
 
+	resource.RecordDBCDecode(len(out))
 	return out
 }
 

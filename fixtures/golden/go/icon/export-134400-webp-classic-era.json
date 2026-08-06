@@ -3,6 +3,8 @@
   "command": "wowdata",
   "args": [
     "--auto-warmup",
+    "--build",
+    "1.15.9.69109",
     "--source",
     "remote",
     "--region",
@@ -22,6 +24,6 @@
     "fixtures/golden/go/icon/export-134400-classic-era.webp"
   ],
   "exitCode": 0,
-  "stdout": "{\n  \"ok\": true,\n  \"command\": \"icon export\",\n  \"data\": {\n    \"ok\": true,\n    \"status\": \"extracted\",\n    \"path\": \"D:\\\\Code\\\\wow\\\\wowdata\\\\fixtures\\\\golden\\\\go\\\\icon\\\\export-134400-classic-era.webp\",\n    \"width\": 64,\n    \"height\": 64,\n    \"format\": \"webp\",\n    \"mipmap\": 0,\n    \"hash\": \"d758327131587a6ddf7ff2fb5ffcd1dd\"\n  },\n  \"warnings\": []\n}\n",
-  "stderr": ""
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"icon export\",\n  \"data\": {\n    \"ok\": true,\n    \"status\": \"extracted\",\n    \"name\": \"export-134400-classic-era.webp\",\n    \"path\": \"D:\\\\Code\\\\wow\\\\wowdata\\\\fixtures\\\\golden\\\\go\\\\icon\\\\export-134400-classic-era.webp\",\n    \"uri\": \"file:///D:/Code/wow/wowdata/fixtures/golden/go/icon/export-134400-classic-era.webp\",\n    \"width\": 64,\n    \"height\": 64,\n    \"format\": \"webp\",\n    \"mimeType\": \"image/webp\",\n    \"mipmap\": 0,\n    \"mask\": 15,\n    \"hash\": \"73319e6020a5e5ee3360fe4c19751c69238882bb5b423730e12dd5ae7b16430a\",\n    \"sha256\": \"73319e6020a5e5ee3360fe4c19751c69238882bb5b423730e12dd5ae7b16430a\",\n    \"size\": 2214\n  },\n  \"warnings\": []\n}\n",
+  "stderr": "prepare target=remote/us/wow_classic_era/enUS build=1.15.9.69109\nprepare status=ready\n"
 }

@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +20,7 @@ import (
 	"wowdata/internal/dbd"
 	"wowdata/internal/diagnostics"
 	"wowdata/internal/listfile"
+	"wowdata/internal/resource"
 	appruntime "wowdata/internal/runtime"
 	"wowdata/internal/storage"
 	"wowdata/internal/tact"
@@ -48,7 +54,7 @@ func NewRuntime() *Runtime {
 	layout, _ := storage.Resolve("")
 	config, err := layout.LoadConfig()
 	if err != nil {
-		config = storage.Config{Schema: "wowdata.config.v1", CacheMaxBytes: storage.DefaultCacheMaxBytes, Workers: storage.DefaultWorkers}
+		config = storage.DefaultConfig()
 	}
 	return &Runtime{
 		CacheRoot: layout.Cache,
@@ -66,12 +72,36 @@ func NewRuntime() *Runtime {
 }
 
 func main() {
+	if os.Getenv("WOWDATA_PROCESS_START_PROBE") == "1" {
+		os.Exit(0)
+	}
 	os.Exit(runCLI(os.Args[1:], os.Stdout, os.Stderr))
 }
 
 func runCLI(args []string, stdout, stderr io.Writer) int {
+	casc.ResetHTTPMetrics()
+	resource.ResetWorkMetrics()
+	resource.ResetStages()
+	stopMemoryMetrics := startRuntimeMemorySampler(os.Getenv("WOWDATA_TIMING") == "1")
 	rt := NewRuntime()
+	defer func() {
+		if os.Getenv("WOWDATA_TIMING") == "1" {
+			httpMetrics := casc.SnapshotHTTPMetrics()
+			resource.ReconcileStageNetwork(uint64(httpMetrics.UniquePayloadBytes), uint64(httpMetrics.ResponseBytes))
+			data, _ := json.Marshal(httpMetrics)
+			fmt.Fprintf(stderr, "network metrics=%s\n", data)
+			var scheduler *resource.Scheduler
+			if rt.CASC != nil {
+				scheduler = rt.CASC.ResourceScheduler()
+			}
+			data, _ = json.Marshal(resource.SnapshotMetrics(scheduler))
+			fmt.Fprintf(stderr, "resource metrics=%s\n", data)
+			data, _ = json.Marshal(stopMemoryMetrics())
+			fmt.Fprintf(stderr, "runtime memory metrics=%s\n", data)
+		}
+	}()
 	cmd := newRootCommandForRuntime(rt)
+	beginCommandAccounting(cmd, args)
 	cmd.SetArgs(args)
 	cmd.SetOut(stdout)
 	cmd.SetErr(stderr)
@@ -86,6 +116,8 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 
 func newRootCommandForRuntime(rt *Runtime) *cobra.Command {
 	fileStore := appruntime.NewCASCFileStore(rt.LF, nil, rt)
+	encounterSvc := wowdata.NewEncounterServiceWithDB2(rt.DB2)
+	spellSvc := wowdata.NewSpellServiceWithDB2(rt.DB2)
 
 	prepare := func(handler func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
 		return prepareThen(rt, handler)
@@ -95,7 +127,7 @@ func newRootCommandForRuntime(rt *Runtime) *cobra.Command {
 		Casc:      prepare(cascHandler(rt)),
 		DB2:       prepare(app.NewDB2HandlerWithStore(rt.DB2)),
 		Spell:     prepare(app.NewSpellHandler(wowdata.NewSpellServiceWithDB2(rt.DB2))),
-		Encounter: prepare(app.NewEncounterHandler(wowdata.NewEncounterServiceWithDB2(rt.DB2))),
+		Encounter: prepare(newEncounterRuntimeHandler(rt, encounterSvc, spellSvc, fileStore)),
 		File:      prepare(app.NewFileHandlerWithStore(fileStore)),
 		Icon:      prepare(app.NewIconHandlerWithStore(fileStore)),
 		Item:      prepare(app.NewItemHandler(wowdata.NewItemServiceWithDB2(rt.DB2))),
@@ -159,6 +191,24 @@ func (rt *Runtime) GetFileEncodingInfo(fileDataID uint32) (*casc.FileInfo, error
 	return nil, fmt.Errorf("CASC 未就绪，请提供完整目标或检查准备错误")
 }
 
+func (rt *Runtime) EnsureFileDataIDs(fileDataIDs []uint32) error {
+	return rt.EnsureFileDataIDsWithStage(fileDataIDs, 0)
+}
+
+func (rt *Runtime) EnsureFileDataIDsWithStage(fileDataIDs []uint32, parent resource.StageID) error {
+	rt.mu.Lock()
+	remote := rt.CASC
+	local := rt.Local
+	rt.mu.Unlock()
+	if remote != nil {
+		return remote.EnsureFilesWithStage(uniqueUint32(fileDataIDs), parent)
+	}
+	if local != nil {
+		return local.EnsureFiles(uniqueUint32(fileDataIDs))
+	}
+	return fmt.Errorf("CASC 未就绪，请提供完整目标或检查准备错误")
+}
+
 func warmupHandler(rt *Runtime) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		if err := rt.Layout.Ensure(); err != nil {
@@ -180,6 +230,7 @@ func warmupHandler(rt *Runtime) func(cmd *cobra.Command, args []string) error {
 		opts.Build = resolved.Target.Build
 		opts.Locale = resolved.Target.Locale
 		opts.Profile = resolved.ProfileName
+		opts.AutoSource = resolved.AutoSource
 		fmt.Fprintf(cmd.ErrOrStderr(), "prepare target=%s/%s/%s/%s build=%s\n", opts.Source, opts.Region, opts.Product, opts.Locale, opts.Build)
 		lock, err := rt.Layout.AcquireLock(fmt.Sprintf("%s|%s|%s|%s|%s|%s", opts.Source, opts.Path, opts.Region, opts.Product, opts.Build, opts.Locale), 2*time.Minute)
 		if err != nil {
@@ -206,9 +257,14 @@ type warmupOptions struct {
 	Profile         string
 	CacheRoot       string
 	Tables          []string
+	FileDataIDs     []uint32
 	WarmListfile    bool
 	ListfileFormat  string
 	WarmDBDManifest bool
+	WarmTACTKeys    bool
+	PruneCache      bool
+	MetadataOnly    bool
+	AutoSource      bool
 }
 
 type warmupStepError struct {
@@ -246,6 +302,8 @@ func warmupOptionsFromCommand(cmd *cobra.Command) warmupOptions {
 		WarmListfile:    warmListfile,
 		ListfileFormat:  listfileFormat,
 		WarmDBDManifest: warmDBDManifest,
+		WarmTACTKeys:    cmd.CommandPath() == "wowdata warmup",
+		PruneCache:      cmd.CommandPath() == "wowdata warmup",
 	}
 }
 
@@ -277,9 +335,20 @@ func writeWarmupInitError(cmd *cobra.Command, err error) error {
 }
 
 func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error) {
+	startedAt := time.Now()
+	lastStage := startedAt
+	reportStage := func(stage string) {
+		if os.Getenv("WOWDATA_TIMING") != "1" {
+			return
+		}
+		now := time.Now()
+		fmt.Fprintf(os.Stderr, "timing stage=%s duration=%s total=%s\n", stage, now.Sub(lastStage).Round(time.Millisecond), now.Sub(startedAt).Round(time.Millisecond))
+		lastStage = now
+	}
 	if opts.CacheRoot != "" {
 		rt.CacheRoot = opts.CacheRoot
 	}
+	effectiveSource := opts.Source
 	result := map[string]interface{}{
 		"source":  opts.Source,
 		"region":  opts.Region,
@@ -298,28 +367,105 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 	if err := target.Validate(); err != nil {
 		return result, warmupStepError{Code: "target_required", Err: err}
 	}
+	var tactKeysCh chan error
+	if opts.WarmTACTKeys {
+		tactKeysCh = make(chan error, 1)
+		go func() { tactKeysCh <- rt.warmTACTKeys() }()
+	}
 	var selectedBuild casc.VersionEntry
+	var selectedManifest *dbd.Manifest
+	var selectedManifestStage resource.StageID
+	var initialDataStage resource.StageID
 
-	switch opts.Source {
+loadSource:
+	switch effectiveSource {
 	case "remote":
 		remote := casc.NewCASCRemote(opts.Region)
 		remote.CacheRoot = opts.CacheRoot
+		remote.CacheMaxBytes = rt.Config.CacheMaxBytes
 		remote.Workers = rt.Config.Workers
+		if err := applyResourceExperimentOverrides(remote); err != nil {
+			return result, warmupStepError{Code: "config_failed", Err: err}
+		}
+		remote.ResourceClass = resource.PointQuery
+		if opts.PruneCache {
+			remote.ResourceClass = resource.Corpus
+		} else if len(opts.Tables) > 1 || len(opts.FileDataIDs) > 4 {
+			remote.ResourceClass = resource.Composite
+		}
+		if os.Getenv("WOWDATA_TIMING") == "1" {
+			plan := remote.ResourcePlan()
+			fmt.Fprintf(os.Stderr, "resource gomaxprocs=%d availableMemory=%d memoryBudget=%d metadataWorkers=%d rangeWorkers=%d rangeChunkBytes=%d archiveTailProbeBytes=%d db2Workers=%d blteWorkers=%d imageWorkers=%d connections=%d handles=%d explicitWorkers=%d metadataOverride=%d rangeOverride=%d\n",
+				plan.GOMAXPROCS, plan.AvailableMemory, plan.MemoryBudget, plan.MetadataWorkers, plan.LargeRangeWorkers,
+				remote.RangeChunkSize, remote.ArchiveTailProbe, plan.DB2Workers, plan.BLTEWorkers, plan.ImageWorkers, plan.ConnectionBudget, plan.FileHandleBudget,
+				plan.ExplicitWorkerLimit, plan.MetadataOverride, plan.LargeRangeOverride)
+		}
+		remote.ManifestTTL = time.Hour
 		if err := applyWarmupLocale(remote.CASCSource, opts.Locale); err != nil {
 			return result, warmupStepError{Code: "invalid_locale", Err: err}
 		}
-		if err := remote.Init(); err != nil {
+		type manifestResult struct {
+			manifest *dbd.Manifest
+			stage    resource.StageID
+			err      error
+		}
+		var manifestCh chan manifestResult
+		if len(opts.Tables) > 0 {
+			manifestCh = make(chan manifestResult, 1)
+			go func() {
+				manifest, stage, err := rt.loadDBDManifestWithStage(0)
+				manifestCh <- manifestResult{manifest: manifest, stage: stage, err: err}
+			}()
+		}
+		remoteInitStage := resource.StartStage("remote-init", resource.StageOptions{Wave: resource.StageWaveInitial})
+		if err := remote.InitProductWithStage(opts.Product, remoteInitStage); err != nil {
+			resource.FinishStage(remoteInitStage, err)
 			return result, warmupStepError{Code: "init_failed", Err: err}
 		}
+		resource.FinishStage(remoteInitStage, nil)
+		reportStage("remote-init")
 		buildIdx := buildIndexBySelection(remote.Builds, opts.Product, opts.Build)
 		if buildIdx < 0 {
 			result["status"] = "no_build"
 			result["builds"] = convertProducts(remote.GetProductList())
 			return result, nil
 		}
-		if err := remote.Preload(buildIdx); err != nil {
-			return result, warmupStepError{Code: "preload_failed", Err: err}
+		fileDataIDs := append([]uint32(nil), opts.FileDataIDs...)
+		preloadDependencies := []resource.StageDependency{resource.Dependency(remoteInitStage, resource.StageRelationHard)}
+		if manifestCh != nil {
+			manifestResult := <-manifestCh
+			if manifestResult.err != nil {
+				return result, warmupStepError{Code: "dbd_manifest_failed", Err: manifestResult.err}
+			}
+			selectedManifest = manifestResult.manifest
+			selectedManifestStage = manifestResult.stage
+			preloadDependencies = append(preloadDependencies, resource.Dependency(manifestResult.stage, resource.StageRelationJoin))
+			for _, table := range opts.Tables {
+				if id, ok := selectedManifest.GetByTableName(table); ok {
+					fileDataIDs = append(fileDataIDs, id)
+				}
+			}
+			reportStage("dbd-manifest")
 		}
+		preloadStage := resource.StartStage("remote-preload", resource.StageOptions{Wave: resource.StageWaveInitial, DependsOn: preloadDependencies})
+		var preloadErr error
+		if opts.MetadataOnly {
+			preloadErr = remote.PreloadMetadataWithStage(buildIdx, preloadStage)
+		} else if len(fileDataIDs) > 0 && !opts.WarmListfile {
+			preloadErr = remote.PreloadFilesWithStage(buildIdx, uniqueUint32(fileDataIDs), preloadStage)
+		} else {
+			preloadErr = remote.PreloadWithStage(buildIdx, preloadStage)
+		}
+		resource.FinishStage(preloadStage, preloadErr)
+		initialDataStage = preloadStage
+		if preloadErr != nil {
+			var quotaErr *casc.CacheQuotaError
+			if errors.As(preloadErr, &quotaErr) {
+				return result, warmupStepError{Code: "cache_quota_exceeded", Err: preloadErr}
+			}
+			return result, warmupStepError{Code: "preload_failed", Err: preloadErr}
+		}
+		reportStage("remote-preload")
 		selectedBuild = *remote.Build
 
 		rt.mu.Lock()
@@ -327,7 +473,7 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 		rt.Local = nil
 		rt.DB2.Reset()
 		rt.Diag.SetInfo(diagnostics.CASCInfo{
-			Source:             opts.Source,
+			Source:             effectiveSource,
 			Region:             opts.Region,
 			Product:            opts.Product,
 			Locale:             remote.Locale.Name(),
@@ -340,7 +486,7 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 			EncodingEntryCount: len(remote.EncodingEntries),
 		})
 		rt.Diag.SetProducts(diagnostics.CASCProducts{
-			Source:   opts.Source,
+			Source:   effectiveSource,
 			Products: convertProducts(remote.GetProductList()),
 		})
 		rt.mu.Unlock()
@@ -366,11 +512,58 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 		}
 		buildIdx := buildIndexBySelection(local.Builds, opts.Product, opts.Build)
 		if buildIdx < 0 {
+			if opts.AutoSource {
+				if err := switchToRemoteFallback(&effectiveSource, &opts, &target, result, "local_build_not_found"); err != nil {
+					return result, err
+				}
+				goto loadSource
+			}
 			result["status"] = "no_build"
 			result["builds"] = convertProducts(local.GetProductList())
 			return result, nil
 		}
-		if err := local.Load(buildIdx); err != nil {
+		fileDataIDs := append([]uint32(nil), opts.FileDataIDs...)
+		if len(opts.Tables) > 0 {
+			manifest, stage, manifestErr := rt.loadDBDManifestWithStage(0)
+			if manifestErr != nil {
+				return result, warmupStepError{Code: "dbd_manifest_failed", Err: manifestErr}
+			}
+			selectedManifest = manifest
+			selectedManifestStage = stage
+			for _, table := range opts.Tables {
+				if id, ok := manifest.GetByTableName(table); ok {
+					fileDataIDs = append(fileDataIDs, id)
+				}
+			}
+			reportStage("dbd-manifest")
+		}
+		if opts.MetadataOnly {
+			if err := local.LoadMetadata(buildIdx); err != nil {
+				if opts.AutoSource {
+					if fallbackErr := switchToRemoteFallback(&effectiveSource, &opts, &target, result, "local_unavailable"); fallbackErr != nil {
+						return result, fallbackErr
+					}
+					goto loadSource
+				}
+				return result, warmupStepError{Code: "preload_failed", Err: err}
+			}
+		} else if len(fileDataIDs) > 0 && !opts.WarmListfile {
+			if err := local.LoadSelected(buildIdx, uniqueUint32(fileDataIDs)); err != nil {
+				if opts.AutoSource {
+					if fallbackErr := switchToRemoteFallback(&effectiveSource, &opts, &target, result, "local_unavailable"); fallbackErr != nil {
+						return result, fallbackErr
+					}
+					goto loadSource
+				}
+				return result, warmupStepError{Code: "preload_failed", Err: err}
+			}
+		} else if err := local.Load(buildIdx); err != nil {
+			if opts.AutoSource {
+				if fallbackErr := switchToRemoteFallback(&effectiveSource, &opts, &target, result, "local_unavailable"); fallbackErr != nil {
+					return result, fallbackErr
+				}
+				goto loadSource
+			}
 			return result, warmupStepError{Code: "preload_failed", Err: err}
 		}
 		selectedBuild = *local.Build
@@ -380,7 +573,7 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 		rt.CASC = nil
 		rt.DB2.Reset()
 		rt.Diag.SetInfo(diagnostics.CASCInfo{
-			Source:             opts.Source,
+			Source:             effectiveSource,
 			Region:             opts.Region,
 			Product:            opts.Product,
 			Locale:             local.Locale.Name(),
@@ -392,7 +585,7 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 			EncodingEntryCount: len(local.EncodingEntries),
 		})
 		rt.Diag.SetProducts(diagnostics.CASCProducts{
-			Source:   opts.Source,
+			Source:   effectiveSource,
 			Products: convertProducts(local.GetProductList()),
 		})
 		rt.mu.Unlock()
@@ -409,39 +602,115 @@ func (rt *Runtime) initialize(opts warmupOptions) (map[string]interface{}, error
 		return result, warmupStepError{Code: "invalid_source", Err: fmt.Errorf("source must be remote or local")}
 	}
 
+	target.Source = effectiveSource
 	if opts.WarmListfile {
-		if err := rt.warmListfile(opts.ListfileFormat); err != nil {
+		if err := rt.warmListfileWithStage(opts.ListfileFormat, initialDataStage); err != nil {
 			return result, warmupStepError{Code: "listfile_failed", Err: err}
 		}
+		reportStage("listfile")
 	}
-	if err := rt.warmTACTKeys(); err != nil {
-		return result, warmupStepError{Code: "tact_keys_failed", Err: err}
+	if tactKeysCh != nil {
+		if err := <-tactKeysCh; err != nil {
+			return result, warmupStepError{Code: "tact_keys_failed", Err: err}
+		}
+		reportStage("tact-keys")
 	}
-	if opts.WarmDBDManifest {
+	if opts.WarmDBDManifest && selectedManifest == nil {
 		if err := rt.warmDBDManifest(); err != nil {
 			return result, warmupStepError{Code: "dbd_manifest_failed", Err: err}
 		}
+		reportStage("dbd-manifest")
 	}
 	if len(opts.Tables) > 0 {
-		if err := rt.warmDB2Tables(opts.Product, opts.Tables); err != nil {
+		db2Stage := resource.StartStage("db2-tables", resource.StageOptions{Wave: resource.StageWaveInitial, DependsOn: []resource.StageDependency{resource.Dependency(initialDataStage, resource.StageRelationHard), resource.Dependency(selectedManifestStage, resource.StageRelationJoin)}})
+		if err := rt.warmDB2TablesWithManifestAndStage(opts.Product, opts.Tables, selectedManifest, db2Stage); err != nil {
+			resource.FinishStage(db2Stage, err)
 			return result, warmupStepError{Code: "db2_warm_failed", Err: err}
 		}
+		resource.FinishStage(db2Stage, nil)
+		reportStage("db2-tables")
 	}
 	rt.Target = target
 	buildRef, err := rt.persistResolvedTarget(opts.Profile, target, selectedBuild)
 	if err != nil {
 		return result, warmupStepError{Code: "state_write_failed", Err: err}
 	}
+	reportStage("persist-target")
 	result["buildRef"] = buildRef
 	result["resolvedBuild"] = resolvedBuildVersion(selectedBuild)
 	buildKey := selectedBuild.BuildConfig
 	if buildKey == "" {
 		buildKey = selectedBuild.BuildKey
 	}
-	if prune, pruneErr := rt.Layout.PruneCacheKeeping(rt.Config.CacheMaxBytes, []string{buildKey}); pruneErr == nil && len(prune.Removed) > 0 {
-		result["cachePrune"] = prune
+	if opts.PruneCache {
+		if prune, pruneErr := rt.Layout.PruneCacheKeeping(rt.Config.CacheMaxBytes, []string{buildKey}); pruneErr == nil && len(prune.Removed) > 0 {
+			result["cachePrune"] = prune
+		}
+		reportStage("cache-prune")
 	}
 	return result, nil
+}
+
+func switchToRemoteFallback(effectiveSource *string, opts *warmupOptions, target *storage.Target, result map[string]interface{}, reason string) error {
+	remoteTarget := *target
+	remoteTarget.Source = "remote"
+	remoteTarget.Path = ""
+	if err := remoteTarget.Validate(); err != nil {
+		return warmupStepError{Code: "target_required", Err: fmt.Errorf("local fallback requires a complete remote target: %w", err)}
+	}
+	*effectiveSource = "remote"
+	opts.Source = "remote"
+	opts.Path = ""
+	*target = remoteTarget
+	result["source"] = "remote"
+	result["fallback"] = reason
+	return nil
+}
+
+func applyResourceExperimentOverrides(remote *casc.CASCRemote) error {
+	metadata, err := positiveEnvironmentInt("WOWDATA_METADATA_WORKERS")
+	if err != nil {
+		return err
+	}
+	largeRange, err := positiveEnvironmentInt("WOWDATA_LARGE_RANGE_WORKERS")
+	if err != nil {
+		return err
+	}
+	chunkMiB, err := positiveEnvironmentInt("WOWDATA_RANGE_CHUNK_MIB")
+	if err != nil {
+		return err
+	}
+	if chunkMiB > 64 {
+		return fmt.Errorf("WOWDATA_RANGE_CHUNK_MIB must be between 1 and 64")
+	}
+	tailKiB, err := positiveEnvironmentInt("WOWDATA_ARCHIVE_TAIL_KIB")
+	if err != nil {
+		return err
+	}
+	if tailKiB > 1024 {
+		return fmt.Errorf("WOWDATA_ARCHIVE_TAIL_KIB must be between 1 and 1024")
+	}
+	remote.MetadataWorkers = metadata
+	remote.LargeRangeWorkers = largeRange
+	if chunkMiB > 0 {
+		remote.RangeChunkSize = int64(chunkMiB) * resource.MiB
+	}
+	if tailKiB > 0 {
+		remote.ArchiveTailProbe = tailKiB << 10
+	}
+	return nil
+}
+
+func positiveEnvironmentInt(name string) (int, error) {
+	value := strings.TrimSpace(os.Getenv(name))
+	if value == "" {
+		return 0, nil
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return 0, fmt.Errorf("%s must be a positive integer", name)
+	}
+	return parsed, nil
 }
 
 func (rt *Runtime) persistResolvedTarget(profileName string, target storage.Target, build casc.VersionEntry) (string, error) {
@@ -561,13 +830,24 @@ func normalizeWarmupTables(tables interface{}) interface{} {
 }
 
 func (rt *Runtime) warmTACTKeys() error {
-	keyRing, err := tact.LoadKeyRing(filepath.Join(rt.CacheRoot, "tact.json"), []string{
+	cachePath := filepath.Join(rt.CacheRoot, "tact.json")
+	keyRing := tact.NewKeyRing()
+	if data, err := os.ReadFile(cachePath); err == nil && len(data) > 0 {
+		if _, loadErr := keyRing.LoadFromJSON(data); loadErr == nil && keyRing.Count() > 0 {
+			return rt.publishTACTKeys(keyRing)
+		}
+	}
+	keyRing, err := tact.LoadKeyRing(cachePath, []string{
 		"https://raw.githubusercontent.com/wowdev/TACTKeys/master/WoW.txt",
 		"https://www.kruithne.net/wow.export/data/tact/wow",
 	})
 	if err != nil {
 		return err
 	}
+	return rt.publishTACTKeys(keyRing)
+}
+
+func (rt *Runtime) publishTACTKeys(keyRing *tact.KeyRing) error {
 	blte.SetDefaultKeyProvider(keyRing)
 	rt.mu.Lock()
 	rt.Keys = keyRing
@@ -648,6 +928,14 @@ func splitCSV(value string) []string {
 }
 
 func (rt *Runtime) warmDB2Tables(product string, tables []string) error {
+	return rt.warmDB2TablesWithManifest(product, tables, nil)
+}
+
+func (rt *Runtime) warmDB2TablesWithManifest(product string, tables []string, manifest *dbd.Manifest) error {
+	return rt.warmDB2TablesWithManifestAndStage(product, tables, manifest, 0)
+}
+
+func (rt *Runtime) warmDB2TablesWithManifestAndStage(product string, tables []string, manifest *dbd.Manifest, parent resource.StageID) error {
 	rt.mu.Lock()
 	cascSource := rt.CASC
 	localSource := rt.Local
@@ -656,13 +944,16 @@ func (rt *Runtime) warmDB2Tables(product string, tables []string) error {
 	if cascSource == nil && localSource == nil {
 		return fmt.Errorf("CASC runtime is not initialized")
 	}
-	manifest, err := rt.loadDBDManifest()
-	if err != nil {
-		return err
+	if manifest == nil {
+		var err error
+		manifest, err = rt.loadDBDManifest()
+		if err != nil {
+			return err
+		}
 	}
 	dbdSource := appruntime.NewHTTPDBDSource(filepath.Join(rt.dbdCacheDir(), rt.DBDCommit), []string{
 		"https://raw.githubusercontent.com/wowdev/WoWDBDefs/" + rt.DBDCommit + "/definitions/%s.dbd",
-	})
+	}).WithCacheFirst()
 	var reader interface {
 		ReadFileData(uint32) ([]byte, error)
 		GetBuildName() string
@@ -673,12 +964,75 @@ func (rt *Runtime) warmDB2Tables(product string, tables []string) error {
 		reader = localSource
 	}
 	loader := appruntime.NewDB2Loader(manifest, dbdSource, reader, reader.GetBuildName())
+	workers := rt.Config.Workers
+	var scheduler *resource.Scheduler
+	if cascSource != nil {
+		plan := cascSource.ResourcePlan()
+		workers = plan.DB2Workers
+		scheduler = cascSource.ResourceScheduler()
+	} else if workers <= 0 {
+		workers = storage.DefaultWorkers
+	}
+	if workers > len(tables) {
+		workers = len(tables)
+	}
+	if workers < 1 {
+		workers = 1
+	}
+	jobs := make(chan string)
+	errorsByTable := make(map[string]error)
+	var errorMu sync.Mutex
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for table := range jobs {
+				tableStage := resource.StartStage("db2-table", resource.StageOptions{ParentID: parent, Wave: resource.StageWaveInitial, Instance: table, DependsOn: []resource.StageDependency{resource.Dependency(parent, resource.StageRelationHard)}})
+				release, err := scheduler.Acquire(context.Background(), resource.DB2ParsePool)
+				if err == nil {
+					err = loader.LoadTableWithStage(store, table, tableStage, resource.StageWaveInitial)
+					release()
+				}
+				resource.FinishStage(tableStage, err)
+				if err != nil {
+					errorMu.Lock()
+					errorsByTable[table] = err
+					errorMu.Unlock()
+				}
+			}
+		}()
+	}
 	for _, table := range tables {
-		if err := loader.LoadTable(store, table); err != nil {
-			return fmt.Errorf("warm DB2 table %s: %w", table, err)
+		jobs <- table
+	}
+	close(jobs)
+	wg.Wait()
+	if len(errorsByTable) > 0 {
+		failed := make([]string, 0, len(errorsByTable))
+		for table := range errorsByTable {
+			failed = append(failed, table)
 		}
+		sort.Strings(failed)
+		return fmt.Errorf("warm DB2 table %s: %w", failed[0], errorsByTable[failed[0]])
 	}
 	return nil
+}
+
+func uniqueUint32(values []uint32) []uint32 {
+	seen := make(map[uint32]struct{}, len(values))
+	result := make([]uint32, 0, len(values))
+	for _, value := range values {
+		if value == 0 {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }
 
 func (rt *Runtime) warmDBDManifest() error {
@@ -687,6 +1041,10 @@ func (rt *Runtime) warmDBDManifest() error {
 }
 
 func (rt *Runtime) warmListfile(format string) error {
+	return rt.warmListfileWithStage(format, 0)
+}
+
+func (rt *Runtime) warmListfileWithStage(format string, parent resource.StageID) error {
 	source := appruntime.NewHTTPListfileSource(filepath.Join(rt.CacheRoot, "listfile"), []string{
 		"https://github.com/wowdev/wow-listfile/releases/latest/download/community-listfile.csv",
 		"https://www.kruithne.net/wow.export/data/listfile/master",
@@ -700,7 +1058,7 @@ func (rt *Runtime) warmListfile(format string) error {
 	} else {
 		source = source.WithTextOnly()
 	}
-	lf, err := source.Listfile()
+	lf, parseStage, err := source.ListfileWithStage(parent)
 	if err != nil {
 		return err
 	}
@@ -709,13 +1067,19 @@ func (rt *Runtime) warmListfile(format string) error {
 	localSource := rt.Local
 	rt.mu.Unlock()
 	if cascSource != nil {
+		filterStage := resource.StartStage("listfile-filter", resource.StageOptions{ParentID: parent, Wave: resource.StageWaveInitial, DependsOn: []resource.StageDependency{resource.Dependency(parseStage, resource.StageRelationHard), resource.Dependency(parent, resource.StageRelationJoin)}})
 		lf.FilterIDs(rootEntryMap(cascSource.CASCSource))
+		resource.FinishStage(filterStage, nil)
 	} else if localSource != nil {
+		filterStage := resource.StartStage("listfile-filter", resource.StageOptions{ParentID: parent, Wave: resource.StageWaveInitial, DependsOn: []resource.StageDependency{resource.Dependency(parseStage, resource.StageRelationHard), resource.Dependency(parent, resource.StageRelationJoin)}})
 		lf.FilterIDs(rootEntryMap(localSource.CASCSource))
+		resource.FinishStage(filterStage, nil)
 	}
+	publishStage := resource.StartStage("listfile-publish", resource.StageOptions{ParentID: parent, Wave: resource.StageWaveInitial, DependsOn: []resource.StageDependency{resource.Dependency(parseStage, resource.StageRelationHard)}})
 	rt.mu.Lock()
 	rt.LF.ReplaceFrom(lf)
 	rt.mu.Unlock()
+	resource.FinishStage(publishStage, nil)
 	return nil
 }
 
@@ -731,19 +1095,36 @@ func rootEntryMap(source *casc.CASCSource) map[uint32]bool {
 }
 
 func (rt *Runtime) loadDBDManifest() (*dbd.Manifest, error) {
+	manifest, _, err := rt.loadDBDManifestWithStage(0)
+	return manifest, err
+}
+
+func (rt *Runtime) loadDBDManifestWithStage(parent resource.StageID) (*dbd.Manifest, resource.StageID, error) {
+	var revisionStage resource.StageID
 	if rt.DBDCommit == "" {
-		revisionSource := appruntime.NewHTTPDBDRevisionSource(rt.dbdCacheDir(), "https://api.github.com/repos/wowdev/WoWDBDefs/commits/master")
+		revisionStage = resource.StartStage("dbd-revision", resource.StageOptions{ParentID: parent, Wave: resource.StageWaveInitial, DependsOn: []resource.StageDependency{resource.Dependency(parent, resource.StageRelationHard)}})
+		revisionSource := appruntime.NewHTTPDBDRevisionSource(rt.dbdCacheDir(), "https://api.github.com/repos/wowdev/WoWDBDefs/commits/master").WithStage(revisionStage)
 		commit, err := revisionSource.Revision()
 		if err != nil {
-			return nil, err
+			resource.FinishStage(revisionStage, err)
+			return nil, revisionStage, err
 		}
+		resource.FinishStage(revisionStage, nil)
 		rt.DBDCommit = commit
 	}
 	cacheDir := filepath.Join(rt.dbdCacheDir(), rt.DBDCommit)
 	manifestSource := appruntime.NewHTTPDBDManifestSource(cacheDir, []string{
 		"https://raw.githubusercontent.com/wowdev/WoWDBDefs/" + rt.DBDCommit + "/manifest.json",
-	})
-	return manifestSource.Manifest()
+	}).WithCacheFirst()
+	deps := []resource.StageDependency{resource.Dependency(parent, resource.StageRelationHard)}
+	if revisionStage != 0 {
+		deps = append(deps, resource.Dependency(revisionStage, resource.StageRelationHard))
+	}
+	manifestStage := resource.StartStage("dbd-manifest", resource.StageOptions{ParentID: parent, Wave: resource.StageWaveInitial, DependsOn: deps})
+	manifestSource.WithStage(manifestStage)
+	manifest, err := manifestSource.Manifest()
+	resource.FinishStage(manifestStage, err)
+	return manifest, manifestStage, err
 }
 
 func (rt *Runtime) dbdCacheDir() string {

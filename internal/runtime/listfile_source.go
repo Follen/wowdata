@@ -12,6 +12,7 @@ import (
 
 	"wowdata/internal/casc"
 	"wowdata/internal/listfile"
+	"wowdata/internal/resource"
 	"wowdata/internal/storage"
 )
 
@@ -25,7 +26,7 @@ type HTTPListfileSource struct {
 }
 
 func NewHTTPListfileSource(cacheDir string, urls []string) *HTTPListfileSource {
-	return &HTTPListfileSource{cacheDir: cacheDir, urls: urls, client: http.DefaultClient, workers: storage.DefaultWorkers}
+	return &HTTPListfileSource{cacheDir: cacheDir, urls: urls, client: casc.InstrumentHTTPClient(http.DefaultClient), workers: storage.DefaultWorkers}
 }
 
 func (s *HTTPListfileSource) WithBinaryURLs(urls []string) *HTTPListfileSource {
@@ -46,13 +47,53 @@ func (s *HTTPListfileSource) WithWorkers(workers int) *HTTPListfileSource {
 }
 
 func (s *HTTPListfileSource) Listfile() (*listfile.Listfile, error) {
+	lf, _, err := s.ListfileWithStage(0)
+	return lf, err
+}
+
+func (s *HTTPListfileSource) ListfileWithStage(parent resource.StageID) (*listfile.Listfile, resource.StageID, error) {
 	if s.textOnly {
-		return s.textListfile()
+		return s.textListfileWithStage(parent, 0, resource.StageRelationHard, "text-only")
 	}
+	binaryStage := resource.StartStage("listfile-fetch", resource.StageOptions{ParentID: parent, Wave: resource.StageWaveInitial, Condition: "binary", DependsOn: []resource.StageDependency{resource.Dependency(parent, resource.StageRelationHard)}})
+	before := casc.SnapshotHTTPMetrics()
 	if lf, err := s.binaryListfile(); err == nil {
-		return lf, nil
+		recordListfileStageNetwork(binaryStage, before)
+		resource.FinishStage(binaryStage, nil)
+		parseStage := resource.StartStage("listfile-parse", resource.StageOptions{ParentID: parent, Wave: resource.StageWaveInitial, Condition: "binary", DependsOn: []resource.StageDependency{resource.Dependency(binaryStage, resource.StageRelationHard)}})
+		resource.FinishStage(parseStage, nil)
+		return lf, parseStage, nil
+	} else {
+		recordListfileStageNetwork(binaryStage, before)
+		resource.FinishStage(binaryStage, err)
 	}
-	return s.textListfile()
+	return s.textListfileWithStage(parent, binaryStage, resource.StageRelationFallback, "binary-failed")
+}
+
+func (s *HTTPListfileSource) textListfileWithStage(parent, dependency resource.StageID, relation, condition string) (*listfile.Listfile, resource.StageID, error) {
+	if dependency == 0 {
+		dependency = parent
+	}
+	fetchStage := resource.StartStage("listfile-fetch", resource.StageOptions{ParentID: parent, Wave: resource.StageWaveInitial, Condition: condition, DependsOn: []resource.StageDependency{resource.Dependency(dependency, relation)}})
+	before := casc.SnapshotHTTPMetrics()
+	lf, err := s.textListfile()
+	recordListfileStageNetwork(fetchStage, before)
+	resource.FinishStage(fetchStage, err)
+	if err != nil {
+		return nil, fetchStage, err
+	}
+	parseStage := resource.StartStage("listfile-parse", resource.StageOptions{ParentID: parent, Wave: resource.StageWaveInitial, Condition: condition, DependsOn: []resource.StageDependency{resource.Dependency(fetchStage, resource.StageRelationHard)}})
+	resource.FinishStage(parseStage, nil)
+	return lf, parseStage, nil
+}
+
+func recordListfileStageNetwork(stage resource.StageID, before casc.HTTPMetrics) {
+	after := casc.SnapshotHTTPMetrics()
+	unique := after.UniquePayloadBytes - before.UniquePayloadBytes
+	transferred := after.ResponseBytes - before.ResponseBytes
+	if unique > 0 || transferred > 0 {
+		resource.RecordStageNetwork(stage, uint64(max(unique, 0)), uint64(max(transferred, 0)))
+	}
 }
 
 func (s *HTTPListfileSource) textListfile() (*listfile.Listfile, error) {

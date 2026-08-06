@@ -6,9 +6,12 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+
+	"wowdata/internal/casc"
 )
 
 func TestDBDRevisionUsesETagAndCachedSHA(t *testing.T) {
+	casc.ResetHTTPMetrics()
 	const sha = "0123456789abcdef0123456789abcdef01234567"
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -28,5 +31,9 @@ func TestDBDRevisionUsesETagAndCachedSHA(t *testing.T) {
 		if err != nil || got != sha {
 			t.Fatalf("Revision %d = %q, %v", i, got, err)
 		}
+	}
+	metrics := casc.SnapshotHTTPMetrics()
+	if metrics.Requests != 1 || metrics.ResponseBytes == 0 || metrics.UniquePayloadBytes != metrics.ResponseBytes {
+		t.Fatalf("HTTP metrics = %#v", metrics)
 	}
 }

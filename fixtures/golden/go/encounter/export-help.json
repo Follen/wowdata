@@ -1,0 +1,12 @@
+{
+  "name": "encounter/export-help",
+  "command": "wowdata",
+  "args": [
+    "encounter",
+    "export",
+    "--help"
+  ],
+  "exitCode": 0,
+  "stdout": "Export encounter skills and PNG icons in one process.\n\nUsage:\n  wowdata encounter export [flags]\n\nExamples:\n  wowdata encounter export --instance 虚影尖塔 --boss 1 --output ./png\n\nFlags:\n      --boss int                      One-based boss index (default 1)\n  -h, --help                          help for export\n      --instance string               Localized journal instance name\n      --journal-encounter-id uint32   Journal encounter ID override\n      --max-depth int                 Maximum triggered-spell traversal depth (default 5)\n      --output string                 Output directory\n\nGlobal Flags:\n      --auto-warmup              Deprecated compatibility flag; data commands prepare required cache automatically\n      --build string             WoW build: latest, version, build ID, or config key (required unless --profile is used)\n      --cache string             Cache directory override; defaults to ~/.wowdata/cache\n      --dbd-manifest             Also prepare the DBD manifest cache\n      --listfile                 Also prepare the listfile cache\n      --listfile-format string   Listfile source format: binary or text (default \"binary\")\n      --locale string            WoW locale, such as zhCN or enUS (required unless --profile is used)\n      --path string              Local WoW client path when source=local\n      --product string           WoW product (required unless --profile is used)\n      --profile string           Named target profile from ~/.wowdata/profiles\n      --region string            WoW region (required unless --profile is used)\n      --source string            Data source: local or remote (required unless --profile is used)\n      --tables string            Additional comma-separated DB2 tables to prepare\n",
+  "stderr": ""
+}

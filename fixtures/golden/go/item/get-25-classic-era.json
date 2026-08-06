@@ -3,6 +3,8 @@
   "command": "wowdata",
   "args": [
     "--auto-warmup",
+    "--build",
+    "1.15.9.69109",
     "--source",
     "remote",
     "--region",
@@ -20,5 +22,5 @@
   ],
   "exitCode": 0,
   "stdout": "{\n  \"ok\": true,\n  \"command\": \"item get\",\n  \"data\": {\n    \"id\": 25,\n    \"name\": \"Worn Shortsword\",\n    \"inventoryType\": 21,\n    \"classID\": 2,\n    \"subclassID\": 7,\n    \"quality\": 1,\n    \"slotName\": \"Main Hand\"\n  },\n  \"warnings\": []\n}\n",
-  "stderr": ""
+  "stderr": "prepare target=remote/us/wow_classic_era/enUS build=1.15.9.69109\nprepare status=ready\n"
 }

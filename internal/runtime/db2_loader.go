@@ -6,14 +6,23 @@ import (
 
 	"wowdata/internal/db2"
 	"wowdata/internal/dbd"
+	"wowdata/internal/resource"
 )
 
 type DBDDefinitionSource interface {
 	Definition(tableName string) (string, error)
 }
 
+type stagedDBDDefinitionSource interface {
+	DefinitionWithStage(tableName string, stage resource.StageID) (string, error)
+}
+
 type PartialFileDataReader interface {
 	ReadFileDataPartial(fileDataID uint32) ([]byte, error)
+}
+
+type stagedPartialFileDataReader interface {
+	ReadFileDataPartialWithStage(fileDataID uint32, stage resource.StageID) ([]byte, error)
 }
 
 type DB2Loader struct {
@@ -28,6 +37,10 @@ func NewDB2Loader(manifest *dbd.Manifest, dbdSource DBDDefinitionSource, files F
 }
 
 func (l *DB2Loader) LoadTable(store *MemoryDB2Store, tableName string) error {
+	return l.LoadTableWithStage(store, tableName, 0, resource.StageWaveInitial)
+}
+
+func (l *DB2Loader) LoadTableWithStage(store *MemoryDB2Store, tableName string, parent resource.StageID, wave string) error {
 	if store == nil {
 		return fmt.Errorf("DB2 store is nil")
 	}
@@ -43,38 +56,59 @@ func (l *DB2Loader) LoadTable(store *MemoryDB2Store, tableName string) error {
 	}
 	var data []byte
 	var err error
-	if partialReader, ok := l.files.(PartialFileDataReader); ok {
+	fileStage := resource.StartStage("db2-file-read", resource.StageOptions{ParentID: parent, Wave: wave, Instance: tableName, DependsOn: []resource.StageDependency{resource.Dependency(parent, resource.StageRelationHard)}})
+	if stagedReader, ok := l.files.(stagedPartialFileDataReader); ok {
+		data, err = stagedReader.ReadFileDataPartialWithStage(fileDataID, fileStage)
+	} else if partialReader, ok := l.files.(PartialFileDataReader); ok {
 		data, err = partialReader.ReadFileDataPartial(fileDataID)
 	} else {
 		data, err = l.files.ReadFileData(fileDataID)
 	}
 	if err != nil {
+		resource.FinishStage(fileStage, err)
 		return err
 	}
+	resource.FinishStage(fileStage, nil)
 	if l.dbdSource == nil {
 		return fmt.Errorf("DBD definition source is not initialized")
 	}
-	rawDBD, err := l.dbdSource.Definition(tableName)
+	definitionStage := resource.StartStage("dbd-definition", resource.StageOptions{ParentID: parent, Wave: wave, Instance: tableName, DependsOn: []resource.StageDependency{resource.Dependency(fileStage, resource.StageRelationHard)}})
+	var rawDBD string
+	if stagedSource, ok := l.dbdSource.(stagedDBDDefinitionSource); ok {
+		rawDBD, err = stagedSource.DefinitionWithStage(tableName, definitionStage)
+	} else {
+		rawDBD, err = l.dbdSource.Definition(tableName)
+	}
 	if err != nil {
+		resource.FinishStage(definitionStage, err)
 		return err
 	}
+	resource.FinishStage(definitionStage, nil)
+	parseStage := resource.StartStage("dbd-parse-schema", resource.StageOptions{ParentID: parent, Wave: wave, Instance: tableName, DependsOn: []resource.StageDependency{resource.Dependency(definitionStage, resource.StageRelationHard)}})
 	parser, err := dbd.Parse(strings.NewReader(rawDBD))
 	if err != nil {
+		resource.FinishStage(parseStage, err)
 		return err
 	}
 	entry := parser.GetStructure(l.buildID, "")
 	if entry == nil {
+		resource.FinishStage(parseStage, fmt.Errorf("missing structure"))
 		return fmt.Errorf("no DBD structure for table %s build %s", tableName, l.buildID)
 	}
 	schema, err := db2.SchemaFromDBD(entry)
 	if err != nil {
+		resource.FinishStage(parseStage, err)
 		return err
 	}
+	resource.FinishStage(parseStage, nil)
+	openStage := resource.StartStage("db2-table-open", resource.StageOptions{ParentID: parent, Wave: wave, Instance: tableName, DependsOn: []resource.StageDependency{resource.Dependency(fileStage, resource.StageRelationJoin), resource.Dependency(parseStage, resource.StageRelationJoin)}})
 	reader, err := db2.NewWDCReaderFromBytes(tableName, data, schema)
 	if err != nil {
+		resource.FinishStage(openStage, err)
 		return err
 	}
 	store.AddTable(tableName, schemaForRuntime(schema), reader)
+	resource.FinishStage(openStage, nil)
 	return nil
 }
 

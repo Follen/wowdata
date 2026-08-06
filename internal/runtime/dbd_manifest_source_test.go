@@ -6,9 +6,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"wowdata/internal/casc"
 )
 
 func TestHTTPDBDManifestSourceFetchesManifest(t *testing.T) {
+	casc.ResetHTTPMetrics()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`[{"tableName":"SpellName","db2FileDataID":123}]`))
 	}))
@@ -22,6 +25,10 @@ func TestHTTPDBDManifestSourceFetchesManifest(t *testing.T) {
 	id, ok := manifest.GetByTableName("SpellName")
 	if !ok || id != 123 {
 		t.Fatalf("SpellName = %d %v", id, ok)
+	}
+	metrics := casc.SnapshotHTTPMetrics()
+	if metrics.Requests != 1 || metrics.ResponseBytes == 0 || metrics.UniquePayloadBytes != metrics.ResponseBytes {
+		t.Fatalf("HTTP metrics = %#v", metrics)
 	}
 }
 

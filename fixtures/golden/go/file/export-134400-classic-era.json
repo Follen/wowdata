@@ -5,6 +5,8 @@
     "run",
     "./cmd/wowdata",
     "--auto-warmup",
+    "--build",
+    "1.15.9.69109",
     "--source",
     "remote",
     "--region",
@@ -21,6 +23,6 @@
     "fixtures/golden/go/file/export-134400-classic-era.blp"
   ],
   "exitCode": 0,
-  "stdout": "{\n  \"ok\": true,\n  \"command\": \"file export\",\n  \"data\": {\n    \"ok\": true,\n    \"path\": \"fixtures/golden/go/file/export-134400-classic-era.blp\",\n    \"size\": 3916,\n    \"sha256\": \"294097a0b2cde0e08fda4609cd397d2f2e6d93d4ec16908bff72a8afbb4a9d72\",\n    \"overwrite\": false\n  },\n  \"warnings\": []\n}\n",
-  "stderr": ""
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"file export\",\n  \"data\": {\n    \"ok\": true,\n    \"name\": \"export-134400-classic-era.blp\",\n    \"path\": \"D:\\\\Code\\\\wow\\\\wowdata\\\\fixtures\\\\golden\\\\go\\\\file\\\\export-134400-classic-era.blp\",\n    \"uri\": \"file:///D:/Code/wow/wowdata/fixtures/golden/go/file/export-134400-classic-era.blp\",\n    \"mimeType\": \"application/octet-stream\",\n    \"size\": 3916,\n    \"sha256\": \"294097a0b2cde0e08fda4609cd397d2f2e6d93d4ec16908bff72a8afbb4a9d72\",\n    \"overwrite\": true\n  },\n  \"warnings\": []\n}\n",
+  "stderr": "prepare target=remote/us/wow_classic_era/enUS build=1.15.9.69109\nprepare status=ready\n"
 }

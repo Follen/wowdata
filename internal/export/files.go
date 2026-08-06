@@ -1,12 +1,13 @@
 package export
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"mime"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"wowdata/internal/resource"
 )
 
 type ExportResult struct {
@@ -41,11 +42,11 @@ func ExportFile(data []byte, outputPath string) (*ExportResult, error) {
 		overwrite = true
 	}
 
-	if err := os.WriteFile(absPath, data, 0644); err != nil {
+	if err := resource.WriteFile(absPath, data, 0644); err != nil {
 		return nil, fmt.Errorf("write file: %w", err)
 	}
 
-	hash := sha256.Sum256(data)
+	hash := resource.SumSHA256(data)
 
 	return &ExportResult{
 		OK:        true,

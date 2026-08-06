@@ -1,11 +1,11 @@
 package app
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
+	"wowdata/internal/resource"
 	appruntime "wowdata/internal/runtime"
 
 	"github.com/spf13/cobra"
@@ -197,7 +197,7 @@ func (s *DB2Service) handleStream(cmd *cobra.Command, args []string) error {
 }
 
 func writeJSONLine(w interface{ Write([]byte) (int, error) }, resp Response) error {
-	data, err := json.Marshal(resp)
+	data, err := resource.MarshalJSON(resp)
 	if err != nil {
 		return err
 	}

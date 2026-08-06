@@ -1,10 +1,58 @@
 package golden
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func stateCaptureJSON(t *testing.T, stdout string) []byte {
+	t.Helper()
+	value, err := json.Marshal(map[string]interface{}{"exitCode": 0, "stdout": stdout, "stderr": ""})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
+func TestCacheStateComparisonAllowsOnlyConsistentMetadataSizeDrift(t *testing.T) {
+	expected := stateCaptureJSON(t, `{"ok":true,"data":{"path":"C:/capture/cache","sizeBytes":206,"maxBytes":1000,"format":{"schema":"wowdata.cache-format.v1","initializedAtUtc":"2026-08-05T01:00:00Z","clearedPath":"C:/capture/cache"},"usage":{"totalBytes":206,"derivedMetadataBytes":206,"payloadBytes":0,"resumeBytes":0,"uniquePayloadBytes":0,"duplicatePayloadBytes":0}}}`)
+	actual := stateCaptureJSON(t, `{"ok":true,"data":{"path":"D:/run/cache","sizeBytes":197,"maxBytes":1000,"format":{"schema":"wowdata.cache-format.v1","initializedAtUtc":"2026-08-05T02:00:00Z","clearedPath":"D:/run/cache"},"usage":{"totalBytes":197,"derivedMetadataBytes":197,"payloadBytes":0,"resumeBytes":0,"uniquePayloadBytes":0,"duplicatePayloadBytes":0}}}`)
+	result, err := CompareJSONWithMode(expected, actual, ComparisonCacheStateV1)
+	if err != nil || !result.Equal {
+		t.Fatalf("consistent cache state mismatch: result=%#v err=%v", result, err)
+	}
+	bad := stateCaptureJSON(t, `{"ok":true,"data":{"path":"D:/run/cache","sizeBytes":197,"maxBytes":1000,"format":{"schema":"wowdata.cache-format.v1","initializedAtUtc":"2026-08-05T02:00:00Z","clearedPath":"D:/run/cache"},"usage":{"totalBytes":198,"derivedMetadataBytes":197,"payloadBytes":0,"resumeBytes":0,"uniquePayloadBytes":0,"duplicatePayloadBytes":0}}}`)
+	result, err = CompareJSONWithMode(expected, bad, ComparisonCacheStateV1)
+	if err != nil || result.Equal || !strings.Contains(result.Reason, "inconsistent") {
+		t.Fatalf("invalid cache accounting result=%#v err=%v", result, err)
+	}
+}
+
+func TestProfileStateComparisonNormalizesOnlyValidUpdatedAt(t *testing.T) {
+	expected := stateCaptureJSON(t, `{"ok":true,"data":{"name":"benchmark","target":{"build":"1"},"updatedAt":"2026-08-05T01:00:00Z"}}`)
+	actual := stateCaptureJSON(t, `{"ok":true,"data":{"name":"benchmark","target":{"build":"1"},"updatedAt":"2026-08-05T02:00:00Z"}}`)
+	result, err := CompareJSONWithMode(expected, actual, ComparisonProfileStateV1)
+	if err != nil || !result.Equal {
+		t.Fatalf("profile timestamp mismatch: result=%#v err=%v", result, err)
+	}
+	changed := stateCaptureJSON(t, `{"ok":true,"data":{"name":"benchmark","target":{"build":"2"},"updatedAt":"2026-08-05T02:00:00Z"}}`)
+	result, err = CompareJSONWithMode(expected, changed, ComparisonProfileStateV1)
+	if err != nil || result.Equal {
+		t.Fatalf("profile target change passed: result=%#v err=%v", result, err)
+	}
+}
+
+func TestProfileStateComparisonNormalizesOnlyMissingProfileHome(t *testing.T) {
+	expected := stateCaptureJSON(t, `{"ok":false,"error":{"message":"open C:\\capture\\profiles\\missing.json: file not found"}}`)
+	actual := stateCaptureJSON(t, `{"ok":false,"error":{"message":"open D:\\run\\profiles\\missing.json: file not found"}}`)
+	result, err := CompareJSONWithMode(expected, actual, ComparisonProfileStateV1)
+	if err != nil || !result.Equal {
+		t.Fatalf("missing profile home mismatch: result=%#v err=%v", result, err)
+	}
+}
 
 func TestFixturePathIsDeterministic(t *testing.T) {
 	path := FixturePath("db2", "spellname-123")
@@ -101,6 +149,24 @@ func TestCompareJSONCapturedStdoutMismatch(t *testing.T) {
 	}
 }
 
+func TestCompareJSONCapturedStderrIgnoresValidDownloadTelemetry(t *testing.T) {
+	expected := []byte(`{"exitCode":0,"stdout":"{\"ok\":true,\"data\":{\"id\":1}}","stderr":"prepare target=remote/us/wow/enUS build=1\nprepare status=ready\n"}`)
+	actual := []byte(`{"exitCode":0,"stdout":"{\"ok\":true,\"data\":{\"id\":1}}","stderr":"prepare target=remote/us/wow/enUS build=1\ndownload method=range url=https://cdn.example/object bytes=42 workers=4 duration=12ms\nprepare status=ready\n"}`)
+	result, err := CompareJSON(expected, actual)
+	if err != nil || !result.Equal {
+		t.Fatalf("comparison = %#v, %v", result, err)
+	}
+}
+
+func TestCompareJSONCapturedStderrRejectsMalformedDownloadTelemetry(t *testing.T) {
+	expected := []byte(`{"exitCode":0,"stdout":"{\"ok\":true,\"data\":{\"id\":1}}","stderr":""}`)
+	actual := []byte(`{"exitCode":0,"stdout":"{\"ok\":true,\"data\":{\"id\":1}}","stderr":"download method=range url=https://cdn.example/object workers=4 duration=12ms\n"}`)
+	result, err := CompareJSON(expected, actual)
+	if err != nil || result.Equal || !strings.Contains(result.Reason, "missing bytes") {
+		t.Fatalf("comparison = %#v, %v", result, err)
+	}
+}
+
 func TestCompareJSONReportsDifference(t *testing.T) {
 	result, err := CompareJSON([]byte(`{"ok":true}`), []byte(`{"ok":false}`))
 	if err != nil {
@@ -111,6 +177,24 @@ func TestCompareJSONReportsDifference(t *testing.T) {
 	}
 	if result.Reason == "" {
 		t.Fatal("expected mismatch reason")
+	}
+}
+
+func TestCompareRemoteProductsAllowsBuildDriftButChecksContract(t *testing.T) {
+	expected := []byte(`{"exitCode":0,"stdout":"{\"ok\":true,\"data\":{\"source\":\"remote\",\"products\":[{\"label\":\"World 1.2.3.100\",\"buildIndex\":0,\"product\":\"wow\",\"region\":\"us\",\"version\":\"1.2.3.100\",\"buildId\":\"100\",\"buildConfigKey\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"cdnConfigKey\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"locales\":[\"enUS\"]}]}}"}`)
+	actual := []byte(`{"exitCode":0,"stdout":"{\"ok\":true,\"data\":{\"source\":\"remote\",\"products\":[{\"label\":\"World 1.2.3.101\",\"buildIndex\":0,\"product\":\"wow\",\"region\":\"us\",\"version\":\"1.2.3.101\",\"buildId\":\"101\",\"buildConfigKey\":\"cccccccccccccccccccccccccccccccc\",\"cdnConfigKey\":\"dddddddddddddddddddddddddddddddd\",\"locales\":[\"enUS\"]}]}}"}`)
+	result, err := CompareJSONWithMode(expected, actual, ComparisonRemoteProductsV1)
+	if err != nil || !result.Equal {
+		t.Fatalf("remote products comparison = %#v, %v", result, err)
+	}
+}
+
+func TestCompareRemoteProductsRejectsInconsistentIdentity(t *testing.T) {
+	expected := []byte(`{"exitCode":0,"stdout":"{\"ok\":true,\"data\":{\"source\":\"remote\",\"products\":[{\"label\":\"World 1.2.3.100\",\"buildIndex\":0,\"product\":\"wow\",\"region\":\"us\",\"version\":\"1.2.3.100\",\"buildId\":\"100\",\"buildConfigKey\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"cdnConfigKey\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"locales\":[\"enUS\"]}]}}"}`)
+	actual := []byte(`{"exitCode":0,"stdout":"{\"ok\":true,\"data\":{\"source\":\"remote\",\"products\":[{\"label\":\"World 1.2.3.101\",\"buildIndex\":0,\"product\":\"wow\",\"region\":\"us\",\"version\":\"1.2.3.101\",\"buildId\":\"999\",\"buildConfigKey\":\"cccccccccccccccccccccccccccccccc\",\"cdnConfigKey\":\"dddddddddddddddddddddddddddddddd\",\"locales\":[\"enUS\"]}]}}"}`)
+	result, err := CompareJSONWithMode(expected, actual, ComparisonRemoteProductsV1)
+	if err != nil || result.Equal || !strings.Contains(result.Reason, "inconsistent") {
+		t.Fatalf("remote products comparison = %#v, %v", result, err)
 	}
 }
 

@@ -1,0 +1,13 @@
+{
+  "name": "cache/clear-empty",
+  "command": "wowdata",
+  "args": [
+    "cache",
+    "clear"
+  ],
+  "comparison": "cache-state-v1",
+  "isolation": "fresh-home",
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"cache clear\",\n  \"data\": {\n    \"path\": \"D:/Code/wow/wowdata/analyze/benchmark/matrix-audit-capture-fresh/cache-clear-empty/cache\",\n    \"removedBytes\": 213\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

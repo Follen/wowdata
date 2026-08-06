@@ -7,9 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"wowdata/internal/casc"
+	"wowdata/internal/resource"
 )
 
 func TestHTTPDBDSourceFetchesDefinition(t *testing.T) {
+	casc.ResetHTTPMetrics()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.URL.Path, "SpellName.dbd") {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
@@ -25,6 +29,36 @@ func TestHTTPDBDSourceFetchesDefinition(t *testing.T) {
 	}
 	if !strings.Contains(def, "int ID") {
 		t.Fatalf("definition = %q", def)
+	}
+	metrics := casc.SnapshotHTTPMetrics()
+	if metrics.Requests != 1 || metrics.ResponseBytes == 0 || metrics.UniquePayloadBytes != metrics.ResponseBytes {
+		t.Fatalf("HTTP metrics = %#v", metrics)
+	}
+}
+
+func TestHTTPDBDSourceAttributesDefinitionRequestToStage(t *testing.T) {
+	casc.ResetHTTPMetrics()
+	resource.ResetStages()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("COLUMNS\nint ID\n"))
+	}))
+	defer server.Close()
+
+	stage := resource.StartStage("dbd-definition", resource.StageOptions{Instance: "SpellName"})
+	source := NewHTTPDBDSource(t.TempDir(), []string{server.URL + "/%s.dbd"})
+	if _, err := source.DefinitionWithStage("SpellName", stage); err != nil {
+		t.Fatalf("DefinitionWithStage: %v", err)
+	}
+	resource.FinishStage(stage, nil)
+	metrics := casc.SnapshotHTTPMetrics()
+	resource.ReconcileStageNetwork(uint64(metrics.UniquePayloadBytes), uint64(metrics.ResponseBytes))
+	snapshot := resource.SnapshotStages()
+	if !snapshot.Complete || len(snapshot.Work) != 1 {
+		t.Fatalf("stages = %#v", snapshot)
+	}
+	work := snapshot.Work[0]
+	if work.StageID != stage || work.NetworkUniqueBytes != uint64(metrics.UniquePayloadBytes) || work.NetworkTransferredBytes != uint64(metrics.ResponseBytes) {
+		t.Fatalf("stage work = %#v, HTTP metrics = %#v", work, metrics)
 	}
 }
 

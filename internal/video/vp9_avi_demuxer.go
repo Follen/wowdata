@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+
+	"wowdata/internal/resource"
 )
 
 type FrameInfo struct {
@@ -45,6 +47,7 @@ func (d *VP9AVIDemuxer) ParseHeader() error {
 
 	// Parse all LIST chunks recursively to find avih and strf
 	d.parseListChunk(12, len(d.data))
+	resource.RecordVideoDemux(len(d.data))
 	return nil
 }
 
@@ -125,6 +128,7 @@ func (d *VP9AVIDemuxer) ExtractFrames() ([]FrameInfo, error) {
 	}
 
 	d.frameCount = len(frames)
+	resource.RecordVideoDemux(len(d.data))
 	return frames, nil
 }
 

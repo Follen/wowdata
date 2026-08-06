@@ -5,6 +5,8 @@
     "run",
     "./cmd/wowdata",
     "--auto-warmup",
+    "--build",
+    "1.15.9.69109",
     "--source",
     "remote",
     "--region",
@@ -23,5 +25,5 @@
   ],
   "exitCode": 0,
   "stdout": "{\n  \"ok\": true,\n  \"command\": \"db2 rows\",\n  \"data\": {\n    \"count\": 1,\n    \"mode\": \"rows\",\n    \"rows\": [\n      {\n        \"ID\": 1,\n        \"Name_lang\": \"Word of Recall (OLD)\"\n      }\n    ],\n    \"table\": \"SpellName\"\n  },\n  \"warnings\": []\n}\n",
-  "stderr": ""
+  "stderr": "prepare target=remote/us/wow_classic_era/enUS build=1.15.9.69109\nprepare status=ready\n"
 }

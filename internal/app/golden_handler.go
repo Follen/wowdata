@@ -2,7 +2,6 @@ package app
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +9,7 @@ import (
 	"strings"
 
 	"wowdata/internal/golden"
+	"wowdata/internal/resource"
 
 	"github.com/spf13/cobra"
 )
@@ -43,11 +43,11 @@ func NewGoldenHandler() func(cmd *cobra.Command, args []string) error {
 			if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("golden capture", "io_error", err.Error()))
 			}
-			data, err := json.MarshalIndent(capture, "", "  ")
+			data, err := resource.MarshalIndentJSON(capture, "", "  ")
 			if err != nil {
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("golden capture", "json_error", err.Error()))
 			}
-			if err := os.WriteFile(outputPath, data, 0644); err != nil {
+			if err := resource.WriteFile(outputPath, data, 0644); err != nil {
 				return writeJSON(cmd.OutOrStdout(), NewErrorResponse("golden capture", "io_error", err.Error()))
 			}
 			if manifestPath != "" {
@@ -71,7 +71,7 @@ func NewGoldenHandler() func(cmd *cobra.Command, args []string) error {
 				if manifestPath == "" {
 					manifestPath = filepath.Join("fixtures", "golden", "manifest.json")
 				}
-				data, err := os.ReadFile(manifestPath)
+				data, err := resource.ReadFile(manifestPath)
 				if err != nil {
 					return writeJSON(cmd.OutOrStdout(), NewErrorResponse("golden compare", "io_error", err.Error()))
 				}
@@ -90,7 +90,7 @@ func NewGoldenHandler() func(cmd *cobra.Command, args []string) error {
 				failed := 0
 				firstFailure := ""
 				for _, entry := range manifest.Fixtures {
-					result, err := compareGoldenFiles(entry.Fixture, entry.Actual)
+					result, err := compareGoldenFilesWithMode(entry.Fixture, entry.Actual, entry.Comparison)
 					if err != nil {
 						result = golden.CompareResult{Fixture: entry.Fixture, Equal: false, Reason: err.Error()}
 					}
@@ -153,22 +153,26 @@ func NewGoldenHandler() func(cmd *cobra.Command, args []string) error {
 }
 
 func compareGoldenFiles(fixture, actual string) (golden.CompareResult, error) {
-	expectedData, err := os.ReadFile(fixture)
+	return compareGoldenFilesWithMode(fixture, actual, "")
+}
+
+func compareGoldenFilesWithMode(fixture, actual, mode string) (golden.CompareResult, error) {
+	expectedData, err := resource.ReadFile(fixture)
 	if err != nil {
 		return golden.CompareResult{Fixture: fixture}, err
 	}
-	actualData, err := os.ReadFile(actual)
+	actualData, err := resource.ReadFile(actual)
 	if err != nil {
 		return golden.CompareResult{Fixture: fixture}, err
 	}
-	result, err := golden.CompareJSON(expectedData, actualData)
+	result, err := golden.CompareJSONWithMode(expectedData, actualData, mode)
 	result.Fixture = fixture
 	return result, err
 }
 
 func upsertGoldenManifest(path string, name string, fixture string, actual string) error {
 	manifest := &golden.Manifest{Version: 1}
-	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
+	if data, err := resource.ReadFile(path); err == nil && len(data) > 0 {
 		parsed, err := golden.ParseManifest(data)
 		if err != nil {
 			return err
@@ -190,11 +194,11 @@ func upsertGoldenManifest(path string, name string, fixture string, actual strin
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(manifest, "", "  ")
+	data, err := resource.MarshalIndentJSON(manifest, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	return resource.WriteFile(path, data, 0644)
 }
 
 func manifestGroupFromName(name string) string {

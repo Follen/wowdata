@@ -5,6 +5,8 @@
     "run",
     "./cmd/wowdata",
     "--auto-warmup",
+    "--build",
+    "1.15.9.69109",
     "--source",
     "remote",
     "--region",
@@ -20,5 +22,5 @@
   ],
   "exitCode": 0,
   "stdout": "{\n  \"ok\": true,\n  \"command\": \"file encoding\",\n  \"data\": {\n    \"fileDataID\": 134400,\n    \"contentKey\": \"45809010e72cafe336851539a9805b80\",\n    \"encodingKey\": \"c8db8a0388577f987eb006f5cfcda49f\",\n    \"enc\": \"c8db8a0388577f987eb006f5cfcda49f\",\n    \"arc\": {\n      \"key\": \"e353ca95b78f9ead4290b49c65a19d63\",\n      \"ofs\": 106738989,\n      \"len\": 1389\n    },\n    \"size\": 3916\n  },\n  \"warnings\": []\n}\n",
-  "stderr": ""
+  "stderr": "prepare target=remote/us/wow_classic_era/enUS build=1.15.9.69109\nprepare status=ready\n"
 }

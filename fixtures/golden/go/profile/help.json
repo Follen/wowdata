@@ -1,0 +1,11 @@
+{
+  "name": "profile/help",
+  "command": "wowdata",
+  "args": [
+    "profile",
+    "--help"
+  ],
+  "exitCode": 0,
+  "stdout": "Manage complete data target profiles.\n\nUsage:\n  wowdata profile [flags]\n  wowdata profile [command]\n\nExamples:\n  wowdata profile set retail-cn --source remote --region cn --product wow --build latest --locale zhCN\n\nAvailable Commands:\n  list        List named target profiles.\n  remove      Remove a named target profile.\n  set         Create or replace a complete target profile.\n  show        Show a named target profile.\n\nFlags:\n  -h, --help   help for profile\n\nGlobal Flags:\n      --auto-warmup              Deprecated compatibility flag; data commands prepare required cache automatically\n      --build string             WoW build: latest, version, build ID, or config key (required unless --profile is used)\n      --cache string             Cache directory override; defaults to ~/.wowdata/cache\n      --dbd-manifest             Also prepare the DBD manifest cache\n      --listfile                 Also prepare the listfile cache\n      --listfile-format string   Listfile source format: binary or text (default \"binary\")\n      --locale string            WoW locale, such as zhCN or enUS (required unless --profile is used)\n      --path string              Local WoW client path when source=local\n      --product string           WoW product (required unless --profile is used)\n      --profile string           Named target profile from ~/.wowdata/profiles\n      --region string            WoW region (required unless --profile is used)\n      --source string            Data source: local or remote (required unless --profile is used)\n      --tables string            Additional comma-separated DB2 tables to prepare\n\nUse \"wowdata profile [command] --help\" for more information about a command.\n",
+  "stderr": ""
+}

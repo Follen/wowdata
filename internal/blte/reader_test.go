@@ -7,9 +7,11 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"testing"
 
 	"wowdata/internal/crypto"
+	"wowdata/internal/resource"
 	"wowdata/internal/tact"
 )
 
@@ -118,6 +120,81 @@ func TestReadSingleUncompressedBlock(t *testing.T) {
 	}
 }
 
+func TestReadAllParallelPreservesBlockOrderAndCompression(t *testing.T) {
+	compressBlock := func(value string) blteBlock {
+		var compressed bytes.Buffer
+		writer := zlib.NewWriter(&compressed)
+		_, _ = writer.Write([]byte(value))
+		_ = writer.Close()
+		return blteBlock{data: append([]byte{0x5a}, compressed.Bytes()...), decompSize: len(value)}
+	}
+	data := buildMultiBlockBLTE([]blteBlock{
+		{data: []byte{0x4e, 'a', 'b'}, decompSize: 2},
+		compressBlock("cd"),
+		{data: []byte{0x4e, 'e', 'f'}, decompSize: 2},
+	})
+	reader, err := NewReader(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := reader.ReadAllParallel(3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(result); got != "abcdef" {
+		t.Fatalf("parallel result = %q", got)
+	}
+}
+
+func TestReadRangeCrossesBlocksAndReusesDecodedData(t *testing.T) {
+	resource.ResetWorkMetrics()
+	data := buildMultiBlockBLTE([]blteBlock{
+		{data: []byte{0x4e, 'a', 'b', 'c'}, decompSize: 3},
+		{data: []byte{0x4e, 'd', 'e', 'f'}, decompSize: 3},
+		{data: []byte{0x4e, 'g', 'h', 'i'}, decompSize: 3},
+	})
+	reader, err := NewReader(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := reader.ReadRange(2, 5, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "cdefg" {
+		t.Fatalf("range = %q", got)
+	}
+	again, err := reader.ReadRange(3, 3, 2)
+	if err != nil || string(again) != "def" {
+		t.Fatalf("reused range = %q, %v", again, err)
+	}
+	if len(reader.rangeBlocks) != 3 {
+		t.Fatalf("cached blocks = %d", len(reader.rangeBlocks))
+	}
+	if units := workCounterUnits("blte-normal-decode"); units != 9 {
+		t.Fatalf("normal decoded units = %d, want 9 without recounting cached blocks", units)
+	}
+}
+
+func TestStreamReaderPreservesBlocksWithoutRangeCache(t *testing.T) {
+	data := buildMultiBlockBLTE([]blteBlock{
+		{data: []byte{0x4e, 'a', 'b', 'c'}, decompSize: 3},
+		{data: []byte{0x4e, 'd', 'e', 'f'}, decompSize: 3},
+		{data: []byte{0x4e, 'g', 'h', 'i'}, decompSize: 3},
+	})
+	reader, err := NewReader(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := io.ReadAll(reader.StreamReader())
+	if err != nil || string(got) != "abcdefghi" {
+		t.Fatalf("stream = %q, %v", got, err)
+	}
+	if len(reader.rangeBlocks) != 0 || reader.buf.Len() != 0 {
+		t.Fatalf("stream retained decoded caches: ranges=%d buffer=%d", len(reader.rangeBlocks), reader.buf.Len())
+	}
+}
+
 func TestReadZlibCompressedBlock(t *testing.T) {
 	plaintext := []byte("compressed BLTE data with some more bytes to make it interesting")
 
@@ -144,6 +221,7 @@ func TestReadZlibCompressedBlock(t *testing.T) {
 }
 
 func TestReadRecursiveFrameBlock(t *testing.T) {
+	resource.ResetWorkMetrics()
 	inner := buildSingleBlockBLTE(append([]byte{0x4E}, []byte("nested frame payload")...))
 	outer := buildSingleBlockBLTE(append([]byte{0x46}, inner...))
 
@@ -158,6 +236,21 @@ func TestReadRecursiveFrameBlock(t *testing.T) {
 	if string(result) != "nested frame payload" {
 		t.Fatalf("result = %q", result)
 	}
+	if units := workCounterUnits("blte-nested-decode"); units != uint64(len(result)) {
+		t.Fatalf("nested decoded units = %d, want %d", units, len(result))
+	}
+	if units := workCounterUnits("blte-normal-decode"); units != 0 {
+		t.Fatalf("nested child was double counted as normal work: %d", units)
+	}
+}
+
+func workCounterUnits(class string) uint64 {
+	for _, counter := range resource.SnapshotWorkMetrics().Counters {
+		if counter.Class == class {
+			return counter.Units
+		}
+	}
+	return 0
 }
 
 func TestReadEncryptedBlock(t *testing.T) {

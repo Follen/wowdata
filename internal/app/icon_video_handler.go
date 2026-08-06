@@ -1,10 +1,10 @@
 package app
 
 import (
-	"os"
 	"strings"
 
 	"wowdata/internal/export"
+	"wowdata/internal/resource"
 	appruntime "wowdata/internal/runtime"
 	"wowdata/internal/video"
 
@@ -58,7 +58,7 @@ func NewVideoHandler() func(cmd *cobra.Command, args []string) error {
 			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("video demux", "missing_argument", "--input is required"))
 		}
 
-		data, err := os.ReadFile(inputPath)
+		data, err := resource.ReadFile(inputPath)
 		if err != nil {
 			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("video demux", "io_error", err.Error()))
 		}

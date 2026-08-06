@@ -96,6 +96,20 @@ func TestGetStructureByBuildRange(t *testing.T) {
 	}
 }
 
+func TestBuildRangeUsesLexicographicTupleOrdering(t *testing.T) {
+	min := parseBuildID("10.1.2.30")
+	max := parseBuildID("10.3.1.5")
+	if compareBuild(parseBuildID("10.2.0.1"), min) < 0 || compareBuild(parseBuildID("10.2.0.1"), max) > 0 {
+		t.Fatal("10.2.0.1 should be inside the tuple range")
+	}
+	if isBuildInRange("10.0.99.99", "10.1.2.30", "10.3.1.5") {
+		t.Fatal("a lower minor version must be outside the range")
+	}
+	if isBuildInRange("10.4.0.0", "10.1.2.30", "10.3.1.5") {
+		t.Fatal("a higher minor version must be outside the range")
+	}
+}
+
 func TestGetStructureMissing(t *testing.T) {
 	p, err := Parse(strings.NewReader(sampleDBD))
 	if err != nil {

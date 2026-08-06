@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"wowdata/internal/casc"
 )
 
 func TestHTTPListfileSourceLoadsListfile(t *testing.T) {
@@ -180,6 +182,27 @@ func TestDownloadListfileURLReportsFallbackGETElapsed(t *testing.T) {
 	log := stderr.String()
 	if !strings.Contains(log, "download") || !strings.Contains(log, "method=get") || !strings.Contains(log, "duration=") {
 		t.Fatalf("download progress log = %q", log)
+	}
+}
+
+func TestDownloadListfileFallbackGETUsesGlobalHTTPMetrics(t *testing.T) {
+	casc.ResetHTTPMetrics()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead || r.Header.Get("Range") != "" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		_, _ = w.Write([]byte("1;interface/icons/test.blp\n"))
+	}))
+	defer server.Close()
+
+	client := casc.InstrumentHTTPClient(server.Client())
+	if _, err := downloadListfileURLWithWorkers(client, server.URL+"/community-listfile.csv", 1); err != nil {
+		t.Fatalf("downloadListfileURLWithWorkers: %v", err)
+	}
+	metrics := casc.SnapshotHTTPMetrics()
+	if metrics.Requests < 2 || metrics.FailedRequests == 0 || metrics.ResponseBytes == 0 || metrics.UniquePayloadBytes == 0 {
+		t.Fatalf("HTTP metrics = %#v", metrics)
 	}
 }
 

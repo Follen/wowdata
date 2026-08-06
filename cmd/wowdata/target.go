@@ -16,6 +16,7 @@ import (
 type targetResolution struct {
 	Target      storage.Target
 	ProfileName string
+	AutoSource  bool
 }
 
 type targetRequiredError struct {
@@ -39,6 +40,8 @@ func resolveTarget(cmd *cobra.Command, layout storage.Layout) (targetResolution,
 	target.Product, _ = commandStringFlag(cmd, "product")
 	target.Build, _ = commandStringFlag(cmd, "build")
 	target.Locale, _ = commandStringFlag(cmd, "locale")
+	explicitSource := flagChanged(cmd, "source")
+	explicitPath := flagChanged(cmd, "path")
 
 	if profileName != "" {
 		if target.Source != "" || target.Path != "" || target.Region != "" || target.Product != "" || target.Build != "" || target.Locale != "" {
@@ -49,9 +52,34 @@ func resolveTarget(cmd *cobra.Command, layout storage.Layout) (targetResolution,
 			return targetResolution{}, targetRequiredError{Err: fmt.Errorf("load profile %s: %w", profileName, err)}
 		}
 		target = profile.Target
+		explicitSource = true
+		explicitPath = target.Path != ""
+	}
+	autoSource := false
+	if target.Source == "" {
+		autoSource = true
+		target.Source = "remote"
+	}
+	env, err := layout.LoadEnv()
+	if err != nil {
+		return targetResolution{}, targetRequiredError{Err: fmt.Errorf("load .env: %w", err)}
+	}
+	if target.Source == "local" && target.Path == "" && env.GameDir != "" {
+		target.Path = env.GameDir
+		explicitPath = true
+	}
+	if autoSource && env.GameDir != "" && target.Product != "" && target.Build != "" && localBuildAvailable(env.GameDir, target.Product, target.Build) {
+		target.Source = "local"
+		target.Path = env.GameDir
 	}
 	if missing := target.MissingFields(); len(missing) > 0 {
 		return targetResolution{}, targetRequiredError{Missing: missing, Err: fmt.Errorf("target fields are required: %s", strings.Join(missing, ","))}
+	}
+	if autoSource && target.Source == "remote" && explicitPath {
+		return targetResolution{}, targetRequiredError{Err: fmt.Errorf("--path requires --source local")}
+	}
+	if explicitSource && target.Source == "local" && target.Path == "" {
+		return targetResolution{}, targetRequiredError{Missing: []string{"path"}, Err: fmt.Errorf("target fields are required: path")}
 	}
 	if err := target.Validate(); err != nil {
 		return targetResolution{}, targetRequiredError{Err: err}
@@ -59,7 +87,28 @@ func resolveTarget(cmd *cobra.Command, layout storage.Layout) (targetResolution,
 	if _, ok := casc.LocaleFlagByNameOK(target.Locale); !ok {
 		return targetResolution{}, targetRequiredError{Err: fmt.Errorf("unsupported locale %q", target.Locale)}
 	}
-	return targetResolution{Target: target, ProfileName: profileName}, nil
+	return targetResolution{Target: target, ProfileName: profileName, AutoSource: autoSource}, nil
+}
+
+func flagChanged(cmd *cobra.Command, name string) bool {
+	if flag := cmd.Flags().Lookup(name); flag != nil && flag.Changed {
+		return true
+	}
+	if flag := cmd.InheritedFlags().Lookup(name); flag != nil && flag.Changed {
+		return true
+	}
+	if flag := cmd.Root().PersistentFlags().Lookup(name); flag != nil && flag.Changed {
+		return true
+	}
+	return false
+}
+
+func localBuildAvailable(path, product, build string) bool {
+	local := casc.NewCASCLocal(path)
+	if err := local.Init(); err != nil {
+		return false
+	}
+	return buildIndexBySelection(local.Builds, product, build) >= 0
 }
 
 func prepareThen(rt *Runtime, handler func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
@@ -86,6 +135,7 @@ func prepareThen(rt *Runtime, handler func(cmd *cobra.Command, args []string) er
 		opts.Build = resolved.Target.Build
 		opts.Locale = resolved.Target.Locale
 		opts.Profile = resolved.ProfileName
+		opts.AutoSource = resolved.AutoSource
 		opts.CacheRoot = resolveCacheRoot(opts.CacheRoot, nil)
 		mergeCommandDependencies(cmd, args, &opts)
 
@@ -94,11 +144,14 @@ func prepareThen(rt *Runtime, handler func(cmd *cobra.Command, args []string) er
 		if err != nil {
 			return app.NewResponseWriter(cmd.OutOrStdout()).Error(commandLabel(cmd), "cache_lock_failed", err.Error())
 		}
-		defer lock.Release()
 		casc.SetDownloadProgressWriter(cmd.ErrOrStderr())
 		if _, err := rt.initialize(opts); err != nil {
+			lock.Release()
 			return writeWarmupInitError(cmd, err)
 		}
+		// Initialization publishes immutable Build/CASC/DB2 handles. Do not hold
+		// the process lock while executing the read-only command handler.
+		lock.Release()
 		fmt.Fprintln(cmd.ErrOrStderr(), "prepare status=ready")
 		return handler(cmd, args)
 	}
@@ -139,6 +192,17 @@ func mergeCommandDependencies(cmd *cobra.Command, args []string, opts *warmupOpt
 	tables := append([]string{}, opts.Tables...)
 	add := func(values ...string) { tables = append(tables, values...) }
 	path := cmd.CommandPath()
+	if path == "wowdata casc info" || path == "wowdata casc diagnose" {
+		opts.MetadataOnly = true
+	}
+	if path == "wowdata casc diagnose" {
+		opts.WarmTACTKeys = true
+	}
+	if flag := cmd.Flags().Lookup("file-data-id"); flag != nil && flag.Changed {
+		if id, err := cmd.Flags().GetUint32("file-data-id"); err == nil && id != 0 {
+			opts.FileDataIDs = append(opts.FileDataIDs, id)
+		}
+	}
 	switch {
 	case strings.HasPrefix(path, "wowdata db2 "):
 		if len(args) > 0 {
@@ -148,6 +212,8 @@ func mergeCommandDependencies(cmd *cobra.Command, args []string, opts *warmupOpt
 		add("SpellName", "Spell", "SpellEffect", "SpellMisc", "SpellCastTimes", "SpellDuration", "SpellRange")
 	case path == "wowdata encounter get":
 		add("JournalEncounterSection")
+	case path == "wowdata encounter export":
+		add("JournalInstance", "JournalEncounter", "JournalEncounterSection", "SpellName", "Spell", "SpellEffect", "SpellMisc", "SpellCastTimes", "SpellDuration", "SpellRange")
 	case strings.HasPrefix(path, "wowdata item "):
 		add("Item", "ItemSparse", "ModelFileData", "TextureFileData", "ComponentModelFileData", "ItemDisplayInfo", "HelmetGeosetData", "ItemDisplayInfoMaterialRes", "ItemModifiedAppearance", "ItemAppearance")
 	case strings.HasPrefix(path, "wowdata creature "):
@@ -158,8 +224,14 @@ func mergeCommandDependencies(cmd *cobra.Command, args []string, opts *warmupOpt
 	if len(tables) > 0 {
 		opts.WarmDBDManifest = true
 	}
-	if strings.HasPrefix(path, "wowdata file ") || strings.HasPrefix(path, "wowdata icon ") || strings.HasPrefix(path, "wowdata item ") || strings.HasPrefix(path, "wowdata creature ") {
+	// The listfile is a large optional name index. FileDataID, DB2, and icon
+	// paths resolve through root/encoding directly and must not pay its cost.
+	switch path {
+	case "wowdata file lookup", "wowdata file search", "wowdata file extension":
 		opts.WarmListfile = true
+	case "wowdata file get", "wowdata file exists", "wowdata file export":
+		filename, _ := cmd.Flags().GetString("filename")
+		opts.WarmListfile = strings.TrimSpace(filename) != ""
 	}
 	seen := make(map[string]bool, len(tables))
 	unique := tables[:0]

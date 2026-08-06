@@ -10,12 +10,26 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"wowdata/internal/resource"
 )
 
 const (
 	DefaultCacheMaxBytes int64 = 20 * 1024 * 1024 * 1024
 	DefaultWorkers             = 4
+	CacheFormatVersion         = 2
+	WorkerModeAuto             = "auto"
+	WorkerModeFixed            = "fixed"
 )
+
+type CacheFormat struct {
+	Schema           string `json:"schema"`
+	Version          int    `json:"version"`
+	PreviousVersion  int    `json:"previousVersion,omitempty"`
+	ReclaimedBytes   int64  `json:"reclaimedBytes,omitempty"`
+	ClearedPath      string `json:"clearedPath,omitempty"`
+	InitializedAtUTC string `json:"initializedAtUtc"`
+}
 
 type Layout struct {
 	Root     string `json:"root"`
@@ -33,6 +47,15 @@ type Config struct {
 	Schema        string `json:"schema"`
 	CacheMaxBytes int64  `json:"cacheMaxBytes"`
 	Workers       int    `json:"downloadWorkers"`
+	WorkerMode    string `json:"workerMode"`
+}
+
+type EnvConfig struct {
+	GameDir string `json:"gameDir,omitempty"`
+}
+
+func DefaultConfig() Config {
+	return Config{Schema: "wowdata.config.v1", CacheMaxBytes: DefaultCacheMaxBytes, WorkerMode: WorkerModeAuto}
 }
 
 type Target struct {
@@ -52,7 +75,7 @@ func (t Target) MissingFields() []string {
 	if t.Source == "local" && strings.TrimSpace(t.Path) == "" {
 		missing = append(missing, "path")
 	}
-	if strings.TrimSpace(t.Region) == "" {
+	if t.Source == "remote" && strings.TrimSpace(t.Region) == "" {
 		missing = append(missing, "region")
 	}
 	if strings.TrimSpace(t.Product) == "" {
@@ -132,13 +155,24 @@ func Resolve(root string) (Layout, error) {
 }
 
 func (l Layout) Ensure() error {
-	dirs := []string{
-		l.Root, l.Bin, l.Config, l.Profiles, l.Builds, l.Cache,
-		filepath.Join(l.Cache, "casc"), filepath.Join(l.Cache, "dbd"),
-		filepath.Join(l.Cache, "listfile"), filepath.Join(l.Cache, "tact"),
-		filepath.Join(l.Cache, "manifests"), l.State, l.Temp, l.Locks,
+	for _, dir := range []string{l.Root, l.Bin, l.Config, l.Profiles, l.Builds, l.State, l.Temp, l.Locks} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("create %s: %w", dir, err)
+		}
 	}
-	for _, dir := range dirs {
+	lock, err := l.AcquireLock("cache-format", 30*time.Second)
+	if err != nil {
+		return err
+	}
+	defer lock.Release()
+	if err := l.ensureCacheFormat(); err != nil {
+		return err
+	}
+	for _, dir := range []string{
+		filepath.Join(l.Cache, "casc", "builds"), filepath.Join(l.Cache, "casc", "objects"),
+		filepath.Join(l.Cache, "dbd"), filepath.Join(l.Cache, "listfile"),
+		filepath.Join(l.Cache, "tact"), filepath.Join(l.Cache, "manifests"),
+	} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("create %s: %w", dir, err)
 		}
@@ -146,25 +180,141 @@ func (l Layout) Ensure() error {
 	return nil
 }
 
+func (l Layout) ensureCacheFormat() error {
+	marker := filepath.Join(l.Cache, "format.json")
+	var format CacheFormat
+	data, err := resource.ReadFile(marker)
+	if err == nil && json.Unmarshal(data, &format) == nil && format.Schema == "wowdata.cache-format.v1" && format.Version == CacheFormatVersion {
+		return nil
+	}
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	reclaimed, _ := DirSize(l.Cache)
+	previousVersion := format.Version
+	if err := os.RemoveAll(l.Cache); err != nil {
+		return fmt.Errorf("clear legacy cache format: %w", err)
+	}
+	if err := os.MkdirAll(l.Cache, 0o755); err != nil {
+		return err
+	}
+	return AtomicWriteJSON(marker, CacheFormat{
+		Schema: "wowdata.cache-format.v1", Version: CacheFormatVersion,
+		PreviousVersion: previousVersion, ReclaimedBytes: reclaimed,
+		ClearedPath: filepath.ToSlash(l.Cache), InitializedAtUTC: time.Now().UTC().Format(time.RFC3339),
+	}, 0o644)
+}
+
+func (l Layout) LoadCacheFormat() (CacheFormat, error) {
+	data, err := resource.ReadFile(filepath.Join(l.Cache, "format.json"))
+	if err != nil {
+		return CacheFormat{}, err
+	}
+	var format CacheFormat
+	if err := json.Unmarshal(data, &format); err != nil {
+		return CacheFormat{}, err
+	}
+	return format, nil
+}
+
 func (l Layout) ConfigPath() string { return filepath.Join(l.Config, "config.json") }
 
+func (l Layout) EnvPath() string { return filepath.Join(l.Root, ".env") }
+
+func (l Layout) LoadEnv() (EnvConfig, error) {
+	data, err := resource.ReadFile(l.EnvPath())
+	if errors.Is(err, os.ErrNotExist) {
+		return EnvConfig{}, nil
+	}
+	if err != nil {
+		return EnvConfig{}, err
+	}
+	return ParseEnvConfig(string(data))
+}
+
+func (l Layout) SaveEnv(env EnvConfig) error {
+	lines := []string{}
+	if strings.TrimSpace(env.GameDir) != "" {
+		lines = append(lines, "WOWDATA_GAME_DIR="+quoteEnvValue(env.GameDir))
+	}
+	if len(lines) == 0 {
+		lines = append(lines, "# wowdata local environment")
+	}
+	return AtomicWriteFile(l.EnvPath(), []byte(strings.Join(lines, "\n")+"\n"), 0o644)
+}
+
+func ParseEnvConfig(data string) (EnvConfig, error) {
+	var env EnvConfig
+	for lineNo, raw := range strings.Split(data, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			return EnvConfig{}, fmt.Errorf("parse .env line %d: expected KEY=VALUE", lineNo+1)
+		}
+		key = strings.ToUpper(strings.TrimSpace(key))
+		value = unquoteEnvValue(strings.TrimSpace(value))
+		switch key {
+		case "WOWDATA_GAME_DIR", "WOWDATA_WOW_DIR", "WOWDATA_LOCAL_PATH":
+			env.GameDir = value
+		}
+	}
+	if strings.TrimSpace(env.GameDir) != "" {
+		abs, err := filepath.Abs(env.GameDir)
+		if err != nil {
+			return EnvConfig{}, fmt.Errorf("resolve WOWDATA_GAME_DIR: %w", err)
+		}
+		env.GameDir = abs
+	}
+	return env, nil
+}
+
+func unquoteEnvValue(value string) string {
+	if len(value) >= 2 {
+		if (value[0] == '"' && value[len(value)-1] == '"') || (value[0] == '\'' && value[len(value)-1] == '\'') {
+			return value[1 : len(value)-1]
+		}
+	}
+	return value
+}
+
+func quoteEnvValue(value string) string {
+	if strings.ContainsAny(value, " \t#\"'") {
+		return "\"" + strings.ReplaceAll(value, "\"", "\\\"") + "\""
+	}
+	return value
+}
+
 func (l Layout) LoadConfig() (Config, error) {
-	config := Config{Schema: "wowdata.config.v1", CacheMaxBytes: DefaultCacheMaxBytes, Workers: DefaultWorkers}
-	data, err := os.ReadFile(l.ConfigPath())
+	config := DefaultConfig()
+	data, err := resource.ReadFile(l.ConfigPath())
 	if errors.Is(err, os.ErrNotExist) {
 		return config, nil
 	}
 	if err != nil {
 		return Config{}, err
 	}
+	// Preserve an absent mode so legacy downloadWorkers can be migrated.
+	config.WorkerMode = ""
 	if err := json.Unmarshal(data, &config); err != nil {
 		return Config{}, fmt.Errorf("parse config: %w", err)
 	}
 	if config.CacheMaxBytes <= 0 {
 		config.CacheMaxBytes = DefaultCacheMaxBytes
 	}
-	if config.Workers <= 0 {
-		config.Workers = DefaultWorkers
+	if config.WorkerMode == "" {
+		if config.Workers == DefaultWorkers {
+			config.WorkerMode = WorkerModeAuto
+			config.Workers = 0
+		} else {
+			config.WorkerMode = WorkerModeFixed
+		}
+	}
+	if config.WorkerMode != WorkerModeFixed || config.Workers <= 0 {
+		config.WorkerMode = WorkerModeAuto
+		config.Workers = 0
 	}
 	config.Schema = "wowdata.config.v1"
 	return config, nil
@@ -175,8 +325,14 @@ func (l Layout) SaveConfig(config Config) error {
 	if config.CacheMaxBytes <= 0 {
 		return fmt.Errorf("cacheMaxBytes must be positive")
 	}
-	if config.Workers <= 0 {
-		return fmt.Errorf("downloadWorkers must be positive")
+	if config.WorkerMode == WorkerModeFixed && config.Workers <= 0 {
+		return fmt.Errorf("downloadWorkers must be positive in fixed mode")
+	}
+	if config.WorkerMode != WorkerModeAuto && config.WorkerMode != WorkerModeFixed {
+		return fmt.Errorf("workerMode must be auto or fixed")
+	}
+	if config.WorkerMode == WorkerModeAuto {
+		config.Workers = 0
 	}
 	return AtomicWriteJSON(l.ConfigPath(), config, 0o644)
 }
@@ -194,7 +350,7 @@ func (l Layout) LoadProfile(name string) (Profile, error) {
 	if err != nil {
 		return Profile{}, err
 	}
-	data, err := os.ReadFile(path)
+	data, err := resource.ReadFile(path)
 	if err != nil {
 		return Profile{}, err
 	}
@@ -250,10 +406,16 @@ func (l Layout) SaveBuild(snapshot BuildSnapshot) (string, error) {
 	name := sanitizeName(key + "-" + snapshot.Locale)
 	path := filepath.Join(l.Builds, name+".json")
 	now := time.Now().UTC().Format(time.RFC3339)
-	if data, err := os.ReadFile(path); err == nil {
+	if data, err := resource.ReadFile(path); err == nil {
 		var previous BuildSnapshot
-		if json.Unmarshal(data, &previous) == nil && previous.CreatedAt != "" {
-			snapshot.CreatedAt = previous.CreatedAt
+		if json.Unmarshal(data, &previous) == nil {
+			if previous.CreatedAt != "" {
+				snapshot.CreatedAt = previous.CreatedAt
+			}
+			lastUsed, parseErr := time.Parse(time.RFC3339, previous.LastUsedAt)
+			if parseErr == nil && time.Since(lastUsed) < time.Hour && sameBuildIdentity(previous, snapshot) {
+				return name, nil
+			}
 		}
 	}
 	if snapshot.CreatedAt == "" {
@@ -264,8 +426,14 @@ func (l Layout) SaveBuild(snapshot BuildSnapshot) (string, error) {
 	return name, AtomicWriteJSON(path, snapshot, 0o644)
 }
 
+func sameBuildIdentity(a, b BuildSnapshot) bool {
+	return a.Source == b.Source && a.Path == b.Path && a.Region == b.Region && a.Product == b.Product &&
+		a.Locale == b.Locale && a.Version == b.Version && a.BuildID == b.BuildID &&
+		a.BuildConfigKey == b.BuildConfigKey && a.CDNConfigKey == b.CDNConfigKey
+}
+
 func AtomicWriteJSON(path string, value any, perm fs.FileMode) error {
-	data, err := json.MarshalIndent(value, "", "  ")
+	data, err := resource.MarshalIndentJSON(value, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -289,7 +457,9 @@ func AtomicWriteFile(path string, data []byte, perm fs.FileMode) error {
 			_ = os.Remove(tmpPath)
 		}
 	}()
-	if _, err := tmp.Write(data); err != nil {
+	n, err := tmp.Write(data)
+	resource.RecordFileWrite(n)
+	if err != nil {
 		return err
 	}
 	if err := tmp.Sync(); err != nil {

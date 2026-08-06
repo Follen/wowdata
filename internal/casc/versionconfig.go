@@ -1,6 +1,10 @@
 package casc
 
-import "strings"
+import (
+	"strings"
+
+	"wowdata/internal/resource"
+)
 
 type VersionEntry struct {
 	Product      string
@@ -19,6 +23,7 @@ type VersionEntry struct {
 }
 
 func ParseVersionConfig(data string) []VersionEntry {
+	defer resource.RecordCASCMetadata(len(data))
 	lines := strings.Split(data, "\n")
 	if len(lines) < 2 {
 		return nil

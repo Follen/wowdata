@@ -1,12 +1,13 @@
 package diagnostics
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"wowdata/internal/resource"
 )
 
 type CASCInfo struct {
@@ -133,10 +134,10 @@ func (ds *DiagnosticsService) Diagnose() CASCDiagnose {
 }
 
 func VerifyFileHash(path string, expectedHash string) (bool, error) {
-	data, err := os.ReadFile(path)
+	data, err := resource.ReadFile(path)
 	if err != nil {
 		return false, err
 	}
-	hash := sha256.Sum256(data)
+	hash := resource.SumSHA256(data)
 	return hex.EncodeToString(hash[:]) == expectedHash, nil
 }

@@ -3,6 +3,8 @@
   "command": "wowdata",
   "args": [
     "--auto-warmup",
+    "--build",
+    "12.0.7.68974",
     "--source",
     "remote",
     "--region",
@@ -19,5 +21,5 @@
   ],
   "exitCode": 0,
   "stdout": "{\n  \"ok\": true,\n  \"command\": \"decor get\",\n  \"data\": {\n    \"id\": 80,\n    \"name\": \"Ornate Stonework Fireplace\",\n    \"modelFileDataID\": 6033663,\n    \"thumbnailFileDataID\": 7415905,\n    \"itemID\": 235994,\n    \"gameObjectID\": 527886,\n    \"type\": 1,\n    \"modelType\": 1\n  },\n  \"warnings\": []\n}\n",
-  "stderr": ""
+  "stderr": "prepare target=remote/us/wow/enUS build=12.0.7.68974\nprepare status=ready\n"
 }

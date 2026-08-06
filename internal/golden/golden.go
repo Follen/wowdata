@@ -2,13 +2,16 @@ package golden
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
+	"time"
+
+	"wowdata/internal/resource"
 )
 
 type CompareResult struct {
@@ -26,19 +29,28 @@ type Manifest struct {
 }
 
 type ManifestEntry struct {
-	Name      string                `json:"name"`
-	Group     string                `json:"group,omitempty"`
-	Kind      string                `json:"kind,omitempty"`
-	Command   string                `json:"command,omitempty"`
-	Args      []string              `json:"args,omitempty"`
-	Source    string                `json:"source,omitempty"`
-	Region    string                `json:"region,omitempty"`
-	Product   string                `json:"product,omitempty"`
-	Build     string                `json:"build,omitempty"`
-	Fixture   string                `json:"fixture"`
-	Actual    string                `json:"actual"`
-	Artifacts []ArtifactExpectation `json:"artifacts,omitempty"`
+	Name       string                `json:"name"`
+	Group      string                `json:"group,omitempty"`
+	Kind       string                `json:"kind,omitempty"`
+	Command    string                `json:"command,omitempty"`
+	Args       []string              `json:"args,omitempty"`
+	Source     string                `json:"source,omitempty"`
+	Region     string                `json:"region,omitempty"`
+	Product    string                `json:"product,omitempty"`
+	Build      string                `json:"build,omitempty"`
+	Comparison string                `json:"comparison,omitempty"`
+	Fixture    string                `json:"fixture"`
+	Actual     string                `json:"actual"`
+	Artifacts  []ArtifactExpectation `json:"artifacts,omitempty"`
 }
+
+const (
+	ComparisonRemoteProductsV1 = "remote-products-v1"
+	ComparisonCacheStateV1     = "cache-state-v1"
+	ComparisonProfileStateV1   = "profile-state-v1"
+)
+
+var hexKeyPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 type ArtifactExpectation struct {
 	Path   string `json:"path"`
@@ -118,6 +130,10 @@ func groupFromName(name string) string {
 }
 
 func CompareJSON(expected []byte, actual []byte) (CompareResult, error) {
+	return CompareJSONWithMode(expected, actual, "")
+}
+
+func CompareJSONWithMode(expected []byte, actual []byte, mode string) (CompareResult, error) {
 	var expectedValue interface{}
 	if err := json.Unmarshal(expected, &expectedValue); err != nil {
 		return CompareResult{Equal: false, Reason: "invalid expected JSON"}, err
@@ -125,6 +141,18 @@ func CompareJSON(expected []byte, actual []byte) (CompareResult, error) {
 	var actualValue interface{}
 	if err := json.Unmarshal(actual, &actualValue); err != nil {
 		return CompareResult{Equal: false, Reason: "invalid actual JSON"}, err
+	}
+	if mode == ComparisonRemoteProductsV1 {
+		return compareRemoteProducts(expectedValue, actualValue), nil
+	}
+	if mode == ComparisonCacheStateV1 {
+		return compareStateCapture(expectedValue, actualValue, normalizeCacheState), nil
+	}
+	if mode == ComparisonProfileStateV1 {
+		return compareStateCapture(expectedValue, actualValue, normalizeProfileState), nil
+	}
+	if mode != "" {
+		return CompareResult{Equal: false, Reason: "unsupported comparison mode: " + mode}, nil
 	}
 	if expectedCapture, ok := capturePayload(expectedValue); ok {
 		if actualCapture, ok := capturePayload(actualValue); ok {
@@ -143,6 +171,254 @@ func CompareJSON(expected []byte, actual []byte) (CompareResult, error) {
 		Equal:  false,
 		Reason: fmt.Sprintf("JSON differs: expected %s, got %s", canonicalJSON(expectedValue), canonicalJSON(actualValue)),
 	}, nil
+}
+
+func compareStateCapture(expected, actual interface{}, normalize func(interface{}) (interface{}, error)) CompareResult {
+	expectedCapture, expectedOK := capturePayload(expected)
+	actualCapture, actualOK := capturePayload(actual)
+	if !expectedOK || !actualOK {
+		return CompareResult{Equal: false, Reason: "state comparison requires capture envelopes"}
+	}
+	if expectedCapture.ExitCode != actualCapture.ExitCode {
+		return CompareResult{Equal: false, Reason: fmt.Sprintf("exitCode differs: expected %d, got %d", expectedCapture.ExitCode, actualCapture.ExitCode)}
+	}
+	expectedStderr, err := comparableCapturedStderr(expectedCapture.Stderr)
+	if err != nil {
+		return CompareResult{Equal: false, Reason: "invalid expected stderr: " + err.Error()}
+	}
+	actualStderr, err := comparableCapturedStderr(actualCapture.Stderr)
+	if err != nil {
+		return CompareResult{Equal: false, Reason: "invalid actual stderr: " + err.Error()}
+	}
+	if expectedStderr != actualStderr {
+		return CompareResult{Equal: false, Reason: fmt.Sprintf("stable stderr differs: expected %q, got %q", expectedStderr, actualStderr)}
+	}
+	expectedPayload, err := normalize(capturedStdoutPayload(expectedCapture))
+	if err != nil {
+		return CompareResult{Equal: false, Reason: "invalid expected state: " + err.Error()}
+	}
+	actualPayload, err := normalize(capturedStdoutPayload(actualCapture))
+	if err != nil {
+		return CompareResult{Equal: false, Reason: "invalid actual state: " + err.Error()}
+	}
+	if reflect.DeepEqual(expectedPayload, actualPayload) {
+		return CompareResult{Equal: true}
+	}
+	return CompareResult{Equal: false, Reason: fmt.Sprintf("state payload differs: expected %s, got %s", canonicalJSON(expectedPayload), canonicalJSON(actualPayload))}
+}
+
+func normalizeProfileState(value interface{}) (interface{}, error) {
+	return normalizeStateFields(value, false)
+}
+
+func normalizeCacheState(value interface{}) (interface{}, error) {
+	root, ok := value.(map[string]interface{})
+	if !ok {
+		return normalizeStateFields(value, true)
+	}
+	if path, hasPath := root["path"]; hasPath {
+		if _, ok := path.(string); !ok {
+			return nil, fmt.Errorf("path must be a string")
+		}
+		if removed, ok := numberField(root, "removedBytes"); ok {
+			if removed < 0 {
+				return nil, fmt.Errorf("removedBytes must be non-negative")
+			}
+			root["removedBytes"] = float64(0)
+		}
+	}
+	if before, beforeOK := numberField(root, "beforeBytes"); beforeOK {
+		after, afterOK := numberField(root, "afterBytes")
+		removed, removedOK := root["removed"].([]interface{})
+		if !afterOK || !removedOK || before < 0 || after != before || len(removed) != 0 {
+			return nil, fmt.Errorf("empty prune must preserve non-negative bytes and remove no entries")
+		}
+		root["beforeBytes"], root["afterBytes"] = float64(0), float64(0)
+	}
+	if size, sizeOK := numberField(root, "sizeBytes"); sizeOK {
+		usage, usageOK := root["usage"].(map[string]interface{})
+		total, totalOK := numberField(usage, "totalBytes")
+		derived, derivedOK := numberField(usage, "derivedMetadataBytes")
+		payload, payloadOK := numberField(usage, "payloadBytes")
+		resume, resumeOK := numberField(usage, "resumeBytes")
+		unique, uniqueOK := numberField(usage, "uniquePayloadBytes")
+		duplicate, duplicateOK := numberField(usage, "duplicatePayloadBytes")
+		maxBytes, maxOK := numberField(root, "maxBytes")
+		if !usageOK || !totalOK || !derivedOK || !payloadOK || !resumeOK || !uniqueOK || !duplicateOK || !maxOK || size < 0 || size != total || total != derived || payload != 0 || resume != 0 || unique != 0 || duplicate != 0 || size > maxBytes {
+			return nil, fmt.Errorf("empty cache status byte accounting is inconsistent")
+		}
+		root["sizeBytes"], usage["totalBytes"], usage["derivedMetadataBytes"] = float64(0), float64(0), float64(0)
+	}
+	return normalizeStateFields(root, true)
+}
+
+func normalizeStateFields(value interface{}, cache bool) (interface{}, error) {
+	switch current := value.(type) {
+	case map[string]interface{}:
+		for key, item := range current {
+			if !cache && key == "error" {
+				text, ok := item.(string)
+				if !ok {
+					return nil, fmt.Errorf("profile error must be a string")
+				}
+				normalized := strings.ReplaceAll(text, "\\", "/")
+				if marker := strings.Index(normalized, "/profiles/"); strings.HasPrefix(normalized, "open ") && marker >= 0 {
+					normalized = "open <WOWDATA_HOME>" + normalized[marker:]
+				}
+				current[key] = normalized
+				continue
+			}
+			if cache && (key == "path" || key == "clearedPath") {
+				if _, ok := item.(string); !ok {
+					return nil, fmt.Errorf("%s must be a string", key)
+				}
+				current[key] = "<CACHE_PATH>"
+				continue
+			}
+			if (cache && key == "initializedAtUtc") || (!cache && key == "updatedAt") {
+				text, ok := item.(string)
+				if !ok {
+					return nil, fmt.Errorf("%s must be an RFC3339 string", key)
+				}
+				if _, err := time.Parse(time.RFC3339, text); err != nil {
+					return nil, fmt.Errorf("%s must be RFC3339: %w", key, err)
+				}
+				current[key] = "<TIMESTAMP>"
+				continue
+			}
+			normalized, err := normalizeStateFields(item, cache)
+			if err != nil {
+				return nil, err
+			}
+			current[key] = normalized
+		}
+	case []interface{}:
+		for index, item := range current {
+			normalized, err := normalizeStateFields(item, cache)
+			if err != nil {
+				return nil, err
+			}
+			current[index] = normalized
+		}
+	}
+	return value, nil
+}
+
+func numberField(value map[string]interface{}, key string) (float64, bool) {
+	if value == nil {
+		return 0, false
+	}
+	number, ok := value[key].(float64)
+	return number, ok
+}
+
+func compareRemoteProducts(expected, actual interface{}) CompareResult {
+	expectedCapture, expectedOK := capturePayload(expected)
+	actualCapture, actualOK := capturePayload(actual)
+	if !expectedOK || !actualOK {
+		return CompareResult{Equal: false, Reason: "remote products capture envelope is required"}
+	}
+	if expectedCapture.ExitCode != actualCapture.ExitCode {
+		return CompareResult{Equal: false, Reason: fmt.Sprintf("exitCode differs: expected %d, got %d", expectedCapture.ExitCode, actualCapture.ExitCode)}
+	}
+	expectedStderr, err := comparableCapturedStderr(expectedCapture.Stderr)
+	if err != nil {
+		return CompareResult{Equal: false, Reason: "invalid expected stderr: " + err.Error()}
+	}
+	actualStderr, err := comparableCapturedStderr(actualCapture.Stderr)
+	if err != nil {
+		return CompareResult{Equal: false, Reason: "invalid actual stderr: " + err.Error()}
+	}
+	if expectedStderr != actualStderr {
+		return CompareResult{Equal: false, Reason: fmt.Sprintf("stable stderr differs: expected %q, got %q", expectedStderr, actualStderr)}
+	}
+	expectedProducts, expectedSource, err := remoteProductsPayload(expected)
+	if err != nil {
+		return CompareResult{Equal: false, Reason: "invalid expected remote products: " + err.Error()}
+	}
+	actualProducts, actualSource, err := remoteProductsPayload(actual)
+	if err != nil {
+		return CompareResult{Equal: false, Reason: "invalid actual remote products: " + err.Error()}
+	}
+	if expectedSource != actualSource {
+		return CompareResult{Equal: false, Reason: fmt.Sprintf("remote products source differs: expected %q, got %q", expectedSource, actualSource)}
+	}
+	expectedShape, err := remoteProductsShape(expectedProducts)
+	if err != nil {
+		return CompareResult{Equal: false, Reason: "invalid expected remote products: " + err.Error()}
+	}
+	actualShape, err := remoteProductsShape(actualProducts)
+	if err != nil {
+		return CompareResult{Equal: false, Reason: "invalid actual remote products: " + err.Error()}
+	}
+	if !reflect.DeepEqual(expectedShape, actualShape) {
+		return CompareResult{Equal: false, Reason: fmt.Sprintf("remote products contract differs: expected %s, got %s", canonicalJSON(expectedShape), canonicalJSON(actualShape))}
+	}
+	return CompareResult{Equal: true}
+}
+
+func remoteProductsPayload(value interface{}) ([]interface{}, string, error) {
+	payload, ok := capturePayload(value)
+	if !ok {
+		return nil, "", fmt.Errorf("capture envelope is required")
+	}
+	business := capturedStdoutPayload(payload)
+	obj, ok := business.(map[string]interface{})
+	if !ok {
+		return nil, "", fmt.Errorf("business payload must be an object")
+	}
+	source, _ := obj["source"].(string)
+	products, ok := obj["products"].([]interface{})
+	if source == "" || !ok || len(products) == 0 {
+		return nil, "", fmt.Errorf("source and non-empty products are required")
+	}
+	return products, source, nil
+}
+
+func remoteProductsShape(products []interface{}) ([]interface{}, error) {
+	shape := make([]interface{}, 0, len(products))
+	seen := make(map[string]struct{}, len(products))
+	for index, raw := range products {
+		product, ok := raw.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("product %d must be an object", index)
+		}
+		name, _ := product["product"].(string)
+		region, _ := product["region"].(string)
+		version, _ := product["version"].(string)
+		buildID, _ := product["buildId"].(string)
+		label, _ := product["label"].(string)
+		buildKey, _ := product["buildConfigKey"].(string)
+		cdnKey, _ := product["cdnConfigKey"].(string)
+		buildIndex, indexOK := product["buildIndex"].(float64)
+		locales, localesOK := product["locales"].([]interface{})
+		if name == "" || region == "" || version == "" || buildID == "" || label == "" || !indexOK || buildIndex != float64(index) || !localesOK || len(locales) == 0 {
+			return nil, fmt.Errorf("product %d has incomplete identity", index)
+		}
+		if _, duplicate := seen[name]; duplicate {
+			return nil, fmt.Errorf("duplicate product %q", name)
+		}
+		seen[name] = struct{}{}
+		if !strings.HasSuffix(version, "."+buildID) || !strings.Contains(label, version) {
+			return nil, fmt.Errorf("product %q version/build identity is inconsistent", name)
+		}
+		if !hexKeyPattern.MatchString(buildKey) || !hexKeyPattern.MatchString(cdnKey) {
+			return nil, fmt.Errorf("product %q has invalid config key", name)
+		}
+		seenLocales := make(map[string]struct{}, len(locales))
+		for _, rawLocale := range locales {
+			locale, ok := rawLocale.(string)
+			if !ok || locale == "" {
+				return nil, fmt.Errorf("product %q has invalid locale", name)
+			}
+			if _, duplicate := seenLocales[locale]; duplicate {
+				return nil, fmt.Errorf("product %q has duplicate locale %q", name, locale)
+			}
+			seenLocales[locale] = struct{}{}
+		}
+		shape = append(shape, map[string]interface{}{"product": name, "region": region, "locales": locales})
+	}
+	return shape, nil
 }
 
 func compareBusinessPayloads(expected interface{}, actual interface{}) CompareResult {
@@ -290,7 +566,7 @@ func CompareArtifacts(baseDir string, entry ManifestEntry) []CompareResult {
 		if !filepath.IsAbs(path) {
 			path = filepath.Join(baseDir, path)
 		}
-		data, err := os.ReadFile(path)
+		data, err := resource.ReadFile(path)
 		if err != nil {
 			result.Equal = false
 			result.Reason = fmt.Sprintf("artifact read failed: %v", err)
@@ -304,7 +580,7 @@ func CompareArtifacts(baseDir string, entry ManifestEntry) []CompareResult {
 			continue
 		}
 		if artifact.SHA256 != "" {
-			sum := sha256.Sum256(data)
+			sum := resource.SumSHA256(data)
 			got := fmt.Sprintf("%x", sum)
 			if !strings.EqualFold(got, artifact.SHA256) {
 				result.Equal = false
@@ -348,6 +624,17 @@ func compareCapturedPayload(expected captureData, actual captureData) CompareRes
 	if expected.ExitCode != actual.ExitCode {
 		return CompareResult{Equal: false, Reason: fmt.Sprintf("exitCode differs: expected %d, got %d", expected.ExitCode, actual.ExitCode)}
 	}
+	expectedStderr, err := comparableCapturedStderr(expected.Stderr)
+	if err != nil {
+		return CompareResult{Equal: false, Reason: "invalid expected stderr: " + err.Error()}
+	}
+	actualStderr, err := comparableCapturedStderr(actual.Stderr)
+	if err != nil {
+		return CompareResult{Equal: false, Reason: "invalid actual stderr: " + err.Error()}
+	}
+	if expectedStderr != actualStderr {
+		return CompareResult{Equal: false, Reason: fmt.Sprintf("stable stderr differs: expected %q, got %q", expectedStderr, actualStderr)}
+	}
 	expectedStdout := strings.TrimSpace(expected.Stdout)
 	actualStdout := strings.TrimSpace(actual.Stdout)
 	if expectedStdout == "" && actualStdout == "" {
@@ -374,10 +661,62 @@ func compareCapturedPayload(expected captureData, actual captureData) CompareRes
 	return CompareResult{Equal: false, Reason: fmt.Sprintf("captured stdout differs: expected %q, got %q", expectedStdout, actualStdout)}
 }
 
+func comparableCapturedStderr(stderr string) (string, error) {
+	stable := make([]string, 0)
+	for _, raw := range strings.Split(strings.ReplaceAll(stderr, "\r\n", "\n"), "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "download ") {
+			if err := validateDownloadEvent(line); err != nil {
+				return "", err
+			}
+			continue
+		}
+		stable = append(stable, line)
+	}
+	return strings.Join(stable, "\n"), nil
+}
+
+func validateDownloadEvent(line string) error {
+	fields := strings.Fields(line)
+	values := make(map[string]string, len(fields)-1)
+	for _, field := range fields[1:] {
+		key, value, ok := strings.Cut(field, "=")
+		if !ok || key == "" || value == "" {
+			return fmt.Errorf("malformed download event field %q", field)
+		}
+		values[key] = value
+	}
+	for _, key := range []string{"method", "url", "bytes", "workers", "duration"} {
+		if values[key] == "" {
+			return fmt.Errorf("download event is missing %s", key)
+		}
+	}
+	if !strings.HasPrefix(values["url"], "https://") {
+		return fmt.Errorf("download event URL must use HTTPS")
+	}
+	bytes, err := strconv.ParseInt(values["bytes"], 10, 64)
+	if err != nil || bytes < 0 {
+		return fmt.Errorf("download event bytes are invalid")
+	}
+	workers, err := strconv.Atoi(values["workers"])
+	if err != nil || workers < 1 {
+		return fmt.Errorf("download event workers are invalid")
+	}
+	duration, err := time.ParseDuration(values["duration"])
+	if err != nil || duration < 0 {
+		return fmt.Errorf("download event duration is invalid")
+	}
+	return nil
+}
+
 func canonicalJSON(value interface{}) string {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
 	_ = enc.Encode(value)
+	resource.RecordJSONEncode(buf.Len())
 	return string(bytes.TrimSpace(buf.Bytes()))
 }

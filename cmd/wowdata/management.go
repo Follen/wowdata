@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"wowdata/internal/app"
+	"wowdata/internal/resource"
 	"wowdata/internal/storage"
 
 	"github.com/spf13/cobra"
@@ -91,11 +92,19 @@ func cacheHandler(rt *Runtime) func(cmd *cobra.Command, args []string) error {
 		}
 		switch cmd.Name() {
 		case "status":
-			size, err := storage.DirSize(rt.Layout.Cache)
+			usage, err := storage.MeasureCacheUsage(rt.Layout.Cache, config.CacheMaxBytes)
 			if err != nil {
 				return app.NewResponseWriter(cmd.OutOrStdout()).Error("cache status", "read_failed", err.Error())
 			}
-			return app.NewResponseWriter(cmd.OutOrStdout()).Success("cache status", map[string]any{"path": filepath.ToSlash(rt.Layout.Cache), "sizeBytes": size, "maxBytes": config.CacheMaxBytes, "downloadWorkers": config.Workers})
+			format, err := rt.Layout.LoadCacheFormat()
+			if err != nil {
+				return app.NewResponseWriter(cmd.OutOrStdout()).Error("cache status", "read_failed", err.Error())
+			}
+			return app.NewResponseWriter(cmd.OutOrStdout()).Success("cache status", map[string]any{
+				"path": filepath.ToSlash(rt.Layout.Cache), "sizeBytes": usage.TotalBytes,
+				"maxBytes": config.CacheMaxBytes, "downloadWorkers": config.Workers,
+				"usage": usage, "format": format,
+			})
 		case "verify":
 			result := rt.Layout.VerifyCache()
 			if !result.OK {
@@ -117,13 +126,22 @@ func cacheHandler(rt *Runtime) func(cmd *cobra.Command, args []string) error {
 		case "config":
 			maxGB, _ := cmd.Flags().GetInt("max-gb")
 			workers, _ := cmd.Flags().GetInt("workers")
+			autoWorkers, _ := cmd.Flags().GetBool("auto-workers")
+			if workers > 0 && autoWorkers {
+				return app.NewResponseWriter(cmd.OutOrStdout()).Error("cache config", "invalid_argument", "--workers and --auto-workers cannot be combined")
+			}
 			if maxGB > 0 {
 				config.CacheMaxBytes = int64(maxGB) * 1024 * 1024 * 1024
 			}
 			if workers > 0 {
 				config.Workers = workers
+				config.WorkerMode = storage.WorkerModeFixed
 			}
-			if maxGB > 0 || workers > 0 {
+			if autoWorkers {
+				config.Workers = 0
+				config.WorkerMode = storage.WorkerModeAuto
+			}
+			if maxGB > 0 || workers > 0 || autoWorkers {
 				if err := rt.Layout.SaveConfig(config); err != nil {
 					return app.NewResponseWriter(cmd.OutOrStdout()).Error("cache config", "write_failed", err.Error())
 				}
@@ -228,7 +246,7 @@ func checkDoctorNetwork(parent context.Context, profiles []storage.Profile, chec
 		region := profiles[0].Target.Region
 		host := fmt.Sprintf("http://%s.patch.battle.net:1119/", region)
 		if region == "cn" {
-			host = "http://cn.patch.battle.net:1119/"
+			host = "https://cn.version.battlenet.com.cn/"
 		}
 		urls["cdn_versions"] = host + profiles[0].Target.Product + "/versions"
 	} else {
@@ -301,7 +319,7 @@ func latestBuildSnapshot(layout storage.Layout) (*storage.BuildSnapshot, error) 
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
 			continue
 		}
-		body, err := os.ReadFile(filepath.Join(layout.Builds, entry.Name()))
+		body, err := resource.ReadFile(filepath.Join(layout.Builds, entry.Name()))
 		if err != nil {
 			return nil, err
 		}

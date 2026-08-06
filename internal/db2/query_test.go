@@ -1,6 +1,9 @@
 package db2
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 type queryTestReader struct {
 	rows map[uint32]map[string]interface{}
@@ -44,6 +47,64 @@ func TestGetRowsWithoutIDsReturnsDeterministicOrder(t *testing.T) {
 		if rows[i]["ID"] != want {
 			t.Fatalf("row %d ID = %v, want %d; rows=%#v", i, rows[i]["ID"], want, rows)
 		}
+	}
+}
+
+type wrongRelationshipReader struct{ queryTestReader }
+
+func (r wrongRelationshipReader) GetRelationshipRowsBatch([]uint32, []string) map[uint32][]map[string]interface{} {
+	return map[uint32][]map[string]interface{}{}
+}
+
+type emptyRelationshipReader struct {
+	queryTestReader
+	allCalls int
+}
+
+func (r *emptyRelationshipReader) GetAllRows() map[uint32]map[string]interface{} {
+	r.allCalls++
+	return r.rows
+}
+
+func (r *emptyRelationshipReader) GetRelationshipRowsBatch(values []uint32, _ []string) map[uint32][]map[string]interface{} {
+	return map[uint32][]map[string]interface{}{values[0]: {}}
+}
+
+func (r *emptyRelationshipReader) GetRelationshipRowsBatchContext(ctx context.Context, values []uint32, fields []string) (map[uint32][]map[string]interface{}, error) {
+	return r.GetRelationshipRowsBatch(values, fields), ctx.Err()
+}
+
+func TestForeignRowsKeepsKnownEmptyRelationshipOnIndexPath(t *testing.T) {
+	reader := &emptyRelationshipReader{queryTestReader: queryTestReader{rows: map[uint32]map[string]interface{}{
+		1: {"ID": uint32(1), "ParentID": uint32(9)},
+	}}}
+	rows, relationship := GetForeignRows(reader, "T", "ParentID", 7)
+	if !relationship || len(rows) != 0 || reader.allCalls != 0 {
+		t.Fatalf("rows=%#v relationship=%v allCalls=%d", rows, relationship, reader.allCalls)
+	}
+
+	engine := NewEngine()
+	if err := engine.Register("T", nil, reader); err != nil {
+		t.Fatal(err)
+	}
+	snapshot := engine.Snapshot()
+	defer snapshot.Close()
+	result, stats, err := snapshot.Execute(context.Background(), QueryPlan{Table: "T", Mode: PlanForeignKey, ForeignField: "ParentID", ForeignValue: 7})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Rows) != 0 || stats.Physical != "relationship" || reader.allCalls != 0 {
+		t.Fatalf("result=%#v stats=%+v allCalls=%d", result.Rows, stats, reader.allCalls)
+	}
+}
+
+func TestForeignRowsFallsBackWhenNativeRelationshipDoesNotMatchField(t *testing.T) {
+	reader := wrongRelationshipReader{queryTestReader{rows: map[uint32]map[string]interface{}{
+		1: {"ID": uint32(1), "JournalInstanceID": uint16(7)},
+	}}}
+	rows, relationship := GetForeignRows(reader, "JournalEncounter", "JournalInstanceID", 7)
+	if relationship || len(rows) != 1 {
+		t.Fatalf("rows=%#v relationship=%v", rows, relationship)
 	}
 }
 

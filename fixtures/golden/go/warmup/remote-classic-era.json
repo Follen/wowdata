@@ -1,0 +1,23 @@
+{
+  "name": "warmup/remote-classic-era",
+  "command": "wowdata",
+  "args": [
+    "warmup",
+    "--source",
+    "remote",
+    "--region",
+    "us",
+    "--product",
+    "wow_classic_era",
+    "--build",
+    "1.15.9.69109",
+    "--locale",
+    "enUS",
+    "--listfile=false",
+    "--dbd-manifest=false",
+    "--tables="
+  ],
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"warmup\",\n  \"data\": {\n    \"archiveCount\": 4706370,\n    \"build\": \"1.15.9.69109\",\n    \"buildIndex\": 0,\n    \"buildKey\": \"9f9686341092239cfa4812a0ba153dc6\",\n    \"buildName\": \"1.15.9.69109\",\n    \"buildRef\": \"9f9686341092239cfa4812a0ba153dc6-enUS\",\n    \"cache\": \"\u003cWOWDATA_HOME\u003e/cache\",\n    \"encodingEntryCount\": 220401,\n    \"locale\": \"enUS\",\n    \"message\": \"warmup 完成\",\n    \"note\": \"首次预热可能接近 240 秒；后续会优先使用缓存。\",\n    \"product\": \"wow_classic_era\",\n    \"region\": \"us\",\n    \"resolvedBuild\": \"1.15.9.69109\",\n    \"rootEntryCount\": 159749,\n    \"source\": \"remote\",\n    \"status\": \"ok\",\n    \"success\": true,\n    \"warm\": {\n      \"dbdManifest\": false,\n      \"listfile\": false,\n      \"listfileFormat\": \"binary\",\n      \"tables\": null\n    },\n    \"warmed\": {\n      \"dbdManifest\": false,\n      \"listfile\": false,\n      \"tables\": []\n    }\n  },\n  \"warnings\": []\n}\n",
+  "stderr": "prepare target=remote/us/wow_classic_era/enUS build=1.15.9.69109\n"
+}

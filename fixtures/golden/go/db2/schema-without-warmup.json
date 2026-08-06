@@ -6,7 +6,7 @@
     "schema",
     "SpellName"
   ],
-  "exitCode": 0,
-  "stdout": "{\n  \"ok\": false,\n  \"command\": \"db2 schema\",\n  \"data\": null,\n  \"warnings\": [],\n  \"error\": {\n    \"code\": \"not_ready\",\n    \"message\": \"CASC 未就绪，请先调用 wow_warmup\"\n  }\n}\n",
+  "exitCode": 1,
+  "stdout": "{\n  \"ok\": false,\n  \"command\": \"db2 schema\",\n  \"data\": null,\n  \"warnings\": [],\n  \"error\": {\n    \"code\": \"target_required\",\n    \"message\": \"target fields are required: region,product,build,locale; pass all target flags or --profile. Discover remote combinations with: wowdata casc products --source remote --region \\u003cregion\\u003e\"\n  }\n}\n",
   "stderr": ""
 }

@@ -1,9 +1,10 @@
 package app
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
+
+	"wowdata/internal/resource"
 )
 
 type Response struct {
@@ -78,9 +79,7 @@ func (rw *ResponseWriter) write(resp Response) error {
 }
 
 func writeJSON(w io.Writer, resp Response) error {
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(resp); err != nil {
+	if err := resource.EncodeJSON(w, resp, "", "  "); err != nil {
 		return err
 	}
 	if !resp.OK {

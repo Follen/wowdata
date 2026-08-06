@@ -5,6 +5,8 @@
     "run",
     "./cmd/wowdata",
     "--auto-warmup",
+    "--build",
+    "1.15.9.69109",
     "--source",
     "remote",
     "--region",
@@ -20,5 +22,5 @@
   ],
   "exitCode": 0,
   "stdout": "{\n  \"ok\": true,\n  \"command\": \"file get\",\n  \"data\": {\n    \"fileDataID\": 134400,\n    \"filename\": \"\",\n    \"sha256\": \"294097a0b2cde0e08fda4609cd397d2f2e6d93d4ec16908bff72a8afbb4a9d72\",\n    \"size\": 3916\n  },\n  \"warnings\": []\n}\n",
-  "stderr": ""
+  "stderr": "prepare target=remote/us/wow_classic_era/enUS build=1.15.9.69109\nprepare status=ready\n"
 }

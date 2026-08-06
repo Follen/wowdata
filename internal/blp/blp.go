@@ -12,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"wowdata/internal/resource"
+
 	"github.com/HugoSmits86/nativewebp"
 )
 
@@ -75,6 +77,7 @@ func Decode(data []byte) (*BLPImage, error) {
 	}
 
 	img.rawData = data
+	resource.RecordBLPOpen(len(data))
 	return img, nil
 }
 
@@ -138,6 +141,7 @@ func (img *BLPImage) GetMipmap(level int) ([]byte, int, int, error) {
 		pixels = make([]byte, width*height*4)
 	}
 
+	resource.RecordBLPDecode(width * height)
 	return pixels, width, height, nil
 }
 
@@ -316,8 +320,9 @@ func (img *BLPImage) ExportPNG(outputPath string, mipmap int) (*ExportPNGResult,
 		return nil, err
 	}
 	pngBytes := buf.Bytes()
+	resource.RecordImageEncode("png", w*h, len(pngBytes))
 
-	if err := os.WriteFile(outputPath, pngBytes, 0644); err != nil {
+	if err := resource.WriteFile(outputPath, pngBytes, 0644); err != nil {
 		return nil, err
 	}
 
@@ -358,8 +363,9 @@ func (img *BLPImage) ExportWebP(outputPath string, mipmap int) (*ExportPNGResult
 		return nil, err
 	}
 	webpBytes := buf.Bytes()
+	resource.RecordImageEncode("webp", w*h, len(webpBytes))
 
-	if err := os.WriteFile(outputPath, webpBytes, 0644); err != nil {
+	if err := resource.WriteFile(outputPath, webpBytes, 0644); err != nil {
 		return nil, err
 	}
 

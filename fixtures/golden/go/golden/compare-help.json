@@ -1,0 +1,12 @@
+{
+  "name": "golden/compare-help",
+  "command": "wowdata",
+  "args": [
+    "golden",
+    "compare",
+    "--help"
+  ],
+  "exitCode": 0,
+  "stdout": "Compare Go command output against a fixture.\n\nUsage:\n  wowdata golden compare [flags]\n\nExamples:\n  wowdata golden compare --fixture fixtures/golden/db2-spellname-123.json\n\nFlags:\n      --actual string    Actual Go JSON output path\n      --all              Compare all fixtures in manifest\n      --fixture string   Fixture path\n  -h, --help             help for compare\n\nGlobal Flags:\n      --auto-warmup              Deprecated compatibility flag; data commands prepare required cache automatically\n      --build string             WoW build: latest, version, build ID, or config key (required unless --profile is used)\n      --cache string             Cache directory override; defaults to ~/.wowdata/cache\n      --dbd-manifest             Also prepare the DBD manifest cache\n      --listfile                 Also prepare the listfile cache\n      --listfile-format string   Listfile source format: binary or text (default \"binary\")\n      --locale string            WoW locale, such as zhCN or enUS (required unless --profile is used)\n      --path string              Local WoW client path when source=local\n      --product string           WoW product (required unless --profile is used)\n      --profile string           Named target profile from ~/.wowdata/profiles\n      --region string            WoW region (required unless --profile is used)\n      --source string            Data source: local or remote (required unless --profile is used)\n      --tables string            Additional comma-separated DB2 tables to prepare\n",
+  "stderr": ""
+}

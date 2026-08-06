@@ -5,6 +5,8 @@
     "run",
     "./cmd/wowdata",
     "--auto-warmup",
+    "--build",
+    "1.15.9.69109",
     "--source",
     "remote",
     "--region",
@@ -25,6 +27,6 @@
     "3"
   ],
   "exitCode": 0,
-  "stdout": "{\n  \"ok\": true,\n  \"command\": \"file search\",\n  \"data\": {\n    \"files\": [\n      {\n        \"fileDataID\": 132089,\n        \"fileName\": \"interface/icons/ability_ambush.blp\"\n      },\n      {\n        \"fileDataID\": 132090,\n        \"fileName\": \"interface/icons/ability_backstab.blp\"\n      },\n      {\n        \"fileDataID\": 132091,\n        \"fileName\": \"interface/icons/ability_bullrush.blp\"\n      }\n    ],\n    \"returned\": 3,\n    \"search\": \"interface/icons\",\n    \"total\": 6376\n  },\n  \"warnings\": []\n}\n",
-  "stderr": ""
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"file search\",\n  \"data\": {\n    \"files\": [\n      {\n        \"fileDataID\": 132089,\n        \"fileName\": \"interface/icons/ability_ambush.blp\"\n      },\n      {\n        \"fileDataID\": 132090,\n        \"fileName\": \"interface/icons/ability_backstab.blp\"\n      },\n      {\n        \"fileDataID\": 132091,\n        \"fileName\": \"interface/icons/ability_bullrush.blp\"\n      }\n    ],\n    \"returned\": 3,\n    \"search\": \"interface/icons\",\n    \"total\": 6378\n  },\n  \"warnings\": []\n}\n",
+  "stderr": "prepare target=remote/us/wow_classic_era/enUS build=1.15.9.69109\nprepare status=ready\n"
 }

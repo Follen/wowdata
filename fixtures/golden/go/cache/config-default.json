@@ -1,0 +1,13 @@
+{
+  "name": "cache/config-default",
+  "command": "wowdata",
+  "args": [
+    "cache",
+    "config"
+  ],
+  "comparison": "cache-state-v1",
+  "isolation": "fresh-home",
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"cache config\",\n  \"data\": {\n    \"schema\": \"wowdata.config.v1\",\n    \"cacheMaxBytes\": 21474836480,\n    \"downloadWorkers\": 0,\n    \"workerMode\": \"auto\"\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

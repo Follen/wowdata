@@ -3,6 +3,8 @@
   "command": "wowdata",
   "args": [
     "--auto-warmup",
+    "--build",
+    "1.15.9.69109",
     "--source",
     "remote",
     "--region",
@@ -22,6 +24,6 @@
     "output/134400.png"
   ],
   "exitCode": 0,
-  "stdout": "{\n  \"ok\": true,\n  \"command\": \"icon export\",\n  \"data\": {\n    \"ok\": true,\n    \"status\": \"extracted\",\n    \"path\": \"D:\\\\Code\\\\wow\\\\wowdata\\\\output\\\\134400.png\",\n    \"width\": 64,\n    \"height\": 64,\n    \"format\": \"png\",\n    \"mipmap\": 0,\n    \"hash\": \"2b661d2525336a19dfe059bc8b1a0f95\"\n  },\n  \"warnings\": []\n}\n",
-  "stderr": ""
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"icon export\",\n  \"data\": {\n    \"ok\": true,\n    \"status\": \"extracted\",\n    \"name\": \"134400.png\",\n    \"path\": \"D:\\\\Code\\\\wow\\\\wowdata\\\\output\\\\134400.png\",\n    \"uri\": \"file:///D:/Code/wow/wowdata/output/134400.png\",\n    \"width\": 64,\n    \"height\": 64,\n    \"format\": \"png\",\n    \"mimeType\": \"image/png\",\n    \"mipmap\": 0,\n    \"mask\": 15,\n    \"hash\": \"c62eeb0ead29df40cab7da5d3264287f241c3f1d1dad6e0393f53c8168c6ff0d\",\n    \"sha256\": \"c62eeb0ead29df40cab7da5d3264287f241c3f1d1dad6e0393f53c8168c6ff0d\",\n    \"size\": 2265\n  },\n  \"warnings\": []\n}\n",
+  "stderr": "prepare target=remote/us/wow_classic_era/enUS build=1.15.9.69109\nprepare status=ready\n"
 }

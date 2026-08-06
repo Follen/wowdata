@@ -1,9 +1,11 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"wowdata/internal/db2"
 )
@@ -14,26 +16,42 @@ type memoryDB2Table struct {
 }
 
 type MemoryDB2Store struct {
+	mu     sync.RWMutex
 	tables map[string]memoryDB2Table
+	engine *db2.Engine
 	ready  bool
 }
 
 func NewMemoryDB2Store() *MemoryDB2Store {
-	return &MemoryDB2Store{tables: make(map[string]memoryDB2Table)}
+	return &MemoryDB2Store{tables: make(map[string]memoryDB2Table), engine: db2.NewEngine()}
 }
 
 func (s *MemoryDB2Store) Reset() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.tables = make(map[string]memoryDB2Table)
+	s.engine = db2.NewEngine()
 	s.ready = false
 }
 
 func (s *MemoryDB2Store) AddTable(name string, schema []SchemaField, reader db2.RowReader) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.tables[name] = memoryDB2Table{schema: schema, reader: reader}
+	if s.engine == nil {
+		s.engine = db2.NewEngine()
+	}
+	_ = s.engine.Register(name, nil, reader)
 	s.ready = true
 }
 
 func (s *MemoryDB2Store) Ready() bool {
-	return s != nil && s.ready
+	if s == nil {
+		return false
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.ready
 }
 
 func (s *MemoryDB2Store) Schema(table string) ([]SchemaField, int, error) {
@@ -41,11 +59,17 @@ func (s *MemoryDB2Store) Schema(table string) ([]SchemaField, int, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	return t.schema, len(t.reader.GetAllRows()), nil
+	count := 0
+	if sized, ok := t.reader.(db2.SizedReader); ok {
+		count = sized.Size()
+	} else {
+		count = len(t.reader.GetAllRows())
+	}
+	return t.schema, count, nil
 }
 
 func (s *MemoryDB2Store) Rows(table string, ids []uint32, fields []string, filter string, limit int) ([]map[string]interface{}, error) {
-	t, err := s.table(table)
+	_, err := s.table(table)
 	if err != nil {
 		return nil, err
 	}
@@ -53,23 +77,41 @@ func (s *MemoryDB2Store) Rows(table string, ids []uint32, fields []string, filte
 	if err != nil {
 		return nil, err
 	}
-	return db2.GetRows(t.reader, ids, fields, filterFn, limit), nil
+	snapshot := s.engine.Snapshot()
+	defer snapshot.Close()
+	result, _, err := snapshot.Execute(context.Background(), db2.QueryPlan{Table: table, Mode: db2.PlanRows, IDs: ids, Fields: fields, Filter: filterFn, Limit: limit})
+	if err != nil {
+		return nil, err
+	}
+	return result.Rows, nil
 }
 
 func (s *MemoryDB2Store) Search(table string, field string, query string, limit int) ([]map[string]interface{}, error) {
-	t, err := s.table(table)
+	_, err := s.table(table)
 	if err != nil {
 		return nil, err
 	}
-	return db2.SearchRows(t.reader, field, query, false, limit), nil
+	snapshot := s.engine.Snapshot()
+	defer snapshot.Close()
+	result, _, err := snapshot.Execute(context.Background(), db2.QueryPlan{Table: table, Mode: db2.PlanSearch, SearchField: field, SearchQuery: query, Limit: limit})
+	if err != nil {
+		return nil, err
+	}
+	return result.Rows, nil
 }
 
 func (s *MemoryDB2Store) ForeignKey(table string, field string, value uint32, limit int) ([]map[string]interface{}, error) {
-	t, err := s.table(table)
+	_, err := s.table(table)
 	if err != nil {
 		return nil, err
 	}
-	rows := db2.GetForeignRows(t.reader, table, field, value)
+	snapshot := s.engine.Snapshot()
+	defer snapshot.Close()
+	result, _, err := snapshot.Execute(context.Background(), db2.QueryPlan{Table: table, Mode: db2.PlanForeignKey, ForeignField: field, ForeignValue: value, Limit: limit})
+	if err != nil {
+		return nil, err
+	}
+	rows := result.Rows
 	if limit > 0 && len(rows) > limit {
 		rows = rows[:limit]
 	}
@@ -81,6 +123,8 @@ func (s *MemoryDB2Store) Stream(table string, fields []string, filter string, li
 }
 
 func (s *MemoryDB2Store) table(name string) (memoryDB2Table, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	t, ok := s.tables[name]
 	if !ok || t.reader == nil {
 		return memoryDB2Table{}, fmt.Errorf("table not loaded: %s", name)

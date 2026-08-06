@@ -15,7 +15,7 @@
     "--dbd-manifest=false",
     "--tables="
   ],
-  "exitCode": 0,
-  "stdout": "{\n  \"ok\": true,\n  \"command\": \"warmup\",\n  \"data\": {\n    \"buildIndex\": 0,\n    \"buildKey\": \"399d19713d9fe33f5c84e6935a515e2d\",\n    \"buildName\": \"12.0.5.67823\",\n    \"encodingEntryCount\": 2816252,\n    \"localIndexCount\": 1904329,\n    \"message\": \"warmup 完成\",\n    \"note\": \"首次预热可能接近 240 秒；后续会优先使用缓存。\",\n    \"product\": \"wow\",\n    \"region\": \"cn\",\n    \"rootEntryCount\": 1884024,\n    \"source\": \"local\",\n    \"status\": \"ok\",\n    \"success\": true,\n    \"warm\": {\n      \"dbdManifest\": false,\n      \"listfile\": false,\n      \"listfileFormat\": \"binary\",\n      \"tables\": null\n    },\n    \"warmed\": {\n      \"dbdManifest\": false,\n      \"listfile\": false,\n      \"tables\": []\n    }\n  },\n  \"warnings\": []\n}\n",
+  "exitCode": 1,
+  "stdout": "{\n  \"ok\": false,\n  \"command\": \"warmup\",\n  \"data\": null,\n  \"warnings\": [],\n  \"error\": {\n    \"code\": \"target_required\",\n    \"message\": \"target fields are required: build,locale; pass all target flags or --profile. Discover remote combinations with: wowdata casc products --source remote --region \\u003cregion\\u003e\"\n  }\n}\n",
   "stderr": ""
 }

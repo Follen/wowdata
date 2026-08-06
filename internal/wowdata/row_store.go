@@ -6,6 +6,30 @@ type rowStore interface {
 	Rows(table string, ids []uint32, fields []string, filter string, limit int) ([]map[string]interface{}, error)
 }
 
+type relationRowStore interface {
+	ForeignKey(table string, field string, value uint32, limit int) ([]map[string]interface{}, error)
+}
+
+func rowsByRelation(store rowStore, table, field string, value uint32) []map[string]interface{} {
+	if related, ok := store.(relationRowStore); ok {
+		rows, err := related.ForeignKey(table, field, value, 0)
+		if err == nil {
+			return rows
+		}
+	}
+	rows, err := store.Rows(table, nil, nil, "", 0)
+	if err != nil {
+		return nil
+	}
+	filtered := make([]map[string]interface{}, 0)
+	for _, row := range rows {
+		if rowUint32(row, field) == value {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
+}
+
 type readyRowStore interface {
 	Ready() bool
 }

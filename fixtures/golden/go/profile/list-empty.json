@@ -1,0 +1,13 @@
+{
+  "name": "profile/list-empty",
+  "command": "wowdata",
+  "args": [
+    "profile",
+    "list"
+  ],
+  "comparison": "profile-state-v1",
+  "isolation": "fresh-home",
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"profile list\",\n  \"data\": {\n    \"profiles\": []\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

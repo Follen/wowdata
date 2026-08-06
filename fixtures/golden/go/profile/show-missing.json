@@ -1,0 +1,14 @@
+{
+  "name": "profile/show-missing",
+  "command": "wowdata",
+  "args": [
+    "profile",
+    "show",
+    "missing-profile"
+  ],
+  "comparison": "profile-state-v1",
+  "isolation": "fresh-home",
+  "exitCode": 1,
+  "stdout": "{\n  \"ok\": false,\n  \"command\": \"profile show\",\n  \"data\": null,\n  \"warnings\": [],\n  \"error\": {\n    \"code\": \"read_failed\",\n    \"message\": \"open D:\\\\Code\\\\wow\\\\wowdata\\\\analyze\\\\benchmark\\\\matrix-audit-capture-fresh\\\\profile-show-missing\\\\profiles\\\\missing-profile.json: The system cannot find the file specified.\"\n  }\n}\n",
+  "stderr": ""
+}

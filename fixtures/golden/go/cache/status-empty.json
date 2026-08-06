@@ -1,0 +1,13 @@
+{
+  "name": "cache/status-empty",
+  "command": "wowdata",
+  "args": [
+    "cache",
+    "status"
+  ],
+  "comparison": "cache-state-v1",
+  "isolation": "fresh-home",
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"cache status\",\n  \"data\": {\n    \"downloadWorkers\": 0,\n    \"format\": {\n      \"schema\": \"wowdata.cache-format.v1\",\n      \"version\": 2,\n      \"clearedPath\": \"D:/Code/wow/wowdata/analyze/benchmark/matrix-audit-capture-fresh/cache-status-empty/cache\",\n      \"initializedAtUtc\": \"2026-08-05T02:45:33Z\"\n    },\n    \"maxBytes\": 21474836480,\n    \"path\": \"D:/Code/wow/wowdata/analyze/benchmark/matrix-audit-capture-fresh/cache-status-empty/cache\",\n    \"sizeBytes\": 214,\n    \"usage\": {\n      \"totalBytes\": 214,\n      \"payloadBytes\": 0,\n      \"uniquePayloadBytes\": 0,\n      \"duplicatePayloadBytes\": 0,\n      \"resumeBytes\": 0,\n      \"derivedMetadataBytes\": 214,\n      \"payloadFiles\": 0,\n      \"resumeFiles\": 0,\n      \"derivedMetadataFiles\": 1,\n      \"diskAmplificationRatio\": 0,\n      \"maxBytes\": 21474836480,\n      \"withinMaxBytes\": true,\n      \"withinAmplificationLimit\": true\n    }\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

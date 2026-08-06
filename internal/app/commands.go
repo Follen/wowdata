@@ -1,6 +1,10 @@
 package app
 
-import "github.com/spf13/cobra"
+import (
+	"strconv"
+
+	"github.com/spf13/cobra"
+)
 
 type Service struct {
 	Warmup    func(cmd *cobra.Command, args []string) error
@@ -105,6 +109,14 @@ func registerCommands(root *cobra.Command, svc *Service) {
 			{use: "get", short: "Return section tree and related spell IDs.", example: "  wowdata encounter get --journal-encounter-id 123", group: "encounter",
 				flags: []cmdFlag{
 					{name: "journal-encounter-id", typ: "uint32", desc: "Journal encounter ID"},
+				}},
+			{use: "export", short: "Export encounter skills and PNG icons in one process.", example: "  wowdata encounter export --instance 虚影尖塔 --boss 1 --output ./png", group: "encounter",
+				flags: []cmdFlag{
+					{name: "instance", typ: "string", desc: "Localized journal instance name"},
+					{name: "boss", typ: "int", dflt: "1", desc: "One-based boss index"},
+					{name: "journal-encounter-id", typ: "uint32", desc: "Journal encounter ID override"},
+					{name: "output", typ: "string", desc: "Output directory"},
+					{name: "max-depth", typ: "int", dflt: "5", desc: "Maximum triggered-spell traversal depth"},
 				}},
 		}},
 		{use: "file", short: "Query and export CASC files.", example: "  wowdata file lookup --file-data-id 456", group: "file", child: []commandSpec{
@@ -213,6 +225,7 @@ func registerCommands(root *cobra.Command, svc *Service) {
 			{use: "config", short: "Show or update cache limits and workers.", example: "  wowdata cache config --max-gb 20 --workers 4", group: "cache", flags: []cmdFlag{
 				{name: "max-gb", typ: "int", desc: "Cache capacity in GiB"},
 				{name: "workers", typ: "int", desc: "Concurrent download workers"},
+				{name: "auto-workers", typ: "bool", desc: "Restore adaptive worker selection"},
 			}},
 		}},
 		{use: "doctor", short: "Diagnose installation, target, cache, and network basics.", example: "  wowdata doctor", group: "doctor"},
@@ -255,9 +268,17 @@ func buildCommand(spec commandSpec, svc *Service) *cobra.Command {
 	for _, f := range spec.flags {
 		switch f.typ {
 		case "uint32":
-			cmd.Flags().Uint32(f.name, 0, f.desc)
+			value, err := strconv.ParseUint(f.dflt, 10, 32)
+			if err != nil && f.dflt != "" {
+				panic("invalid uint32 default for --" + f.name + ": " + f.dflt)
+			}
+			cmd.Flags().Uint32(f.name, uint32(value), f.desc)
 		case "int":
-			cmd.Flags().Int(f.name, 0, f.desc)
+			value, err := strconv.Atoi(f.dflt)
+			if err != nil && f.dflt != "" {
+				panic("invalid int default for --" + f.name + ": " + f.dflt)
+			}
+			cmd.Flags().Int(f.name, value, f.desc)
 		case "string":
 			cmd.Flags().String(f.name, f.dflt, f.desc)
 		case "bool":

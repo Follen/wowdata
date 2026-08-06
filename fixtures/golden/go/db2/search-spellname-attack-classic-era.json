@@ -5,6 +5,8 @@
     "run",
     "./cmd/wowdata",
     "--auto-warmup",
+    "--build",
+    "1.15.9.69109",
     "--source",
     "remote",
     "--region",
@@ -27,5 +29,5 @@
   ],
   "exitCode": 0,
   "stdout": "{\n  \"ok\": true,\n  \"command\": \"db2 search\",\n  \"data\": {\n    \"count\": 3,\n    \"mode\": \"search\",\n    \"rows\": [\n      {\n        \"ID\": 2923,\n        \"Name_lang\": \"Rooting Attack\"\n      },\n      {\n        \"ID\": 2927,\n        \"Name_lang\": \"Rooting Attack II\"\n      },\n      {\n        \"ID\": 2928,\n        \"Name_lang\": \"Rooting Attack III\"\n      }\n    ],\n    \"table\": \"SpellName\"\n  },\n  \"warnings\": []\n}\n",
-  "stderr": ""
+  "stderr": "prepare target=remote/us/wow_classic_era/enUS build=1.15.9.69109\nprepare status=ready\n"
 }

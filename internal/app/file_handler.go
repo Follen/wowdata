@@ -1,13 +1,13 @@
 package app
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"strings"
 
 	"wowdata/internal/casc"
 	"wowdata/internal/export"
 	"wowdata/internal/listfile"
+	"wowdata/internal/resource"
 	appruntime "wowdata/internal/runtime"
 
 	"github.com/spf13/cobra"
@@ -133,7 +133,7 @@ func NewFileHandlerWithStore(store appruntime.FileStore) func(cmd *cobra.Command
 				"fileDataID": id,
 				"filename":   filename,
 				"size":       len(data),
-				"sha256":     fmt.Sprintf("%x", sha256.Sum256(data)),
+				"sha256":     fmt.Sprintf("%x", resource.SumSHA256(data)),
 			}))
 		}
 

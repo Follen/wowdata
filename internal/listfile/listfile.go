@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"wowdata/internal/resource"
 )
 
 type Listfile struct {
@@ -31,7 +33,8 @@ func (l *Listfile) Load(r io.Reader) error {
 	l.treeNodes = nil
 	l.binary = false
 
-	scanner := bufio.NewScanner(r)
+	counted := &listfileCountingReader{reader: r}
+	scanner := bufio.NewScanner(counted)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -51,7 +54,19 @@ func (l *Listfile) Load(r io.Reader) error {
 		}
 		l.addNormalized(uint32(id), name)
 	}
+	resource.RecordListfileParse(counted.bytes)
 	return scanner.Err()
+}
+
+type listfileCountingReader struct {
+	reader io.Reader
+	bytes  int
+}
+
+func (r *listfileCountingReader) Read(data []byte) (int, error) {
+	n, err := r.reader.Read(data)
+	r.bytes += n
+	return n, err
 }
 
 const (
@@ -80,7 +95,7 @@ var binaryStringComponents = []string{
 // legacy implementation. The ID index uses 9-byte entries:
 // big-endian fileDataID, big-endian string offset, and one pf/string file index.
 func (l *Listfile) LoadBinaryDir(dir string) error {
-	index, err := os.ReadFile(filepath.Join(dir, componentIDIndex))
+	index, err := resource.ReadFile(filepath.Join(dir, componentIDIndex))
 	if err != nil {
 		return err
 	}
@@ -89,15 +104,17 @@ func (l *Listfile) LoadBinaryDir(dir string) error {
 	}
 
 	stringFiles := make([][]byte, len(binaryStringComponents))
+	parsedBytes := len(index)
 	for i, name := range binaryStringComponents {
-		data, err := os.ReadFile(filepath.Join(dir, name))
+		data, err := resource.ReadFile(filepath.Join(dir, name))
 		if err != nil {
 			return err
 		}
 		stringFiles[i] = data
+		parsedBytes += len(data)
 	}
 
-	treeNodes, err := os.ReadFile(filepath.Join(dir, componentTreeNodes))
+	treeNodes, err := resource.ReadFile(filepath.Join(dir, componentTreeNodes))
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -107,6 +124,7 @@ func (l *Listfile) LoadBinaryDir(dir string) error {
 	l.order = nil
 	l.treeNodes = treeNodes
 	l.binary = true
+	parsedBytes += len(treeNodes)
 
 	for offset := 0; offset < len(index); offset += 9 {
 		id := binary.BigEndian.Uint32(index[offset : offset+4])
@@ -122,6 +140,7 @@ func (l *Listfile) LoadBinaryDir(dir string) error {
 		l.addNormalized(id, name)
 	}
 
+	resource.RecordListfileParse(parsedBytes)
 	return nil
 }
 

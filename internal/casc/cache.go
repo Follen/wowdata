@@ -7,5 +7,5 @@ type CachePaths struct {
 }
 
 func NewCachePaths(base string, buildKey string) CachePaths {
-	return CachePaths{Root: filepath.ToSlash(filepath.Join(base, "casc", buildKey))}
+	return CachePaths{Root: filepath.ToSlash(filepath.Join(base, "casc", "builds", buildKey))}
 }

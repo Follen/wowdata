@@ -1,0 +1,13 @@
+{
+  "name": "cache/prune-empty",
+  "command": "wowdata",
+  "args": [
+    "cache",
+    "prune"
+  ],
+  "comparison": "cache-state-v1",
+  "isolation": "fresh-home",
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"cache prune\",\n  \"data\": {\n    \"beforeBytes\": 213,\n    \"afterBytes\": 213,\n    \"maxBytes\": 21474836480,\n    \"removed\": []\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

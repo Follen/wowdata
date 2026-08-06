@@ -46,15 +46,17 @@ type SummonEntry struct {
 }
 
 type SpellService struct {
-	triggers map[uint32][]uint32
-	effects  map[uint32][]map[string]interface{}
-	db2      rowStore
+	triggers     map[uint32][]uint32
+	effects      map[uint32][]map[string]interface{}
+	effectLoaded map[uint32]bool
+	db2          rowStore
 }
 
 func NewSpellService() *SpellService {
 	return &SpellService{
-		triggers: make(map[uint32][]uint32),
-		effects:  make(map[uint32][]map[string]interface{}),
+		triggers:     make(map[uint32][]uint32),
+		effects:      make(map[uint32][]map[string]interface{}),
+		effectLoaded: make(map[uint32]bool),
 	}
 }
 
@@ -103,6 +105,32 @@ func (s *SpellService) GetSpellInfo(spellID uint32, maxDepth int) *SpellInfo {
 	return info
 }
 
+func (s *SpellService) GetSpellInfoBatch(spellIDs []uint32, maxDepth int) *SpellInfo {
+	s.loadFromDB2()
+	if s.db2 != nil {
+		return s.getDetailedSpellInfo(spellIDs, maxDepth)
+	}
+	merged := &SpellInfo{Triggers: map[uint32][]uint32{}, DescRefs: map[uint32][]uint32{}, Spells: map[uint32]DetailedSpellInfo{}}
+	for _, spellID := range spellIDs {
+		info := s.GetSpellInfo(spellID, maxDepth)
+		merged.SeedCount++
+		if info.ChainDepth > merged.ChainDepth {
+			merged.ChainDepth = info.ChainDepth
+		}
+		for id, spell := range info.Spells {
+			merged.Spells[id] = spell
+		}
+		for id, values := range info.Triggers {
+			merged.Triggers[id] = values
+		}
+		for id, values := range info.DescRefs {
+			merged.DescRefs[id] = values
+		}
+	}
+	merged.TotalCount = len(merged.Spells)
+	return merged
+}
+
 func (s *SpellService) getDetailedSpellInfo(spellIDs []uint32, maxDepth int) *SpellInfo {
 	if maxDepth <= 0 {
 		maxDepth = 5
@@ -115,7 +143,7 @@ func (s *SpellService) getDetailedSpellInfo(spellIDs []uint32, maxDepth int) *Sp
 		allIDs[id] = true
 	}
 
-	spellRows := rowsByID(mustRows(s.db2, "Spell"))
+	spellRows := map[uint32]map[string]interface{}{}
 	spellDescCache := map[uint32]map[string]string{}
 	triggers := map[uint32][]uint32{}
 	descRefs := map[uint32][]uint32{}
@@ -123,6 +151,10 @@ func (s *SpellService) getDetailedSpellInfo(spellIDs []uint32, maxDepth int) *Sp
 	refRe := regexp.MustCompile(`\$@spellname(\d+)|\$(\d{5,})[a-zA-Z]`)
 
 	for len(frontier) > 0 && depth < maxDepth {
+		s.loadEffects(frontier)
+		for id, row := range rowsByID(mustRowsByID(s.db2, "Spell", frontier)) {
+			spellRows[id] = row
+		}
 		next := []uint32{}
 		for _, sid := range frontier {
 			for _, e := range s.effects[sid] {
@@ -159,20 +191,29 @@ func (s *SpellService) getDetailedSpellInfo(spellIDs []uint32, maxDepth int) *Sp
 		depth++
 	}
 
-	nameRows := rowsByID(mustRows(s.db2, "SpellName"))
+	allSpellIDs := sortedSpellIDs(allIDs)
+	nameRows := rowsByID(mustRowsByID(s.db2, "SpellName", allSpellIDs))
 	miscMap := map[uint32]map[string]interface{}{}
-	for _, row := range mustRows(s.db2, "SpellMisc") {
-		spellID := rowUint32(row, "SpellID")
-		if allIDs[spellID] {
+	for _, spellID := range allSpellIDs {
+		for _, row := range rowsByRelation(s.db2, "SpellMisc", "SpellID", spellID) {
 			miscMap[spellID] = row
+			break
 		}
 	}
-	castRows := rowsByID(mustRows(s.db2, "SpellCastTimes"))
-	durationRows := rowsByID(mustRows(s.db2, "SpellDuration"))
-	rangeRows := rowsByID(mustRows(s.db2, "SpellRange"))
+	castIDs := make([]uint32, 0, len(miscMap))
+	durationIDs := make([]uint32, 0, len(miscMap))
+	rangeIDs := make([]uint32, 0, len(miscMap))
+	for _, row := range miscMap {
+		castIDs = appendNonZeroUnique(castIDs, rowUint32(row, "CastingTimeIndex"))
+		durationIDs = appendNonZeroUnique(durationIDs, rowUint32(row, "DurationIndex"))
+		rangeIDs = appendNonZeroUnique(rangeIDs, rowUint32(row, "RangeIndex"))
+	}
+	castRows := rowsByID(mustRowsByID(s.db2, "SpellCastTimes", castIDs))
+	durationRows := rowsByID(mustRowsByID(s.db2, "SpellDuration", durationIDs))
+	rangeRows := rowsByID(mustRowsByID(s.db2, "SpellRange", rangeIDs))
 
 	spells := map[uint32]DetailedSpellInfo{}
-	for _, sid := range sortedSpellIDs(allIDs) {
+	for _, sid := range allSpellIDs {
 		if _, ok := spellDescCache[sid]; !ok {
 			if row := spellRows[sid]; row != nil {
 				spellDescCache[sid] = map[string]string{"desc": rowString(row, "Description_lang"), "auraDesc": rowString(row, "AuraDescription_lang")}
@@ -400,6 +441,7 @@ func sortedSpellIDs(ids map[uint32]bool) []uint32 {
 
 func (s *SpellService) DetectAuras(spellID uint32) *AuraResult {
 	s.loadFromDB2()
+	s.loadEffects([]uint32{spellID})
 	effects, ok := s.effects[spellID]
 	has := false
 	if ok {
@@ -419,6 +461,7 @@ func (s *SpellService) DetectAuras(spellID uint32) *AuraResult {
 
 func (s *SpellService) DetectSummons(spellID, npcID uint32) []SummonEntry {
 	s.loadFromDB2()
+	s.loadEffects([]uint32{spellID})
 	var results []SummonEntry
 	for _, efx := range s.effects[spellID] {
 		effectType := rowUint32(efx, "Effect")
@@ -444,29 +487,51 @@ func (s *SpellService) loadFromDB2() {
 	if s.db2 == nil {
 		return
 	}
-	rows, err := s.db2.Rows("SpellEffect", nil, nil, "", 0)
-	if err != nil {
+	if s.triggers == nil {
+		s.triggers = make(map[uint32][]uint32)
+	}
+	if s.effects == nil {
+		s.effects = make(map[uint32][]map[string]interface{})
+	}
+	if s.effectLoaded == nil {
+		s.effectLoaded = make(map[uint32]bool)
+	}
+}
+
+func (s *SpellService) loadEffects(spellIDs []uint32) {
+	if s.db2 == nil {
 		return
 	}
-	triggers := make(map[uint32][]uint32)
-	effects := make(map[uint32][]map[string]interface{})
-	for _, row := range rows {
-		spellID := rowUint32(row, "SpellID")
-		if spellID == 0 {
+	s.loadFromDB2()
+	for _, spellID := range spellIDs {
+		if s.effectLoaded[spellID] {
 			continue
 		}
-		effects[spellID] = append(effects[spellID], row)
-		for _, childID := range []uint32{rowUint32(row, "EffectTriggerSpell")} {
+		rows := rowsByRelation(s.db2, "SpellEffect", "SpellID", spellID)
+		s.effects[spellID] = rows
+		for _, row := range rows {
+			childID := rowUint32(row, "EffectTriggerSpell")
 			if childID != 0 {
-				triggers[spellID] = append(triggers[spellID], childID)
+				addRef(s.triggers, spellID, childID)
+			}
+			if rowUint32(row, "Effect") == 64 {
+				if childID := rowUint32(row, "EffectMiscValue"); childID != 0 {
+					addRef(s.triggers, spellID, childID)
+				}
 			}
 		}
-		if rowUint32(row, "Effect") == 64 {
-			if childID := rowUint32(row, "EffectMiscValue"); childID != 0 {
-				triggers[spellID] = append(triggers[spellID], childID)
-			}
+		s.effectLoaded[spellID] = true
+	}
+}
+
+func appendNonZeroUnique(values []uint32, value uint32) []uint32 {
+	if value == 0 {
+		return values
+	}
+	for _, existing := range values {
+		if existing == value {
+			return values
 		}
 	}
-	s.triggers = triggers
-	s.effects = effects
+	return append(values, value)
 }

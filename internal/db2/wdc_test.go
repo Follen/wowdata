@@ -242,6 +242,24 @@ func TestWDC5EmptyMultiSectionTableAtEOF(t *testing.T) {
 	}
 }
 
+func TestWDC5EmptyZeroSectionTable(t *testing.T) {
+	data := buildWDC5ZeroSectionTable()
+	reader, err := NewWDCReaderFromBytes("Empty", data, nil)
+	if err != nil {
+		t.Fatalf("zero-section WDC5 table should parse: %v", err)
+	}
+	if !reader.IsLoaded || reader.Size() != 0 || len(reader.Sections) != 0 || len(reader.GetAllRows()) != 0 {
+		t.Fatalf("unexpected empty reader state: loaded=%t size=%d sections=%d rows=%d", reader.IsLoaded, reader.Size(), len(reader.Sections), len(reader.GetAllRows()))
+	}
+}
+
+func buildWDC5ZeroSectionTable() []byte {
+	buf := make([]byte, 204)
+	binary.LittleEndian.PutUint32(buf[0:], wdc5Magic)
+	binary.LittleEndian.PutUint32(buf[4:], 5)
+	return buf
+}
+
 func TestWDCRelationshipDataTruncationReturnsError(t *testing.T) {
 	data := buildWDC5TruncatedRelationshipData()
 	data = data[:len(data)-1]
@@ -251,6 +269,29 @@ func TestWDCRelationshipDataTruncationReturnsError(t *testing.T) {
 	}
 	if _, err := NewWDCReaderFromBytes("SpellEffect", data, schema); err == nil {
 		t.Fatal("expected truncated relationship data error")
+	}
+}
+
+func TestWDC5SparseOffsetMapIDsPrecedeRelationshipData(t *testing.T) {
+	data := buildWDC5SparseRelationshipData()
+	reader, err := NewWDCReaderFromBytes("SparseRelation", data, []SchemaField{
+		{Name: "ID", Type: FieldNonInlineID},
+		{Name: "ParentID", Type: FieldRelation},
+	})
+	if err != nil {
+		t.Fatalf("parse sparse relationship data: %v", err)
+	}
+	if got := reader.RelationshipLookup[7]; len(got) != 1 || got[0] != 100 {
+		t.Fatalf("relationship 7 = %v, want [100]", got)
+	}
+	if got := reader.RelationshipLookup[9]; len(got) != 1 || got[0] != 200 {
+		t.Fatalf("relationship 9 = %v, want [200]", got)
+	}
+	if got := reader.GetRow(100)["ParentID"]; got != uint32(7) {
+		t.Fatalf("row 100 relationship = %v, want 7", got)
+	}
+	if got := reader.GetRow(200)["ParentID"]; got != uint32(9) {
+		t.Fatalf("row 200 relationship = %v, want 9", got)
 	}
 }
 
@@ -359,24 +400,24 @@ func buildWDC5TruncatedRelationshipData() []byte {
 	build := make([]byte, 128)
 	copy(build, []byte("WOWSTATIC_12_0_5"))
 	buf = append(buf, build...)
-	put32(1)  // recordCount
-	put32(2)  // fieldCount
-	put32(8)  // recordSize
-	put32(0)  // stringTableSize
-	put32(0)  // tableHash
-	put32(0)  // layoutHash
-	put32(1)  // minID
-	put32(1)  // maxID
-	put32(1)  // locale
-	put16(0)  // flags
-	put16(0)  // id field index
-	put32(2)  // total field count
-	put32(0)  // bitpackedDataOffset
-	put32(0)  // lookupColumnCount
-	put32(0)  // fieldStorageInfoSize
-	put32(0)  // commonDataSize
-	put32(0)  // palletDataSize
-	put32(1)  // sectionCount
+	put32(1) // recordCount
+	put32(2) // fieldCount
+	put32(8) // recordSize
+	put32(0) // stringTableSize
+	put32(0) // tableHash
+	put32(0) // layoutHash
+	put32(1) // minID
+	put32(1) // maxID
+	put32(1) // locale
+	put16(0) // flags
+	put16(0) // id field index
+	put32(2) // total field count
+	put32(0) // bitpackedDataOffset
+	put32(0) // lookupColumnCount
+	put32(0) // fieldStorageInfoSize
+	put32(0) // commonDataSize
+	put32(0) // palletDataSize
+	put32(1) // sectionCount
 
 	put64(0)
 	put32(0)  // fileOffset
@@ -399,5 +440,52 @@ func buildWDC5TruncatedRelationshipData() []byte {
 	put32(1)   // minID
 	put32(1)   // maxID
 	put32(123) // foreignID, but recordIndex is missing
+	return buf
+}
+
+func buildWDC5SparseRelationshipData() []byte {
+	buf := make([]byte, 244)
+	binary.LittleEndian.PutUint32(buf[0:], wdc5Magic)
+	binary.LittleEndian.PutUint32(buf[4:], 5)
+	binary.LittleEndian.PutUint32(buf[136:], 2) // recordCount
+	binary.LittleEndian.PutUint32(buf[160:], 100)
+	binary.LittleEndian.PutUint32(buf[164:], 200)
+	binary.LittleEndian.PutUint16(buf[172:], 1) // sparse
+	binary.LittleEndian.PutUint32(buf[200:], 1) // sectionCount
+
+	const section = 204
+	binary.LittleEndian.PutUint32(buf[section+8:], 244)  // fileOffset
+	binary.LittleEndian.PutUint32(buf[section+12:], 2)   // recordCount
+	binary.LittleEndian.PutUint32(buf[section+20:], 244) // offsetRecordsEnd
+	binary.LittleEndian.PutUint32(buf[section+24:], 8)   // ID-list bytes
+	binary.LittleEndian.PutUint32(buf[section+28:], 28)  // relationship bytes
+	binary.LittleEndian.PutUint32(buf[section+32:], 2)   // offset-map IDs
+
+	put32 := func(v uint32) {
+		tmp := make([]byte, 4)
+		binary.LittleEndian.PutUint32(tmp, v)
+		buf = append(buf, tmp...)
+	}
+	put16 := func(v uint16) {
+		tmp := make([]byte, 2)
+		binary.LittleEndian.PutUint16(tmp, v)
+		buf = append(buf, tmp...)
+	}
+
+	put32(100) // external ID list
+	put32(200)
+	put32(244) // offset map
+	put16(0)
+	put32(244)
+	put16(0)
+	put32(100) // duplicate offset-map ID list
+	put32(200)
+	put32(2) // relationship header
+	put32(7)
+	put32(9)
+	put32(7) // sparse relationship uses record ID, not record index
+	put32(100)
+	put32(9)
+	put32(200)
 	return buf
 }

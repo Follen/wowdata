@@ -1,0 +1,14 @@
+{
+  "name": "profile/remove-missing",
+  "command": "wowdata",
+  "args": [
+    "profile",
+    "remove",
+    "missing-profile"
+  ],
+  "comparison": "profile-state-v1",
+  "isolation": "fresh-home",
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"profile remove\",\n  \"data\": {\n    \"name\": \"missing-profile\",\n    \"removed\": true\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

@@ -5,6 +5,8 @@
     "run",
     "./cmd/wowdata",
     "--auto-warmup",
+    "--build",
+    "1.15.9.69109",
     "--source",
     "remote",
     "--region",
@@ -25,6 +27,6 @@
     "3"
   ],
   "exitCode": 0,
-  "stdout": "{\n  \"ok\": true,\n  \"command\": \"file extension\",\n  \"data\": {\n    \"extension\": \"blp\",\n    \"files\": [\n      \"alternate/dungeons/textures/decoration/jlo_udercity_container.blp [834434]\",\n      \"alternate/dungeons/textures/decoration/jlo_udercity_skull.blp [835327]\",\n      \"alternate/dungeons/textures/decoration/mm_aos_skull_03.blp [834505]\"\n    ],\n    \"returned\": 3,\n    \"total\": 103683\n  },\n  \"warnings\": []\n}\n",
-  "stderr": ""
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"file extension\",\n  \"data\": {\n    \"extension\": \"blp\",\n    \"files\": [\n      \"alternate/dungeons/textures/decoration/jlo_udercity_container.blp [834434]\",\n      \"alternate/dungeons/textures/decoration/jlo_udercity_skull.blp [835327]\",\n      \"alternate/dungeons/textures/decoration/mm_aos_skull_03.blp [834505]\"\n    ],\n    \"returned\": 3,\n    \"total\": 103943\n  },\n  \"warnings\": []\n}\n",
+  "stderr": "prepare target=remote/us/wow_classic_era/enUS build=1.15.9.69109\nprepare status=ready\n"
 }

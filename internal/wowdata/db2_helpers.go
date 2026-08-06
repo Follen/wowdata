@@ -18,6 +18,17 @@ func mustRows(store rowStore, table string) []map[string]interface{} {
 	return rows
 }
 
+func mustRowsByID(store rowStore, table string, ids []uint32) []map[string]interface{} {
+	if len(ids) == 0 {
+		return nil
+	}
+	rows, err := store.Rows(table, ids, nil, "", 0)
+	if err != nil {
+		return nil
+	}
+	return rows
+}
+
 func rowsByID(rows []map[string]interface{}) map[uint32]map[string]interface{} {
 	out := map[uint32]map[string]interface{}{}
 	for _, row := range rows {

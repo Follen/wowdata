@@ -1,0 +1,11 @@
+{
+  "name": "uninstall/help",
+  "command": "wowdata",
+  "args": [
+    "uninstall",
+    "--help"
+  ],
+  "exitCode": 0,
+  "stdout": "Uninstall wowdata, its Skill, and managed data.\n\nUsage:\n  wowdata uninstall [flags]\n\nExamples:\n  wowdata uninstall\n\nFlags:\n  -h, --help        help for uninstall\n      --keep-data   Keep configuration, profiles, Builds, and cache\n\nGlobal Flags:\n      --auto-warmup              Deprecated compatibility flag; data commands prepare required cache automatically\n      --build string             WoW build: latest, version, build ID, or config key (required unless --profile is used)\n      --cache string             Cache directory override; defaults to ~/.wowdata/cache\n      --dbd-manifest             Also prepare the DBD manifest cache\n      --listfile                 Also prepare the listfile cache\n      --listfile-format string   Listfile source format: binary or text (default \"binary\")\n      --locale string            WoW locale, such as zhCN or enUS (required unless --profile is used)\n      --path string              Local WoW client path when source=local\n      --product string           WoW product (required unless --profile is used)\n      --profile string           Named target profile from ~/.wowdata/profiles\n      --region string            WoW region (required unless --profile is used)\n      --source string            Data source: local or remote (required unless --profile is used)\n      --tables string            Additional comma-separated DB2 tables to prepare\n",
+  "stderr": ""
+}

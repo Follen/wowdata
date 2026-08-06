@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"wowdata/internal/resource"
 )
 
 var cdnKeyPattern = regexp.MustCompile(`^([^\s]+)\s?=\s?(.*)`)
@@ -22,7 +24,12 @@ func normalizeKey(key string) string {
 	return strings.Join(parts, "")
 }
 
-func ParseCDNConfig(data string) (map[string]string, error) {
+func ParseCDNConfig(data string) (result map[string]string, err error) {
+	defer func() {
+		if err == nil {
+			resource.RecordCASCMetadata(len(data))
+		}
+	}()
 	lines := strings.Split(data, "\n")
 
 	hasHeader := len(lines) > 0 && strings.HasPrefix(strings.TrimSpace(lines[0]), "# ")

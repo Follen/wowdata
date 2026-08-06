@@ -2,6 +2,7 @@ package casc
 
 import (
 	"encoding/binary"
+	"reflect"
 	"testing"
 
 	"wowdata/internal/blte"
@@ -93,6 +94,114 @@ func TestParseEncodingFile(t *testing.T) {
 	}
 }
 
+func TestParseEncodingSelectedOnlyMaterializesRequestedKeys(t *testing.T) {
+	c := NewCASCSource()
+	raw := buildEncodingData(map[string]struct {
+		eKey string
+		size int64
+	}{
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 1024},
+		"cccccccccccccccccccccccccccccccc": {"dddddddddddddddddddddddddddddddd", 2048},
+	})
+	wanted, _ := hexDecode("cccccccccccccccccccccccccccccccc")
+	if err := c.parseEncodingSelected(raw, map[string]struct{}{string(wanted): {}}); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.EncodingEntries) != 1 {
+		t.Fatalf("encoding entries = %#v", c.EncodingEntries)
+	}
+	if got := c.EncodingEntries["cccccccccccccccccccccccccccccccc"]; got.Key != "dddddddddddddddddddddddddddddddd" || got.Size != 2048 {
+		t.Fatalf("selected entry = %#v", got)
+	}
+}
+
+func TestParseEncodingReaderSelectedUsesPageRanges(t *testing.T) {
+	c := NewCASCSource()
+	raw := buildEncodingData(map[string]struct {
+		eKey string
+		size int64
+	}{
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 1024},
+		"cccccccccccccccccccccccccccccccc": {"dddddddddddddddddddddddddddddddd", 2048},
+	})
+	reader, err := blte.NewReader(buildCascTestBLTE(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wanted, _ := hexDecode("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	if err := c.parseEncodingReaderSelected(reader, map[string]struct{}{string(wanted): {}}, 2); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.EncodingEntries) != 1 || c.EncodingEntries["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"].Size != 1024 {
+		t.Fatalf("encoding entries = %#v", c.EncodingEntries)
+	}
+}
+
+func TestParseRootSelectedOnlyMaterializesRequestedIDs(t *testing.T) {
+	raw := make([]byte, 4+8+3*4+3*24)
+	pos := 0
+	binary.LittleEndian.PutUint32(raw[pos:], 3)
+	pos += 4
+	binary.LittleEndian.PutUint32(raw[pos:], 0)
+	pos += 4
+	binary.LittleEndian.PutUint32(raw[pos:], uint32(LocaleEnUS))
+	pos += 4
+	for _, delta := range []uint32{10, 9, 9} {
+		binary.LittleEndian.PutUint32(raw[pos:], delta)
+		pos += 4
+	}
+	for _, value := range []byte{0xaa, 0xbb, 0xcc} {
+		for i := 0; i < 16; i++ {
+			raw[pos+i] = value
+		}
+		pos += 24
+	}
+	c := NewCASCSource()
+	if _, err := c.parseRootSelected(raw, map[uint32]struct{}{20: {}}); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.RootEntries) != 1 || len(c.RootEntries[20]) != 1 {
+		t.Fatalf("root entries = %#v", c.RootEntries)
+	}
+	if got := c.RootEntries[20][0].ContentKey; got != "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" {
+		t.Fatalf("content key = %s", got)
+	}
+}
+
+func TestParseRootSelectedStreamingMatchesSliceParser(t *testing.T) {
+	raw := make([]byte, 4+8+3*4+3*24)
+	pos := 0
+	binary.LittleEndian.PutUint32(raw[pos:], 3)
+	pos += 4
+	binary.LittleEndian.PutUint32(raw[pos:], 0)
+	pos += 4
+	binary.LittleEndian.PutUint32(raw[pos:], uint32(LocaleEnUS))
+	pos += 4
+	for _, delta := range []uint32{10, 9, 9} {
+		binary.LittleEndian.PutUint32(raw[pos:], delta)
+		pos += 4
+	}
+	for _, value := range []byte{0xaa, 0xbb, 0xcc} {
+		for i := 0; i < 16; i++ {
+			raw[pos+i] = value
+		}
+		pos += 24
+	}
+
+	wanted := []uint32{20, 30}
+	streamed := NewCASCSource()
+	if _, err := streamed.ParseRootFileSelectedStreaming(buildCascTestBLTE(raw), wanted); err != nil {
+		t.Fatal(err)
+	}
+	buffered := NewCASCSource()
+	if _, err := buffered.parseRootSelected(raw, map[uint32]struct{}{20: {}, 30: {}}); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(streamed.RootEntries, buffered.RootEntries) || !reflect.DeepEqual(streamed.RootTypes, buffered.RootTypes) {
+		t.Fatalf("streamed entries=%#v types=%#v; buffered entries=%#v types=%#v", streamed.RootEntries, streamed.RootTypes, buffered.RootEntries, buffered.RootTypes)
+	}
+}
+
 func TestFileExists(t *testing.T) {
 	c := NewCASCSource()
 	c.RootEntries[100] = []RootEntry{{TypeIndex: 0, ContentKey: "aaaa"}}
@@ -171,6 +280,24 @@ func TestParseArchiveIndex(t *testing.T) {
 
 	if len(c.Archives) != 2 {
 		t.Fatalf("archives count = %d, want 2", len(c.Archives))
+	}
+}
+
+func TestParseArchiveIndexSelectedOnlyReturnsRequestedKeys(t *testing.T) {
+	data := make([]byte, 12+2*24)
+	for i := 0; i < 16; i++ {
+		data[i] = 0xaa
+		data[24+i] = 0xbb
+	}
+	binary.BigEndian.PutUint32(data[16:], 1024)
+	binary.BigEndian.PutUint32(data[20:], 32)
+	binary.BigEndian.PutUint32(data[40:], 2048)
+	binary.BigEndian.PutUint32(data[44:], 64)
+	binary.LittleEndian.PutUint32(data[len(data)-12:], 2)
+	wanted := map[string]struct{}{"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb": {}}
+	entries := ParseArchiveIndexEntriesSelected(data, "archive", wanted)
+	if len(entries) != 1 || entries["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"].Offset != 64 {
+		t.Fatalf("selected archive entries = %#v", entries)
 	}
 }
 

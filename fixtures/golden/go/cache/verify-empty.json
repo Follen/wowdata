@@ -1,0 +1,13 @@
+{
+  "name": "cache/verify-empty",
+  "command": "wowdata",
+  "args": [
+    "cache",
+    "verify"
+  ],
+  "comparison": "cache-state-v1",
+  "isolation": "fresh-home",
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"cache verify\",\n  \"data\": {\n    \"ok\": true,\n    \"manifests\": 0,\n    \"files\": 0,\n    \"missing\": [],\n    \"corrupt\": [],\n    \"errors\": []\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

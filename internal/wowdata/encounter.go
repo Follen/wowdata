@@ -90,15 +90,9 @@ func (es *EncounterService) loadFromDB2(encounterID uint32) {
 	if es.db2 == nil {
 		return
 	}
-	rows, err := es.db2.Rows("JournalEncounterSection", nil, nil, "", 0)
-	if err != nil {
-		return
-	}
+	rows := rowsByRelation(es.db2, "JournalEncounterSection", "JournalEncounterID", encounterID)
 	sections := make(map[uint32]*EncounterSection)
 	for _, row := range rows {
-		if rowUint32(row, "JournalEncounterID") != encounterID {
-			continue
-		}
 		id := rowUint32(row, "ID")
 		if id == 0 {
 			continue
@@ -128,6 +122,20 @@ func (es *EncounterService) loadFromDB2(encounterID uint32) {
 
 func (es *EncounterService) buildTree(root *EncounterSection) {
 	root.Children = nil
+	if root.FirstChildSectionID != 0 {
+		seen := make(map[uint32]bool)
+		for childID := root.FirstChildSectionID; childID != 0 && !seen[childID]; {
+			seen[childID] = true
+			child := es.sections[childID]
+			if child == nil {
+				break
+			}
+			root.Children = append(root.Children, child)
+			es.buildTree(child)
+			childID = child.NextSiblingSectionID
+		}
+		return
+	}
 	for _, sec := range es.sections {
 		if sec.ParentID == root.ID {
 			root.Children = append(root.Children, sec)
@@ -144,9 +152,19 @@ func (es *EncounterService) buildTree(root *EncounterSection) {
 
 func collectEncounterSpellIDs(sections []*EncounterSection) []uint32 {
 	out := make([]uint32, 0)
-	for _, sec := range sections {
-		out = append(out, sec.SpellIDs...)
-		out = append(out, collectEncounterSpellIDs(sec.Children)...)
+	seen := make(map[uint32]bool)
+	var visit func([]*EncounterSection)
+	visit = func(current []*EncounterSection) {
+		for _, sec := range current {
+			for _, spellID := range sec.SpellIDs {
+				if spellID != 0 && !seen[spellID] {
+					seen[spellID] = true
+					out = append(out, spellID)
+				}
+			}
+			visit(sec.Children)
+		}
 	}
+	visit(sections)
 	return out
 }

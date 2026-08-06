@@ -1,0 +1,65 @@
+{
+  "schema": "wowdata.integration-build-catalog.v1",
+  "discovery": {
+    "sourcePath": "${WOWDATA_GAME_DIR}/.build.info",
+    "sha256": "1325febb8778ca2a2684b31f0e793c398e0b85dbe02140b5a4309a9dc894aa2b"
+  },
+  "builds": [
+    {
+      "name": "retail-cn",
+      "region": "cn",
+      "product": "wow",
+      "build": "12.0.7.68974",
+      "locale": "zhCN",
+      "localPath": "${WOWDATA_GAME_DIR}"
+    },
+    {
+      "name": "classic-era-us",
+      "region": "us",
+      "product": "wow_classic_era",
+      "build": "1.15.9.69109",
+      "locale": "enUS",
+      "localPath": "${WOWDATA_GAME_DIR}"
+    },
+    {
+      "name": "retail-cn-local-12.0.7.68887",
+      "region": "cn",
+      "product": "wow",
+      "build": "12.0.7.68887",
+      "locale": "zhCN",
+      "localPath": "${WOWDATA_GAME_DIR}"
+    },
+    {
+      "name": "classic-cn-local-5.5.4.68806",
+      "region": "cn",
+      "product": "wow_classic",
+      "build": "5.5.4.68806",
+      "locale": "zhCN",
+      "localPath": "${WOWDATA_GAME_DIR}"
+    },
+    {
+      "name": "classic-titan-cn-local-3.80.2.68943",
+      "region": "cn",
+      "product": "wow_classic_titan",
+      "build": "3.80.2.68943",
+      "locale": "zhCN",
+      "localPath": "${WOWDATA_GAME_DIR}"
+    },
+    {
+      "name": "anniversary-cn-local-2.5.6.68941",
+      "region": "cn",
+      "product": "wow_anniversary",
+      "build": "2.5.6.68941",
+      "locale": "zhCN",
+      "localPath": "${WOWDATA_GAME_DIR}"
+    },
+    {
+      "name": "classic-era-cn-local-1.15.9.68940",
+      "region": "cn",
+      "product": "wow_classic_era",
+      "build": "1.15.9.68940",
+      "locale": "zhCN",
+      "localPath": "${WOWDATA_GAME_DIR}"
+    }
+  ]
+}

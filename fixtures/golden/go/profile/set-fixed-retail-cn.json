@@ -1,0 +1,24 @@
+{
+  "name": "profile/set-fixed-retail-cn",
+  "command": "wowdata",
+  "args": [
+    "profile",
+    "set",
+    "benchmark-profile",
+    "--source",
+    "remote",
+    "--region",
+    "cn",
+    "--product",
+    "wow",
+    "--build",
+    "12.0.7.68974",
+    "--locale",
+    "zhCN"
+  ],
+  "comparison": "profile-state-v1",
+  "isolation": "fresh-home",
+  "exitCode": 0,
+  "stdout": "{\n  \"ok\": true,\n  \"command\": \"profile set\",\n  \"data\": {\n    \"schema\": \"wowdata.profile.v1\",\n    \"name\": \"benchmark-profile\",\n    \"target\": {\n      \"source\": \"remote\",\n      \"region\": \"cn\",\n      \"product\": \"wow\",\n      \"build\": \"12.0.7.68974\",\n      \"locale\": \"zhCN\"\n    },\n    \"updatedAt\": \"2026-08-05T02:45:34Z\"\n  },\n  \"warnings\": []\n}\n",
+  "stderr": ""
+}

@@ -3,6 +3,8 @@
   "command": "wowdata",
   "args": [
     "--auto-warmup",
+    "--build",
+    "1.15.9.69109",
     "--source",
     "remote",
     "--region",
@@ -24,5 +26,5 @@
   ],
   "exitCode": 0,
   "stdout": "{\n  \"ok\": true,\n  \"command\": \"item models\",\n  \"data\": {\n    \"display\": {\n      \"ID\": 1542,\n      \"attachmentGeosetGroup\": [\n        0,\n        0,\n        0,\n        0,\n        0,\n        0\n      ],\n      \"geosetGroup\": [\n        0,\n        0,\n        0,\n        0,\n        0,\n        0\n      ],\n      \"models\": [\n        148132\n      ],\n      \"textures\": [\n        148134\n      ]\n    },\n    \"gender\": 0,\n    \"itemID\": 25,\n    \"raceID\": 1\n  },\n  \"warnings\": []\n}\n",
-  "stderr": ""
+  "stderr": "prepare target=remote/us/wow_classic_era/enUS build=1.15.9.69109\nprepare status=ready\n"
 }
