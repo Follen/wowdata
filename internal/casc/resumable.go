@@ -23,21 +23,33 @@ var errRangeIgnored = errors.New("server ignored byte range")
 const DefaultResumeTTL = 24 * time.Hour
 
 const (
+	defaultSmallObjectDirectThreshold = 512 << 10
+	defaultAdaptiveMediumObjectSize   = 8 << 20
+	defaultAdaptiveLargeObjectSize    = 32 << 20
+)
+
+const (
 	defaultResumeCheckpointChunks = 8
 	defaultResumeCheckpointPeriod = 250 * time.Millisecond
 )
 
 type ResumeOptions struct {
-	Workers        int
-	CacheRoot      string
-	MaxBytes       int64
-	ObjectMaxBytes int64
-	TTL            time.Duration
-	Budget         *CacheBudget
-	Scheduler      *resource.Scheduler
-	ChunkSize      int64
-	Context        context.Context
-	KeepPart       bool
+	Workers         int
+	CacheRoot       string
+	MaxBytes        int64
+	ObjectMaxBytes  int64
+	TTL             time.Duration
+	Budget          *CacheBudget
+	Scheduler       *resource.Scheduler
+	ChunkSize       int64
+	Context         context.Context
+	KeepPart        bool
+	Adaptive        bool
+	MergeRanges     bool
+	AssumeImmutable bool
+	// RangeURLs contains equivalent immutable data URLs. The first URL remains
+	// the identity/HEAD URL; range jobs may rotate across the candidates.
+	RangeURLs []string
 }
 
 type cacheQuotaState struct {
@@ -76,13 +88,80 @@ func IsCacheQuotaError(err error) bool {
 }
 
 type resumeState struct {
-	URL       string   `json:"url"`
-	Size      int64    `json:"size"`
-	ChunkSize int64    `json:"chunkSize"`
-	ETag      string   `json:"etag,omitempty"`
-	Modified  string   `json:"lastModified,omitempty"`
-	Complete  []bool   `json:"complete"`
-	Hashes    []string `json:"hashes,omitempty"`
+	URL          string   `json:"url"`
+	Size         int64    `json:"size"`
+	ChunkSize    int64    `json:"chunkSize"`
+	ETag         string   `json:"etag,omitempty"`
+	Modified     string   `json:"lastModified,omitempty"`
+	AcceptRanges string   `json:"acceptRanges,omitempty"`
+	Complete     []bool   `json:"complete"`
+	Hashes       []string `json:"hashes,omitempty"`
+}
+
+type resumeRangeJob struct {
+	start   int64
+	end     int64
+	indexes []int
+}
+
+func adaptiveResumeWorkers(requested int, size, chunkSize int64) int {
+	if requested < 1 {
+		requested = rangeWorkerCount
+	}
+	if size <= defaultAdaptiveMediumObjectSize {
+		return 1
+	}
+	if size <= defaultAdaptiveLargeObjectSize && requested > 2 {
+		return 2
+	}
+	return requested
+}
+
+// adaptiveResumeChunkSize keeps large fresh downloads on the CDN's faster
+// small-range path while leaving explicit/non-adaptive callers untouched.
+func adaptiveResumeChunkSize(chunkSize, size int64) int64 {
+	if chunkSize <= 0 {
+		chunkSize = int64(rangeChunkSize)
+	}
+	if size >= defaultAdaptiveLargeObjectSize && chunkSize > int64(rangeChunkSize) {
+		return int64(rangeChunkSize)
+	}
+	return chunkSize
+}
+
+func buildResumeJobs(state resumeState, size, chunkSize, mergeLimit int64) []resumeRangeJob {
+	jobs := make([]resumeRangeJob, 0)
+	for index := 0; index < len(state.Complete); {
+		if state.Complete[index] {
+			index++
+			continue
+		}
+		startIndex := index
+		endIndex := index
+		start := int64(index) * chunkSize
+		end := start + chunkSize
+		if end > size {
+			end = size
+		}
+		for endIndex+1 < len(state.Complete) && !state.Complete[endIndex+1] {
+			nextEnd := int64(endIndex+2) * chunkSize
+			if nextEnd > size {
+				nextEnd = size
+			}
+			if mergeLimit <= 0 || nextEnd-start > mergeLimit {
+				break
+			}
+			endIndex++
+			end = nextEnd
+		}
+		indexes := make([]int, 0, endIndex-startIndex+1)
+		for i := startIndex; i <= endIndex; i++ {
+			indexes = append(indexes, i)
+		}
+		jobs = append(jobs, resumeRangeJob{start: start, end: end - 1, indexes: indexes})
+		index = endIndex + 1
+	}
+	return jobs
 }
 
 // DownloadHTTPConcurrentResumable downloads a range-capable object into an
@@ -92,15 +171,11 @@ func DownloadHTTPConcurrentResumable(url, partPath, statePath string, workers in
 	return DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath, ResumeOptions{Workers: workers, TTL: DefaultResumeTTL})
 }
 
-func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string, opts ResumeOptions) ([]byte, error) {
-	started := time.Now()
-	ctx := opts.Context
+// DownloadHTTPFullObjectWithContext is a bounded full-object probe used by
+// calibration tooling and callers that explicitly choose non-resumable GET.
+func DownloadHTTPFullObjectWithContext(url string, ctx context.Context) ([]byte, error) {
 	if ctx == nil {
 		ctx = context.Background()
-	}
-	workers := opts.Workers
-	if workers <= 0 {
-		workers = rangeWorkerCount
 	}
 	head, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
 	if err != nil {
@@ -111,19 +186,70 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 		return nil, err
 	}
 	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK || resp.ContentLength <= 0 {
 		return nil, fmt.Errorf("HTTP %d head from %s", resp.StatusCode, url)
 	}
-	if resp.ContentLength <= 0 {
-		return nil, fmt.Errorf("remote object has no content length")
+	return downloadHTTPFull(ctx, url, resp.ContentLength)
+}
+
+func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string, opts ResumeOptions) ([]byte, error) {
+	started := time.Now()
+	ctx := opts.Context
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	size := resp.ContentLength
+	chunkSize := opts.ChunkSize
+	if chunkSize <= 0 {
+		chunkSize = int64(rangeChunkSize)
+	}
+	workers := opts.Workers
+	if workers <= 0 {
+		workers = rangeWorkerCount
+	}
+	state := loadResumeState(statePath)
+	stateExpired := opts.TTL > 0 && resumeStateExpired(statePath, opts.TTL)
+	if stateExpired {
+		_ = os.Remove(partPath)
+		_ = os.Remove(statePath)
+		state = resumeState{}
+	}
+	stateMatches := opts.AssumeImmutable && state.URL == url && state.Size > 0 && state.ChunkSize == chunkSize && state.AcceptRanges == "bytes" && len(state.Complete) > 0
+	if stateMatches {
+		if info, statErr := os.Stat(partPath); statErr != nil || info.Size() < state.Size {
+			stateMatches = false
+		}
+	}
+	var size int64
+	var etag, modified string
+	rangeSupported := false
+	if stateMatches {
+		size, etag, modified, rangeSupported = state.Size, state.ETag, state.Modified, true
+	} else {
+		head, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := httpClient.Do(head)
+		if err != nil {
+			return nil, err
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("HTTP %d head from %s", resp.StatusCode, url)
+		}
+		if resp.ContentLength <= 0 {
+			return nil, fmt.Errorf("remote object has no content length")
+		}
+		size = resp.ContentLength
+		etag = resp.Header.Get("ETag")
+		modified = resp.Header.Get("Last-Modified")
+		rangeSupported = supportsByteRanges(resp.Header.Get("Accept-Ranges"))
+	}
 	if opts.ObjectMaxBytes > 0 && size > opts.ObjectMaxBytes {
 		return nil, fmt.Errorf("remote object exceeds object byte limit: size=%d max=%d", size, opts.ObjectMaxBytes)
 	}
-	if opts.TTL > 0 && resumeStateExpired(statePath, opts.TTL) {
-		_ = os.Remove(partPath)
-		_ = os.Remove(statePath)
+	if opts.Adaptive {
+		chunkSize = adaptiveResumeChunkSize(chunkSize, size)
 	}
 	budget := opts.Budget
 	if budget == nil && opts.CacheRoot != "" && opts.MaxBytes > 0 {
@@ -132,23 +258,25 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 	if err := reserveResumeSpace(partPath, size, budget); err != nil {
 		return nil, err
 	}
-	if !supportsByteRanges(resp.Header.Get("Accept-Ranges")) {
+	if opts.Adaptive && size <= defaultSmallObjectDirectThreshold {
 		_ = os.Remove(statePath)
 		data, err := downloadHTTPFull(ctx, url, size)
 		return finishFullFallback(partPath, data, opts.KeepPart, err)
 	}
-	chunkSize := opts.ChunkSize
-	if chunkSize <= 0 {
-		chunkSize = int64(rangeChunkSize)
+	if !rangeSupported {
+		_ = os.Remove(statePath)
+		data, err := downloadHTTPFull(ctx, url, size)
+		return finishFullFallback(partPath, data, opts.KeepPart, err)
 	}
 	chunkCount := int((size + chunkSize - 1) / chunkSize)
-	state := loadResumeState(statePath)
-	etag := resp.Header.Get("ETag")
-	modified := resp.Header.Get("Last-Modified")
-	if state.URL != url || state.Size != size || state.ChunkSize != chunkSize || len(state.Complete) != chunkCount || state.ETag != etag || state.Modified != modified {
-		state = resumeState{URL: url, Size: size, ChunkSize: chunkSize, ETag: etag, Modified: modified, Complete: make([]bool, chunkCount), Hashes: make([]string, chunkCount)}
+	stateCompatible := state.URL == url && state.Size == size && state.ChunkSize == chunkSize && len(state.Complete) == chunkCount && state.ETag == etag && state.Modified == modified
+	if !stateCompatible {
+		state = resumeState{URL: url, Size: size, ChunkSize: chunkSize, ETag: etag, Modified: modified, AcceptRanges: "bytes", Complete: make([]bool, chunkCount), Hashes: make([]string, chunkCount)}
 	} else if len(state.Hashes) != chunkCount {
 		state.Hashes = make([]string, chunkCount)
+	}
+	if rangeSupported {
+		state.AcceptRanges = "bytes"
 	}
 	file, err := os.OpenFile(partPath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
@@ -175,11 +303,19 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 	var stateMu sync.Mutex
 	var firstErr error
 	var rangeIgnored bool
+	var rangeLengthMismatch bool
 	downloadedChunks := 0
 	downloadedBytes := int64(0)
 	dirtyChunks := 0
 	lastCheckpoint := time.Now()
-	jobs := make(chan int)
+	if opts.Adaptive {
+		workers = adaptiveResumeWorkers(workers, size, chunkSize)
+	}
+	mergeLimit := int64(0)
+	if opts.MergeRanges {
+		mergeLimit = chunkSize * 4
+	}
+	jobs := make(chan resumeRangeJob)
 	var wg sync.WaitGroup
 	if workers > chunkCount {
 		workers = chunkCount
@@ -191,20 +327,14 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for index := range jobs {
+			for job := range jobs {
 				stateMu.Lock()
-				done := state.Complete[index]
 				stop := rangeIgnored
 				stateMu.Unlock()
-				if done || stop {
+				if stop {
 					continue
 				}
-				start := int64(index) * chunkSize
-				end := start + chunkSize - 1
-				if end >= size {
-					end = size - 1
-				}
-				data, fetchErr := fetchResumeRange(ctx, url, start, end, opts.Scheduler)
+				data, fetchErr := fetchResumeRange(ctx, url, job.start, job.end, opts.Scheduler, opts.Adaptive, opts.RangeURLs)
 				if fetchErr != nil {
 					stateMu.Lock()
 					if errors.Is(fetchErr, errRangeIgnored) {
@@ -216,15 +346,29 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 					stateMu.Unlock()
 					continue
 				}
-				if int64(len(data)) != end-start+1 {
+				if int64(len(data)) != job.end-job.start+1 {
 					stateMu.Lock()
+					rangeLengthMismatch = true
 					if firstErr == nil {
-						firstErr = fmt.Errorf("range %d-%d returned %d bytes", start, end, len(data))
+						firstErr = fmt.Errorf("range %d-%d returned %d bytes", job.start, job.end, len(data))
 					}
 					stateMu.Unlock()
 					continue
 				}
-				if _, writeErr := file.WriteAt(data, start); writeErr != nil {
+				writeErr := error(nil)
+				for _, index := range job.indexes {
+					start := int64(index) * chunkSize
+					end := start + chunkSize
+					if end > size {
+						end = size
+					}
+					offset := start - job.start
+					if _, err := file.WriteAt(data[offset:offset+end-start], start); err != nil {
+						writeErr = err
+						break
+					}
+				}
+				if writeErr != nil {
 					stateMu.Lock()
 					if firstErr == nil {
 						firstErr = writeErr
@@ -233,11 +377,19 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 					continue
 				}
 				stateMu.Lock()
-				state.Complete[index] = true
-				state.Hashes[index] = hashBytes(data)
-				downloadedChunks++
+				for _, index := range job.indexes {
+					start := int64(index) * chunkSize
+					end := start + chunkSize
+					if end > size {
+						end = size
+					}
+					offset := start - job.start
+					state.Complete[index] = true
+					state.Hashes[index] = hashBytes(data[offset : offset+end-start])
+					downloadedChunks++
+					dirtyChunks++
+				}
 				downloadedBytes += int64(len(data))
-				dirtyChunks++
 				if downloadedChunks == 1 || dirtyChunks >= defaultResumeCheckpointChunks || time.Since(lastCheckpoint) >= defaultResumeCheckpointPeriod {
 					if checkpointErr := saveResumeState(statePath, state); checkpointErr != nil && firstErr == nil {
 						firstErr = checkpointErr
@@ -251,24 +403,19 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 		}()
 	}
 	queueCanceled := false
-	for index := 0; index < chunkCount; index++ {
-		stateMu.Lock()
-		done := state.Complete[index]
-		stateMu.Unlock()
-		if !done {
-			select {
-			case jobs <- index:
-			case <-ctx.Done():
-				stateMu.Lock()
-				if firstErr == nil {
-					firstErr = ctx.Err()
-				}
-				stateMu.Unlock()
-				queueCanceled = true
+	for _, job := range buildResumeJobs(state, size, chunkSize, mergeLimit) {
+		select {
+		case jobs <- job:
+		case <-ctx.Done():
+			stateMu.Lock()
+			if firstErr == nil {
+				firstErr = ctx.Err()
 			}
-			if queueCanceled {
-				break
-			}
+			stateMu.Unlock()
+			queueCanceled = true
+		}
+		if queueCanceled {
+			break
 		}
 	}
 	close(jobs)
@@ -280,7 +427,7 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 		}
 	}
 	stateMu.Unlock()
-	if rangeIgnored {
+	if rangeIgnored || rangeLengthMismatch {
 		if err := file.Close(); err != nil {
 			return nil, err
 		}
@@ -304,8 +451,8 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 	}
 	if opts.KeepPart {
 		if downloadProgressWriter != nil {
-			fmt.Fprintf(downloadProgressWriter, "download method=range-resume url=%s bytes=%d reusedBytes=%d downloadedBytes=%d reusedChunks=%d downloadedChunks=%d workers=%d duration=%s\n",
-				url, size, reusedBytes, downloadedBytes, reusedChunks, downloadedChunks, workers, time.Since(started).Round(time.Millisecond))
+			fmt.Fprintf(downloadProgressWriter, "download method=range-resume url=%s bytes=%d chunkSize=%d reusedBytes=%d downloadedBytes=%d reusedChunks=%d downloadedChunks=%d workers=%d duration=%s\n",
+				url, size, chunkSize, reusedBytes, downloadedBytes, reusedChunks, downloadedChunks, workers, time.Since(started).Round(time.Millisecond))
 		}
 		_ = os.Remove(statePath)
 		return nil, nil
@@ -318,8 +465,8 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 		return nil, fmt.Errorf("resumed object length mismatch: got %d want %d", len(data), size)
 	}
 	if downloadProgressWriter != nil {
-		fmt.Fprintf(downloadProgressWriter, "download method=range-resume url=%s bytes=%d reusedBytes=%d downloadedBytes=%d reusedChunks=%d downloadedChunks=%d workers=%d duration=%s\n",
-			url, size, reusedBytes, downloadedBytes, reusedChunks, downloadedChunks, workers, time.Since(started).Round(time.Millisecond))
+		fmt.Fprintf(downloadProgressWriter, "download method=range-resume url=%s bytes=%d chunkSize=%d reusedBytes=%d downloadedBytes=%d reusedChunks=%d downloadedChunks=%d workers=%d duration=%s\n",
+			url, size, chunkSize, reusedBytes, downloadedBytes, reusedChunks, downloadedChunks, workers, time.Since(started).Round(time.Millisecond))
 	}
 	_ = os.Remove(partPath)
 	_ = os.Remove(statePath)
@@ -489,20 +636,41 @@ func hashBytes(data []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func fetchResumeRange(ctx context.Context, url string, start, end int64, scheduler *resource.Scheduler) ([]byte, error) {
+func fetchResumeRange(ctx context.Context, url string, start, end int64, scheduler *resource.Scheduler, adaptive bool, rangeURLs []string) ([]byte, error) {
 	var lastErr error
+	client := httpClient
+	if adaptive {
+		client = adaptiveRangeHTTPClient
+	}
+	urls := make([]string, 0, len(rangeURLs)+1)
+	seen := make(map[string]struct{}, len(rangeURLs)+1)
+	for _, candidate := range append([]string{url}, rangeURLs...) {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		urls = append(urls, candidate)
+	}
+	if len(urls) == 0 {
+		urls = []string{url}
+	}
 	for attempt := 0; attempt < httpDownloadAttempts; attempt++ {
 		release, acquireErr := scheduler.Acquire(ctx, resource.LargeRangePool)
 		if acquireErr != nil {
 			return nil, acquireErr
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		candidate := urls[(int(start/int64(rangeChunkSize))+attempt)%len(urls)]
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, candidate, nil)
 		if err != nil {
 			release()
 			return nil, err
 		}
 		req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
-		resp, err := httpClient.Do(req)
+		resp, err := client.Do(req)
 		if err == nil {
 			if resp.StatusCode == http.StatusOK {
 				resp.Body.Close()

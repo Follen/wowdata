@@ -1,0 +1,29 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "casc-adaptive-download",
+    "sourceRevision": 9,
+    "contractHash": "435540e1acf5c41b6e7ddd32d4dc68aeec3f5c54555c1d43f2c24807c4b8eb3c",
+    "scopeHash": "b6c3724554a85b42fe783b09802bc2b77051e7e8a1b4b91f1592d48c44b24acc",
+    "snapshotHash": "333146ad1a8918d66ed815d4c77bba78350a192693f09f3e35fe29462954d0ae",
+    "artifactHash": "2f59d10b99fd39704b29d287d0608ab7d70907e785547041eeef0f613caf9880"
+  },
+  "acceptanceIds": [
+    "acceptance-058298df72d32a9b8b024449facca7f64f90d7db634c5d318db970c18217af40",
+    "acceptance-247641bffc855401293087f5d28a8c06281f663b1c9bed11f6a091542afa18c7"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-07T13:21:58.629Z",
+  "evidence": {
+    "steps": [
+      "复核受控 CDN/DBD benchmark 报告、下载策略参数、请求计数、wall-time 分位数、SHA-256 与公网预算"
+    ],
+    "observations": [
+      "report.json 与 verification.md 一致：4-worker 优化路径未劣于 baseline，输出 SHA-256 一致，探针低于 5 分钟；当前仍未达到单独的 50% 硬门禁，已由对应 acceptance 标记 failed。"
+    ]
+  },
+  "receiptHash": "072664543d199e1858ad919ba0a32d2efc0cc9184a64588d89927a235755900a"
+}

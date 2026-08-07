@@ -1,0 +1,30 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "casc-adaptive-download",
+    "sourceRevision": 11,
+    "contractHash": "435540e1acf5c41b6e7ddd32d4dc68aeec3f5c54555c1d43f2c24807c4b8eb3c",
+    "scopeHash": "459eee63b96a2b38761abf757577372f5d23bbf4ec70b5b4a9dcac18b35610c7",
+    "snapshotHash": "cafcd702d3b96b0d11427d5f203b915cceb4281f01ad122d17309fee5b25e3e3",
+    "artifactHash": "6e7e68913f7ac40612c57c87dac9239031ca23b0f9be602115986467f5b59cca"
+  },
+  "acceptanceIds": [
+    "acceptance-058298df72d32a9b8b024449facca7f64f90d7db634c5d318db970c18217af40",
+    "acceptance-247641bffc855401293087f5d28a8c06281f663b1c9bed11f6a091542afa18c7",
+    "acceptance-74677107f316b021cb781280a485c9835703d48d443856570a724116181da9bf"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-07T13:45:29.164Z",
+  "evidence": {
+    "steps": [
+      "复核最新 verification.md 与 casc-adaptive-live-20260807-postfix/report.json"
+    ],
+    "observations": [
+      "报告字段完整：strategy、workers、chunk size、requests、rangeRequests、failedRequests、connections、responseBytes、uniquePayloadBytes、duplicatePayloadBytes、P50/P95、peakWorkingSetBytes、输出 SHA-256、完整命令和 5 分钟预算均已记录；最新 16-worker 路径相对 baseline 未劣化且功能结果一致，但50%硬门禁由独立 acceptance 保持 failed。"
+    ]
+  },
+  "receiptHash": "25fb95b0d5fe869ed5b6d99f78aa3ec385da18bb2de33ef64d72a17bbee3c47f"
+}

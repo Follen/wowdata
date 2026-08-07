@@ -1,0 +1,101 @@
+{
+  "schema": "comet.native.implementation-scope.v2",
+  "contractHash": "99cd0fbc86ad0e111700dc1be2c5789283fa486ae6d554520598ea8317b68be5",
+  "baselineProjectionRef": "runtime/evidence/snapshots/c5ed36608a89c71d481063e10da39eb93f0ab456af4c405b8615f860b8f798f2.json",
+  "baselineProjectionHash": "c5ed36608a89c71d481063e10da39eb93f0ab456af4c405b8615f860b8f798f2",
+  "currentProjectionRef": "runtime/evidence/snapshots/8998aed625566182425dba287f418d2db20df3dd4529f7396a9f845ddf87f09c.json",
+  "currentProjectionHash": "8998aed625566182425dba287f418d2db20df3dd4529f7396a9f845ddf87f09c",
+  "complete": false,
+  "declaredArtifacts": [
+    {
+      "path": "internal/casc/resumable.go",
+      "kind": "file"
+    }
+  ],
+  "changes": [
+    {
+      "path": "internal/casc/adaptive_download_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "e4b01feeff76f67f2c109e0ecdd6042a772e22d20972188124b55849a8c4c5ca",
+        "size": 4248
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/remotesource.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1e1aab9dcf9484e9210db354f0b7495c0099594920f78ee332b2180124f7c569",
+        "size": 50122
+      },
+      "after": {
+        "hash": "9ee65ff053a9e50b0a73f1b8c8ceae95a97d3ae44c1ce76917b925bd77a07c0d",
+        "size": 48723
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/resumable.go",
+      "kind": "modified",
+      "before": {
+        "hash": "779e8ec4c4d85233bccfb274ddd2325d3deabe5c25410ba85be7e70735e037ef",
+        "size": 16293
+      },
+      "after": {
+        "hash": "90f9c0091a6333df8954a5491fcc38fbbdd41f240362361dca794a9dd326c070",
+        "size": 18775
+      },
+      "attributedTo": [
+        {
+          "path": "internal/casc/resumable.go",
+          "kind": "file"
+        }
+      ]
+    }
+  ],
+  "unattributed": [
+    {
+      "path": "internal/casc/adaptive_download_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "e4b01feeff76f67f2c109e0ecdd6042a772e22d20972188124b55849a8c4c5ca",
+        "size": 4248
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/remotesource.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1e1aab9dcf9484e9210db354f0b7495c0099594920f78ee332b2180124f7c569",
+        "size": 50122
+      },
+      "after": {
+        "hash": "9ee65ff053a9e50b0a73f1b8c8ceae95a97d3ae44c1ce76917b925bd77a07c0d",
+        "size": 48723
+      },
+      "attributedTo": []
+    }
+  ],
+  "unresolvedScopes": [
+    {
+      "id": "scope:99ca1d81dadad10964c197fba0d1b548fecf3ac665fa37a7a80aa82bb92c7886",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/casc/adaptive_download_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/casc/adaptive_download_test.go"
+    },
+    {
+      "id": "scope:360642974aa29441eff049482493bd65077acf3818207efc0c3e2902e66a7977",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/casc/remotesource.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/casc/remotesource.go"
+    }
+  ],
+  "noCodeReason": null,
+  "scopeHash": "87d089817251e225aee8e6c6b8d5d2632af07f5aeb6a37cbba7ad6abc31edb0f"
+}

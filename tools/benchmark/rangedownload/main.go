@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"wowdata/internal/casc"
@@ -18,14 +19,16 @@ import (
 )
 
 type result struct {
-	Schema    string `json:"schema"`
-	Bytes     int    `json:"bytes"`
-	SHA256    string `json:"sha256"`
-	Published bool   `json:"published"`
+	Schema              string `json:"schema"`
+	Bytes               int    `json:"bytes"`
+	SHA256              string `json:"sha256"`
+	Published           bool   `json:"published"`
+	PeakWorkingSetBytes uint64 `json:"peakWorkingSetBytes,omitempty"`
 }
 
 func main() {
 	var url string
+	var urls string
 	var output string
 	var workdir string
 	var expectedSHA256 string
@@ -33,7 +36,11 @@ func main() {
 	var chunkMiB int
 	var maxMiB int
 	var timeout time.Duration
+	var adaptive bool
+	var full bool
+	var merge bool
 	flag.StringVar(&url, "url", "", "range-capable object URL")
+	flag.StringVar(&urls, "urls", "", "comma-separated equivalent range URLs")
 	flag.StringVar(&output, "output", "", "atomic publication path")
 	flag.StringVar(&workdir, "workdir", "", "resume state directory")
 	flag.StringVar(&expectedSHA256, "sha256", "", "expected payload SHA-256")
@@ -41,6 +48,9 @@ func main() {
 	flag.IntVar(&chunkMiB, "chunk-mib", 4, "resume chunk size in MiB")
 	flag.IntVar(&maxMiB, "max-mib", 16, "reject objects larger than this before range download")
 	flag.DurationVar(&timeout, "timeout", 4*time.Minute+30*time.Second, "hard download and publication deadline")
+	flag.BoolVar(&adaptive, "adaptive", false, "use the production adaptive range strategy")
+	flag.BoolVar(&full, "full", false, "use one full GET after the metadata probe")
+	flag.BoolVar(&merge, "merge", true, "merge adjacent missing ranges when adaptive mode is enabled")
 	flag.Parse()
 
 	if url == "" || output == "" || workdir == "" || expectedSHA256 == "" {
@@ -63,14 +73,55 @@ func main() {
 	casc.ResetHTTPMetrics()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	_, err := casc.DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath, casc.ResumeOptions{
-		Workers: workers, TTL: casc.DefaultResumeTTL, Scheduler: scheduler,
-		ChunkSize: int64(chunkMiB) * resource.MiB, ObjectMaxBytes: int64(maxMiB) * resource.MiB, Context: ctx, KeepPart: true,
-	})
+	var peakWorkingSet atomic.Uint64
+	stopSampling := make(chan struct{})
+	samplingDone := make(chan struct{})
+	go func() {
+		defer close(samplingDone)
+		ticker := time.NewTicker(25 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				value := currentWorkingSetBytes()
+				for value > 0 {
+					old := peakWorkingSet.Load()
+					if value <= old || peakWorkingSet.CompareAndSwap(old, value) {
+						break
+					}
+				}
+			case <-stopSampling:
+				return
+			}
+		}
+	}()
+	var err error
+	if full {
+		var data []byte
+		data, err = casc.DownloadHTTPFullObjectWithContext(url, ctx)
+		if err == nil {
+			err = os.WriteFile(output, data, 0o644)
+		}
+	} else {
+		var rangeURLs []string
+		if urls != "" {
+			rangeURLs = strings.Split(urls, ",")
+		}
+		_, err = casc.DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath, casc.ResumeOptions{
+			Workers: workers, TTL: casc.DefaultResumeTTL, Scheduler: scheduler,
+			ChunkSize: int64(chunkMiB) * resource.MiB, ObjectMaxBytes: int64(maxMiB) * resource.MiB, Context: ctx, KeepPart: true,
+			Adaptive: adaptive, MergeRanges: adaptive && merge, AssumeImmutable: adaptive,
+			RangeURLs: rangeURLs,
+		})
+	}
 	if err != nil {
 		fatalf("download: %v", err)
 	}
-	part, err := os.Open(partPath)
+	readPath := partPath
+	if full {
+		readPath = output
+	}
+	part, err := os.Open(readPath)
 	if err != nil {
 		fatalf("open completed part: %v", err)
 	}
@@ -87,15 +138,19 @@ func main() {
 	if !strings.EqualFold(actualSHA256, expectedSHA256) {
 		fatalf("SHA-256 mismatch: got %s want %s", actualSHA256, expectedSHA256)
 	}
-	if err := publishPart(partPath, output); err != nil {
-		fatalf("publish: %v", err)
+	if !full {
+		if err := publishPart(partPath, output); err != nil {
+			fatalf("publish: %v", err)
+		}
 	}
+	close(stopSampling)
+	<-samplingDone
 
 	network := casc.SnapshotHTTPMetrics()
 	fmt.Fprintf(os.Stderr, "network metrics=%s\n", mustJSON(network))
 	response := result{
 		Schema: "wowdata.range-download-calibration.v1", Bytes: int(bytes),
-		SHA256: actualSHA256, Published: true,
+		SHA256: actualSHA256, Published: true, PeakWorkingSetBytes: peakWorkingSet.Load(),
 	}
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")

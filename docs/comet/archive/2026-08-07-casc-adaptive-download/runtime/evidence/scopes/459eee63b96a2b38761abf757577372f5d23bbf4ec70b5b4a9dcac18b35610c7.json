@@ -1,0 +1,276 @@
+{
+  "schema": "comet.native.implementation-scope.v2",
+  "contractHash": "435540e1acf5c41b6e7ddd32d4dc68aeec3f5c54555c1d43f2c24807c4b8eb3c",
+  "baselineProjectionRef": "runtime/evidence/snapshots/c5ed36608a89c71d481063e10da39eb93f0ab456af4c405b8615f860b8f798f2.json",
+  "baselineProjectionHash": "c5ed36608a89c71d481063e10da39eb93f0ab456af4c405b8615f860b8f798f2",
+  "currentProjectionRef": "runtime/evidence/snapshots/cafcd702d3b96b0d11427d5f203b915cceb4281f01ad122d17309fee5b25e3e3.json",
+  "currentProjectionHash": "cafcd702d3b96b0d11427d5f203b915cceb4281f01ad122d17309fee5b25e3e3",
+  "complete": true,
+  "declaredArtifacts": [
+    {
+      "path": "analyze/benchmark/casc-adaptive-live-20260807-postfix/report.json",
+      "kind": "file"
+    },
+    {
+      "path": "cmd/wowdata/main.go",
+      "kind": "file"
+    },
+    {
+      "path": "internal/casc/adaptive_download_test.go",
+      "kind": "file"
+    },
+    {
+      "path": "internal/casc/remotesource.go",
+      "kind": "file"
+    },
+    {
+      "path": "internal/casc/resumable.go",
+      "kind": "file"
+    },
+    {
+      "path": "internal/runtime/db2_loader.go",
+      "kind": "file"
+    },
+    {
+      "path": "internal/runtime/db2_loader_test.go",
+      "kind": "file"
+    },
+    {
+      "path": "internal/runtime/dbd_revision.go",
+      "kind": "file"
+    },
+    {
+      "path": "internal/runtime/dbd_revision_test.go",
+      "kind": "file"
+    },
+    {
+      "path": "tools/benchmark/rangedownload/main.go",
+      "kind": "file"
+    },
+    {
+      "path": "tools/benchmark/rangedownload/working_set_other.go",
+      "kind": "file"
+    },
+    {
+      "path": "tools/benchmark/rangedownload/working_set_windows.go",
+      "kind": "file"
+    },
+    {
+      "path": "tools/corpus/main.go",
+      "kind": "file"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cmd/wowdata/main.go",
+      "kind": "modified",
+      "before": {
+        "hash": "a747d78cc515f13a8d489ea5a2b25a5a0340d4c16ed1cfe71a5ce4dac5aaf91d",
+        "size": 42816
+      },
+      "after": {
+        "hash": "f51fed2bda76f9f9221004ab68dd7e1cb691e0bf1e742ff4e94fcadb1c301fab",
+        "size": 42807
+      },
+      "attributedTo": [
+        {
+          "path": "cmd/wowdata/main.go",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "internal/casc/adaptive_download_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "ce705c5c89fcc0ed3b5dc1941d9bac9d1d2e58b97e441a26bc7a4cab80e0f7eb",
+        "size": 6822
+      },
+      "attributedTo": [
+        {
+          "path": "internal/casc/adaptive_download_test.go",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "internal/casc/remotesource.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1e1aab9dcf9484e9210db354f0b7495c0099594920f78ee332b2180124f7c569",
+        "size": 50122
+      },
+      "after": {
+        "hash": "d18fb9f03adaa768381b79c60e4ab84c1e2b36339a557a8ea5350ff03a62688d",
+        "size": 49139
+      },
+      "attributedTo": [
+        {
+          "path": "internal/casc/remotesource.go",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "internal/casc/resumable.go",
+      "kind": "modified",
+      "before": {
+        "hash": "779e8ec4c4d85233bccfb274ddd2325d3deabe5c25410ba85be7e70735e037ef",
+        "size": 16293
+      },
+      "after": {
+        "hash": "4589119d1a3fda133d19e2e7761aee502a075102006b766329a964e4f92bd0bf",
+        "size": 20797
+      },
+      "attributedTo": [
+        {
+          "path": "internal/casc/resumable.go",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "internal/runtime/db2_loader.go",
+      "kind": "modified",
+      "before": {
+        "hash": "ede672b96ad413685008cda8d9f5d704b1d87569056c65447b015fa5b7c6fe66",
+        "size": 4576
+      },
+      "after": {
+        "hash": "d42468174994320e4b723850eee086b0b2ee2030e79bc786c30384867dfa14e4",
+        "size": 4998
+      },
+      "attributedTo": [
+        {
+          "path": "internal/runtime/db2_loader.go",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "internal/runtime/db2_loader_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "b4749463ad3c6a5444ddc3f9e31f84e123173999d623ad8c6f67511b75646627",
+        "size": 1301
+      },
+      "after": {
+        "hash": "0cce6e9a0ade0369f604494c76c400934a79fb246a0afa68a37a21c64f09b681",
+        "size": 2730
+      },
+      "attributedTo": [
+        {
+          "path": "internal/runtime/db2_loader_test.go",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "internal/runtime/dbd_revision.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1dcd64d2ffeff08d77f23e78b3c7b62521d0255da0f1bad2868e9d7134d4240e",
+        "size": 3231
+      },
+      "after": {
+        "hash": "55dd6759560f01d5de64e73d0eab43131fc16562933bbd4f436abec930cf1069",
+        "size": 3261
+      },
+      "attributedTo": [
+        {
+          "path": "internal/runtime/dbd_revision.go",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "internal/runtime/dbd_revision_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "defcf2a7916177dad779bfa77d389f71e70c104edcd125a39ad2f09ba2d90ad6",
+        "size": 1077
+      },
+      "after": {
+        "hash": "3b0b5d9896bbaa7b3b610e54b338f766e5d37c38a777f10dbf205b3d085224f9",
+        "size": 1513
+      },
+      "attributedTo": [
+        {
+          "path": "internal/runtime/dbd_revision_test.go",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "tools/benchmark/rangedownload/main.go",
+      "kind": "modified",
+      "before": {
+        "hash": "0afdc255dbeff14936e83d9646a6c15b7c14b87fdb4e62387799400ce9e5fbb8",
+        "size": 4153
+      },
+      "after": {
+        "hash": "b4275ae0dd4cf25b51c26755e47da8c9dc4b89ed0979561f9055b71b4ac9cdfc",
+        "size": 5590
+      },
+      "attributedTo": [
+        {
+          "path": "tools/benchmark/rangedownload/main.go",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "tools/benchmark/rangedownload/working_set_other.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "5187af5d16e100329af72b38ff812b3bd21598b5e7a7f699e1fee42d32985fc2",
+        "size": 85
+      },
+      "attributedTo": [
+        {
+          "path": "tools/benchmark/rangedownload/working_set_other.go",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "tools/benchmark/rangedownload/working_set_windows.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "81cd3a8c8448aefc22579d82097ca9253ea832c050b4628c2abef7d6bdc64352",
+        "size": 1034
+      },
+      "attributedTo": [
+        {
+          "path": "tools/benchmark/rangedownload/working_set_windows.go",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "tools/corpus/main.go",
+      "kind": "modified",
+      "before": {
+        "hash": "7e320e86aa7c2c8db73f06420a84352db42f476edcd9fa6daff77ae93b65b6f1",
+        "size": 30032
+      },
+      "after": {
+        "hash": "0340c6c46c8e5313d1e91383887016b47aee345243d379a8d4ccdd3943a4be42",
+        "size": 29171
+      },
+      "attributedTo": [
+        {
+          "path": "tools/corpus/main.go",
+          "kind": "file"
+        }
+      ]
+    }
+  ],
+  "unattributed": [],
+  "unresolvedScopes": [],
+  "noCodeReason": null,
+  "scopeHash": "459eee63b96a2b38761abf757577372f5d23bbf4ec70b5b4a9dcac18b35610c7"
+}

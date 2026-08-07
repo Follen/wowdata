@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "casc-adaptive-download",
+    "sourceRevision": 4,
+    "contractHash": "99cd0fbc86ad0e111700dc1be2c5789283fa486ae6d554520598ea8317b68be5",
+    "scopeHash": "f70039412f8baf7c7b27e55374d04fc59fe63a2a40b9837bcac593af32330412",
+    "snapshotHash": "8998aed625566182425dba287f418d2db20df3dd4529f7396a9f845ddf87f09c",
+    "artifactHash": "5ea360f0bf84cabe27ec632fa7b90a1487e7079f12f6126d273e4638922e68e5"
+  },
+  "acceptanceIds": [
+    "acceptance-4c07468806fe8c6e49ff2e3f2d0420e4fc377778a53d2c21abd0538da4a5a916"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-07T11:18:56.442Z",
+  "evidence": {
+    "steps": [
+      "本地 httptest adaptive fixture 与 Go 回归"
+    ],
+    "observations": [
+      "本地功能、请求计数、输出 SHA-256、全量测试与静态检查结果记录于 verification.md；未访问公网 CDN。"
+    ]
+  },
+  "receiptHash": "9ad57330c8022765096f9819a6adbcd08e0c48030d06b851c31f482443c7c3e1"
+}

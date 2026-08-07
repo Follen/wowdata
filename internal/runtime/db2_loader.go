@@ -54,36 +54,54 @@ func (l *DB2Loader) LoadTableWithStage(store *MemoryDB2Store, tableName string, 
 	if l.files == nil {
 		return fmt.Errorf("CASC file reader is not initialized")
 	}
-	var data []byte
-	var err error
 	fileStage := resource.StartStage("db2-file-read", resource.StageOptions{ParentID: parent, Wave: wave, Instance: tableName, DependsOn: []resource.StageDependency{resource.Dependency(parent, resource.StageRelationHard)}})
-	if stagedReader, ok := l.files.(stagedPartialFileDataReader); ok {
-		data, err = stagedReader.ReadFileDataPartialWithStage(fileDataID, fileStage)
-	} else if partialReader, ok := l.files.(PartialFileDataReader); ok {
-		data, err = partialReader.ReadFileDataPartial(fileDataID)
-	} else {
-		data, err = l.files.ReadFileData(fileDataID)
-	}
-	if err != nil {
-		resource.FinishStage(fileStage, err)
-		return err
-	}
-	resource.FinishStage(fileStage, nil)
 	if l.dbdSource == nil {
+		resource.FinishStage(fileStage, fmt.Errorf("DBD definition source is not initialized"))
 		return fmt.Errorf("DBD definition source is not initialized")
 	}
-	definitionStage := resource.StartStage("dbd-definition", resource.StageOptions{ParentID: parent, Wave: wave, Instance: tableName, DependsOn: []resource.StageDependency{resource.Dependency(fileStage, resource.StageRelationHard)}})
-	var rawDBD string
-	if stagedSource, ok := l.dbdSource.(stagedDBDDefinitionSource); ok {
-		rawDBD, err = stagedSource.DefinitionWithStage(tableName, definitionStage)
-	} else {
-		rawDBD, err = l.dbdSource.Definition(tableName)
+	definitionStage := resource.StartStage("dbd-definition", resource.StageOptions{ParentID: parent, Wave: wave, Instance: tableName, DependsOn: []resource.StageDependency{resource.Dependency(parent, resource.StageRelationHard)}})
+	type fileResult struct {
+		data []byte
+		err  error
 	}
-	if err != nil {
-		resource.FinishStage(definitionStage, err)
-		return err
+	type definitionResult struct {
+		raw string
+		err error
 	}
-	resource.FinishStage(definitionStage, nil)
+	fileCh := make(chan fileResult, 1)
+	definitionCh := make(chan definitionResult, 1)
+	go func() {
+		var result fileResult
+		if stagedReader, ok := l.files.(stagedPartialFileDataReader); ok {
+			result.data, result.err = stagedReader.ReadFileDataPartialWithStage(fileDataID, fileStage)
+		} else if partialReader, ok := l.files.(PartialFileDataReader); ok {
+			result.data, result.err = partialReader.ReadFileDataPartial(fileDataID)
+		} else {
+			result.data, result.err = l.files.ReadFileData(fileDataID)
+		}
+		fileCh <- result
+	}()
+	go func() {
+		var result definitionResult
+		if stagedSource, ok := l.dbdSource.(stagedDBDDefinitionSource); ok {
+			result.raw, result.err = stagedSource.DefinitionWithStage(tableName, definitionStage)
+		} else {
+			result.raw, result.err = l.dbdSource.Definition(tableName)
+		}
+		definitionCh <- result
+	}()
+	fileRead := <-fileCh
+	definitionRead := <-definitionCh
+	resource.FinishStage(fileStage, fileRead.err)
+	resource.FinishStage(definitionStage, definitionRead.err)
+	if fileRead.err != nil {
+		return fileRead.err
+	}
+	if definitionRead.err != nil {
+		return definitionRead.err
+	}
+	data := fileRead.data
+	rawDBD := definitionRead.raw
 	parseStage := resource.StartStage("dbd-parse-schema", resource.StageOptions{ParentID: parent, Wave: wave, Instance: tableName, DependsOn: []resource.StageDependency{resource.Dependency(definitionStage, resource.StageRelationHard)}})
 	parser, err := dbd.Parse(strings.NewReader(rawDBD))
 	if err != nil {
