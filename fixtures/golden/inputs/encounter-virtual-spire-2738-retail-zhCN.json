@@ -1,0 +1,1740 @@
+{
+  "ok": true,
+  "command": "encounter get",
+  "data": {
+    "journalEncounterID": 2738,
+    "sectionCount": 100,
+    "spellCount": 38,
+    "spellIds": [
+      1233602,
+      1233689,
+      1232467,
+      1255378,
+      1255368,
+      1242553,
+      1233865,
+      1233778,
+      1239279,
+      1233787,
+      1233470,
+      1243743,
+      1243753,
+      1261531,
+      1234564,
+      1243982,
+      1234569,
+      1235622,
+      1237251,
+      1261165,
+      1246918,
+      1246461,
+      1238206,
+      1237614,
+      1237729,
+      1237038,
+      1237837,
+      1237844,
+      1260000,
+      1238672,
+      1256787,
+      1245874,
+      1238843,
+      1239080,
+      1239089,
+      1232470,
+      1232784,
+      1238708
+    ],
+    "sections": [
+      {
+        "id": 32187,
+        "title": "综述",
+        "bodyText": "奥蕾莉亚·风行者在战斗开始时被来自虚空的不朽哨兵所牵制。她会周期性地使用虚空效果和|cFF2959D3|Hspell:1233602|h[银锋箭]|h|r攻击友方和敌方单位。\r\n\r\n当所有不朽哨兵被摧毁后，奥蕾莉亚会坠毁在平台上，并创建一个裂隙幻影，用|cFF2959D3|Hspell:1237837|h[虚空召唤]|h|r和|cFF2959D3|Hspell:1237614|h[游侠队长印记]|h|r攻击她的敌人。\r\n\r\n当裂隙幻影被粉碎时，奥蕾莉亚会对所有玩家释放她全部的虚空技能。",
+        "spellID": 0,
+        "iconFlags": 0,
+        "type": 3,
+        "difficultyMask": -1,
+        "iconCreatureDisplayInfoID": 0,
+        "orderIndex": 1,
+        "parentSectionID": 0,
+        "firstChildSectionID": 32188,
+        "nextSiblingSectionID": 32196,
+        "children": [
+          {
+            "id": 32188,
+            "title": "伤害输出者",
+            "bodyText": "$bullet;|cFF2959D3|Hspell:1233602|h[银锋箭]|h|r会移除被击中目标的任何虚空效果。\r\n$bullet;虚空小液滴在死亡时会通过|cFF2959D3|Hspell:1241520|h[腐化精华]|h|r溅射目标。\r\n$bullet;|cFF2959D3|Hspell:1239080|h[终末守护]|h|r会降低受到的治疗，直到目标远离箭矢。",
+            "spellID": 0,
+            "iconFlags": 2,
+            "type": 3,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 2,
+            "parentSectionID": 32187,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 32189
+          },
+          {
+            "id": 32189,
+            "title": "治疗者",
+            "bodyText": "$bullet;|cFF2959D3|Hspell:1233602|h[银锋箭]|h|r会移除被击中目标的任何虚空效果。\r\n$bullet;|cFF2959D3|Hspell:1233865|h[空无之冕]|h|r会吸收大量治疗，并在被驱散时转移给另一名玩家。\r\n$bullet;|cFF2959D3|Hspell:1239080|h[终末守护]|h|r会降低受到的治疗，直到目标远离箭矢。",
+            "spellID": 0,
+            "iconFlags": 4,
+            "type": 3,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 3,
+            "parentSectionID": 32187,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 33345
+          },
+          {
+            "id": 33345,
+            "title": "坦克",
+            "bodyText": "$bullet;当没有玩家在近战范围内时，不朽哨兵会使用|cFF2959D3|Hspell:1239279|h[回响黑暗]|h|r。\r\n$bullet;|cFF2959D3|Hspell:1237251|h[黑暗赋力]|h|r会影响一大片区域内的奥蕾莉亚的盟友。\r\n$bullet;|cFF2959D3|Hspell:1239080|h[终末守护]|h|r会降低受到的治疗，而|cFF2959D3|Hspell:1239089|h[重力坍缩]|h|r会使目标对物理攻击变得脆弱。",
+            "spellID": 0,
+            "iconFlags": 1,
+            "type": 3,
+            "difficultyMask": 0,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 4,
+            "parentSectionID": 32187,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 32190
+          },
+          {
+            "id": 32190,
+            "title": "坦克",
+            "bodyText": "$bullet;当没有玩家在近战范围内时，不朽哨兵会使用|cFF2959D3|Hspell:1233778|h[回响黑暗]|h|r。\r\n$bullet;|cFF2959D3|Hspell:1237251|h[黑暗赋力]|h|r会影响一大片区域内的奥蕾莉亚的盟友。\r\n$bullet;|cFF2959D3|Hspell:1239080|h[终末守护]|h|r会降低受到的治疗，而|cFF2959D3|Hspell:1239089|h[重力坍缩]|h|r会使目标对物理攻击变得脆弱。",
+            "spellID": 0,
+            "iconFlags": 1,
+            "type": 3,
+            "difficultyMask": 0,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 5,
+            "parentSectionID": 32187,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 0
+          }
+        ]
+      },
+      {
+        "id": 32196,
+        "title": "第一阶段：虚影尖塔",
+        "bodyText": "",
+        "spellID": 0,
+        "iconFlags": 0,
+        "type": 0,
+        "difficultyMask": 0,
+        "iconCreatureDisplayInfoID": 0,
+        "orderIndex": 6,
+        "parentSectionID": 0,
+        "firstChildSectionID": 32457,
+        "nextSiblingSectionID": 32454,
+        "children": [
+          {
+            "id": 32457,
+            "title": "银锋箭",
+            "bodyText": "",
+            "spellID": 1233602,
+            "iconFlags": 32,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 7,
+            "parentSectionID": 32196,
+            "firstChildSectionID": 32542,
+            "nextSiblingSectionID": 34029,
+            "children": [
+              {
+                "id": 32542,
+                "title": "第32部分",
+                "bodyText": "",
+                "spellID": 1233689,
+                "iconFlags": 4096,
+                "type": 2,
+                "difficultyMask": 0,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 8,
+                "parentSectionID": 32457,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 0,
+                "spellIDs": [
+                  1233689
+                ]
+              }
+            ],
+            "spellIDs": [
+              1233602
+            ]
+          },
+          {
+            "id": 34029,
+            "title": "第70部分",
+            "bodyText": "",
+            "spellID": 1232467,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 9,
+            "parentSectionID": 32196,
+            "firstChildSectionID": 34196,
+            "nextSiblingSectionID": 34007,
+            "children": [
+              {
+                "id": 34196,
+                "title": "第103部分",
+                "bodyText": "",
+                "spellID": 1255378,
+                "iconFlags": 0,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 10,
+                "parentSectionID": 34029,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 0,
+                "spellIDs": [
+                  1255378
+                ]
+              }
+            ],
+            "spellIDs": [
+              1232467
+            ]
+          },
+          {
+            "id": 34007,
+            "title": "虚空斥力",
+            "bodyText": "$[!15,16\r\n\r\n在史诗和英雄难度下，虚空斥力还会瞄准额外的玩家。$]",
+            "spellID": 1255368,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 11,
+            "parentSectionID": 32196,
+            "firstChildSectionID": 34008,
+            "nextSiblingSectionID": 32476,
+            "children": [
+              {
+                "id": 34008,
+                "title": "第47部分",
+                "bodyText": "",
+                "spellID": 1242553,
+                "iconFlags": 0,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 12,
+                "parentSectionID": 34007,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 0,
+                "spellIDs": [
+                  1242553
+                ]
+              }
+            ],
+            "spellIDs": [
+              1255368
+            ]
+          },
+          {
+            "id": 32476,
+            "title": "裂伤之触",
+            "bodyText": "",
+            "spellID": 1233865,
+            "iconFlags": 132,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 13,
+            "parentSectionID": 32196,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 33159,
+            "spellIDs": [
+              1233865
+            ]
+          },
+          {
+            "id": 33159,
+            "title": "不朽哨兵",
+            "bodyText": "不朽哨兵与其虚空传送门有着不可分割的联系，如果离开传送门超过$1243863s1码，不朽哨兵就会传送回来。",
+            "spellID": 0,
+            "iconFlags": 1,
+            "type": 0,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 14,
+            "parentSectionID": 32196,
+            "firstChildSectionID": 32458,
+            "nextSiblingSectionID": 32459,
+            "children": [
+              {
+                "id": 32458,
+                "title": "殁里乌姆",
+                "bodyText": "",
+                "spellID": 0,
+                "iconFlags": 0,
+                "type": 1,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 92689,
+                "orderIndex": 15,
+                "parentSectionID": 33159,
+                "firstChildSectionID": 33155,
+                "nextSiblingSectionID": 33152,
+                "children": [
+                  {
+                    "id": 33155,
+                    "title": "第33部分",
+                    "bodyText": "",
+                    "spellID": 1233778,
+                    "iconFlags": 8,
+                    "type": 2,
+                    "difficultyMask": 0,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 16,
+                    "parentSectionID": 32458,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 33156,
+                    "spellIDs": [
+                      1233778
+                    ]
+                  },
+                  {
+                    "id": 33156,
+                    "title": "第46部分",
+                    "bodyText": "",
+                    "spellID": 1239279,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": 0,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 17,
+                    "parentSectionID": 32458,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 32544,
+                    "spellIDs": [
+                      1239279
+                    ]
+                  },
+                  {
+                    "id": 32544,
+                    "title": "第34部分",
+                    "bodyText": "",
+                    "spellID": 1233787,
+                    "iconFlags": 1,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 18,
+                    "parentSectionID": 32458,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 33151,
+                    "spellIDs": [
+                      1233787
+                    ]
+                  },
+                  {
+                    "id": 33151,
+                    "title": "第29部分",
+                    "bodyText": "",
+                    "spellID": 1233470,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 19,
+                    "parentSectionID": 32458,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 0,
+                    "spellIDs": [
+                      1233470
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": 33152,
+                "title": "殆米阿尔",
+                "bodyText": "",
+                "spellID": 0,
+                "iconFlags": 0,
+                "type": 1,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 60651,
+                "orderIndex": 20,
+                "parentSectionID": 33159,
+                "firstChildSectionID": 32543,
+                "nextSiblingSectionID": 33153,
+                "children": [
+                  {
+                    "id": 32543,
+                    "title": "第33部分",
+                    "bodyText": "",
+                    "spellID": 1233778,
+                    "iconFlags": 8,
+                    "type": 2,
+                    "difficultyMask": 0,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 21,
+                    "parentSectionID": 33152,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 33157,
+                    "spellIDs": [
+                      1233778
+                    ]
+                  },
+                  {
+                    "id": 33157,
+                    "title": "第46部分",
+                    "bodyText": "",
+                    "spellID": 1239279,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": 0,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 22,
+                    "parentSectionID": 33152,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 33160,
+                    "spellIDs": [
+                      1239279
+                    ]
+                  },
+                  {
+                    "id": 33160,
+                    "title": "第58部分",
+                    "bodyText": "",
+                    "spellID": 1243743,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 23,
+                    "parentSectionID": 33152,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 32537,
+                    "spellIDs": [
+                      1243743
+                    ]
+                  },
+                  {
+                    "id": 32537,
+                    "title": "第29部分",
+                    "bodyText": "",
+                    "spellID": 1233470,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 24,
+                    "parentSectionID": 33152,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 0,
+                    "spellIDs": [
+                      1233470
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": 33153,
+                "title": "龌勒卢思",
+                "bodyText": "",
+                "spellID": 0,
+                "iconFlags": 0,
+                "type": 1,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 112807,
+                "orderIndex": 25,
+                "parentSectionID": 33159,
+                "firstChildSectionID": 33158,
+                "nextSiblingSectionID": 0,
+                "children": [
+                  {
+                    "id": 33158,
+                    "title": "第33部分",
+                    "bodyText": "",
+                    "spellID": 1233778,
+                    "iconFlags": 8,
+                    "type": 2,
+                    "difficultyMask": 0,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 26,
+                    "parentSectionID": 33153,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 32940,
+                    "spellIDs": [
+                      1233778
+                    ]
+                  },
+                  {
+                    "id": 32940,
+                    "title": "第46部分",
+                    "bodyText": "",
+                    "spellID": 1239279,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": 0,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 27,
+                    "parentSectionID": 33153,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 33162,
+                    "spellIDs": [
+                      1239279
+                    ]
+                  },
+                  {
+                    "id": 33162,
+                    "title": "第59部分",
+                    "bodyText": "",
+                    "spellID": 1243753,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 28,
+                    "parentSectionID": 33153,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 33154,
+                    "spellIDs": [
+                      1243753
+                    ]
+                  },
+                  {
+                    "id": 33154,
+                    "title": "第29部分",
+                    "bodyText": "",
+                    "spellID": 1233470,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 29,
+                    "parentSectionID": 33153,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 0,
+                    "spellIDs": [
+                      1233470
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": 32459,
+            "title": "虚空小液滴",
+            "bodyText": "",
+            "spellID": 0,
+            "iconFlags": 0,
+            "type": 1,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 94300,
+            "orderIndex": 30,
+            "parentSectionID": 32196,
+            "firstChildSectionID": 32539,
+            "nextSiblingSectionID": 0,
+            "children": [
+              {
+                "id": 32539,
+                "title": "第31部分",
+                "bodyText": "",
+                "spellID": 1261531,
+                "iconFlags": 128,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 31,
+                "parentSectionID": 32459,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 0,
+                "spellIDs": [
+                  1261531
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 32454,
+        "title": "阶段转换：碾压奇点",
+        "bodyText": "",
+        "spellID": 0,
+        "iconFlags": 0,
+        "type": 0,
+        "difficultyMask": 0,
+        "iconCreatureDisplayInfoID": 0,
+        "orderIndex": 32,
+        "parentSectionID": 0,
+        "firstChildSectionID": 33201,
+        "nextSiblingSectionID": 32455,
+        "children": [
+          {
+            "id": 33201,
+            "title": "银锋箭",
+            "bodyText": "",
+            "spellID": 1234564,
+            "iconFlags": 32,
+            "type": 2,
+            "difficultyMask": 0,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 33,
+            "parentSectionID": 32454,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 33202,
+            "spellIDs": [
+              1234564
+            ]
+          },
+          {
+            "id": 33202,
+            "title": "银锋箭",
+            "bodyText": "",
+            "spellID": 1243982,
+            "iconFlags": 40,
+            "type": 2,
+            "difficultyMask": 0,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 34,
+            "parentSectionID": 32454,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 33200,
+            "spellIDs": [
+              1243982
+            ]
+          },
+          {
+            "id": 33200,
+            "title": "星辰散射",
+            "bodyText": "",
+            "spellID": 1234569,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 35,
+            "parentSectionID": 32454,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 33203,
+            "spellIDs": [
+              1234569
+            ]
+          },
+          {
+            "id": 33203,
+            "title": "虚空爆发",
+            "bodyText": "",
+            "spellID": 1235622,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 36,
+            "parentSectionID": 32454,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 0,
+            "spellIDs": [
+              1235622
+            ]
+          }
+        ]
+      },
+      {
+        "id": 32455,
+        "title": "第二阶段：破碎裂隙",
+        "bodyText": "",
+        "spellID": 0,
+        "iconFlags": 0,
+        "type": 0,
+        "difficultyMask": 0,
+        "iconCreatureDisplayInfoID": 0,
+        "orderIndex": 37,
+        "parentSectionID": 0,
+        "firstChildSectionID": 32469,
+        "nextSiblingSectionID": 33091,
+        "children": [
+          {
+            "id": 32469,
+            "title": "裂隙幻影",
+            "bodyText": "奥蕾莉亚利用她的空间裂隙召唤一个虚空幻影来协助她。",
+            "spellID": 0,
+            "iconFlags": 1,
+            "type": 1,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 129430,
+            "orderIndex": 38,
+            "parentSectionID": 32455,
+            "firstChildSectionID": 32472,
+            "nextSiblingSectionID": 32916,
+            "children": [
+              {
+                "id": 32472,
+                "title": "永恒黑暗",
+                "bodyText": "",
+                "spellID": 1237251,
+                "iconFlags": 40,
+                "type": 2,
+                "difficultyMask": 0,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 39,
+                "parentSectionID": 32469,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 34218,
+                "spellIDs": [
+                  1237251
+                ]
+              },
+              {
+                "id": 34218,
+                "title": "第100部分",
+                "bodyText": "",
+                "spellID": 1261165,
+                "iconFlags": 32,
+                "type": 2,
+                "difficultyMask": 0,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 40,
+                "parentSectionID": 32469,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 33407,
+                "spellIDs": [
+                  1261165
+                ]
+              },
+              {
+                "id": 33407,
+                "title": "第67部分",
+                "bodyText": "",
+                "spellID": 1246918,
+                "iconFlags": 0,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 41,
+                "parentSectionID": 32469,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 32915,
+                "spellIDs": [
+                  1246918
+                ]
+              },
+              {
+                "id": 32915,
+                "title": "第40部分",
+                "bodyText": "",
+                "spellID": 1233865,
+                "iconFlags": 132,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 42,
+                "parentSectionID": 32469,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 33326,
+                "spellIDs": [
+                  1233865
+                ]
+              },
+              {
+                "id": 33326,
+                "title": "第65部分",
+                "bodyText": "",
+                "spellID": 1246461,
+                "iconFlags": 1,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 43,
+                "parentSectionID": 32469,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 0,
+                "spellIDs": [
+                  1246461
+                ]
+              }
+            ]
+          },
+          {
+            "id": 32916,
+            "title": "第41部分",
+            "bodyText": "",
+            "spellID": 1238206,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 44,
+            "parentSectionID": 32455,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 32464,
+            "spellIDs": [
+              1238206
+            ]
+          },
+          {
+            "id": 32464,
+            "title": "游侠将军印记",
+            "bodyText": "",
+            "spellID": 1237614,
+            "iconFlags": 32,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 45,
+            "parentSectionID": 32455,
+            "firstChildSectionID": 32465,
+            "nextSiblingSectionID": 34005,
+            "children": [
+              {
+                "id": 32465,
+                "title": "弹射箭",
+                "bodyText": "",
+                "spellID": 1237729,
+                "iconFlags": 0,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 46,
+                "parentSectionID": 32464,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 0,
+                "spellIDs": [
+                  1237729
+                ]
+              }
+            ],
+            "spellIDs": [
+              1237614
+            ]
+          },
+          {
+            "id": 34005,
+            "title": "第48部分",
+            "bodyText": "$[!15,16\r\n\r\n在史诗和英雄难度下，虚空斥力还会瞄准额外的玩家。$]",
+            "spellID": 1255368,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 47,
+            "parentSectionID": 32455,
+            "firstChildSectionID": 34006,
+            "nextSiblingSectionID": 32466,
+            "children": [
+              {
+                "id": 34006,
+                "title": "第48部分",
+                "bodyText": "",
+                "spellID": 1242553,
+                "iconFlags": 0,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 48,
+                "parentSectionID": 34005,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 0,
+                "spellIDs": [
+                  1242553
+                ]
+              }
+            ],
+            "spellIDs": [
+              1255368
+            ]
+          },
+          {
+            "id": 32466,
+            "title": "虚空追猎者钉刺",
+            "bodyText": "",
+            "spellID": 1237038,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 49,
+            "parentSectionID": 32455,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 34037,
+            "spellIDs": [
+              1237038
+            ]
+          },
+          {
+            "id": 34037,
+            "title": "虚空召唤",
+            "bodyText": "",
+            "spellID": 1237837,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": 0,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 50,
+            "parentSectionID": 32455,
+            "firstChildSectionID": 34038,
+            "nextSiblingSectionID": 32467,
+            "children": [
+              {
+                "id": 34038,
+                "title": "不死的空灵爪牙",
+                "bodyText": "",
+                "spellID": 0,
+                "iconFlags": 0,
+                "type": 1,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 76435,
+                "orderIndex": 51,
+                "parentSectionID": 34037,
+                "firstChildSectionID": 34039,
+                "nextSiblingSectionID": 0,
+                "children": [
+                  {
+                    "id": 34039,
+                    "title": "第38部分",
+                    "bodyText": "",
+                    "spellID": 1237844,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 52,
+                    "parentSectionID": 34038,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 34040,
+                    "spellIDs": [
+                      1237844
+                    ]
+                  },
+                  {
+                    "id": 34040,
+                    "title": "第39部分",
+                    "bodyText": "",
+                    "spellID": 1260000,
+                    "iconFlags": 64,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 53,
+                    "parentSectionID": 34038,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 34041,
+                    "spellIDs": [
+                      1260000
+                    ]
+                  },
+                  {
+                    "id": 34041,
+                    "title": "第42部分",
+                    "bodyText": "",
+                    "spellID": 1238672,
+                    "iconFlags": 16,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 54,
+                    "parentSectionID": 34038,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 0,
+                    "spellIDs": [
+                      1238672
+                    ]
+                  }
+                ]
+              }
+            ],
+            "spellIDs": [
+              1237837
+            ]
+          },
+          {
+            "id": 32467,
+            "title": "虚空召唤",
+            "bodyText": "",
+            "spellID": 1256787,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": 0,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 55,
+            "parentSectionID": 32455,
+            "firstChildSectionID": 32747,
+            "nextSiblingSectionID": 0,
+            "children": [
+              {
+                "id": 32747,
+                "title": "粉碎的空灵爪牙",
+                "bodyText": "",
+                "spellID": 0,
+                "iconFlags": 0,
+                "type": 1,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 76435,
+                "orderIndex": 56,
+                "parentSectionID": 32467,
+                "firstChildSectionID": 32749,
+                "nextSiblingSectionID": 0,
+                "children": [
+                  {
+                    "id": 32749,
+                    "title": "第39部分",
+                    "bodyText": "",
+                    "spellID": 1260000,
+                    "iconFlags": 64,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 57,
+                    "parentSectionID": 32747,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 0,
+                    "spellIDs": [
+                      1260000
+                    ]
+                  }
+                ]
+              }
+            ],
+            "spellIDs": [
+              1256787
+            ]
+          }
+        ]
+      },
+      {
+        "id": 33091,
+        "title": "阶段转换：碎裂奇点",
+        "bodyText": "",
+        "spellID": 0,
+        "iconFlags": 0,
+        "type": 0,
+        "difficultyMask": 0,
+        "iconCreatureDisplayInfoID": 0,
+        "orderIndex": 58,
+        "parentSectionID": 0,
+        "firstChildSectionID": 32463,
+        "nextSiblingSectionID": 32456,
+        "children": [
+          {
+            "id": 32463,
+            "title": "星辰散射",
+            "bodyText": "",
+            "spellID": 1234569,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 59,
+            "parentSectionID": 33091,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 33204,
+            "spellIDs": [
+              1234569
+            ]
+          },
+          {
+            "id": 33204,
+            "title": "银锋箭",
+            "bodyText": "",
+            "spellID": 1234564,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": 0,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 60,
+            "parentSectionID": 33091,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 32461,
+            "spellIDs": [
+              1234564
+            ]
+          },
+          {
+            "id": 32461,
+            "title": "银锋箭",
+            "bodyText": "",
+            "spellID": 1243982,
+            "iconFlags": 8,
+            "type": 2,
+            "difficultyMask": 0,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 61,
+            "parentSectionID": 33091,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 33302,
+            "spellIDs": [
+              1243982
+            ]
+          },
+          {
+            "id": 33302,
+            "title": "环绕物质",
+            "bodyText": "",
+            "spellID": 1245874,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 62,
+            "parentSectionID": 33091,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 0,
+            "spellIDs": [
+              1245874
+            ]
+          }
+        ]
+      },
+      {
+        "id": 32456,
+        "title": "第三阶段：终末之末",
+        "bodyText": "",
+        "spellID": 0,
+        "iconFlags": 0,
+        "type": 0,
+        "difficultyMask": 0,
+        "iconCreatureDisplayInfoID": 0,
+        "orderIndex": 63,
+        "parentSectionID": 0,
+        "firstChildSectionID": 32729,
+        "nextSiblingSectionID": 34077,
+        "children": [
+          {
+            "id": 32729,
+            "title": "噬灭宇宙",
+            "bodyText": "",
+            "spellID": 1238843,
+            "iconFlags": 16,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 64,
+            "parentSectionID": 32456,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 32474,
+            "spellIDs": [
+              1238843
+            ]
+          },
+          {
+            "id": 32474,
+            "title": "终末守护",
+            "bodyText": "",
+            "spellID": 1239080,
+            "iconFlags": 32,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 65,
+            "parentSectionID": 32456,
+            "firstChildSectionID": 32938,
+            "nextSiblingSectionID": 32475,
+            "children": [
+              {
+                "id": 32938,
+                "title": "第45部分",
+                "bodyText": "",
+                "spellID": 1239089,
+                "iconFlags": 0,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 66,
+                "parentSectionID": 32474,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 0,
+                "spellIDs": [
+                  1239089
+                ]
+              }
+            ],
+            "spellIDs": [
+              1239080
+            ]
+          },
+          {
+            "id": 32475,
+            "title": "空虚之握",
+            "bodyText": "",
+            "spellID": 1232470,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 67,
+            "parentSectionID": 32456,
+            "firstChildSectionID": 32538,
+            "nextSiblingSectionID": 32923,
+            "children": [
+              {
+                "id": 32538,
+                "title": "第30部分",
+                "bodyText": "",
+                "spellID": 1232784,
+                "iconFlags": 0,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 68,
+                "parentSectionID": 32475,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 0,
+                "spellIDs": [
+                  1232784
+                ]
+              }
+            ],
+            "spellIDs": [
+              1232470
+            ]
+          },
+          {
+            "id": 32923,
+            "title": "第44部分",
+            "bodyText": "",
+            "spellID": 1233865,
+            "iconFlags": 132,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 69,
+            "parentSectionID": 32456,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 32722,
+            "spellIDs": [
+              1233865
+            ]
+          },
+          {
+            "id": 32722,
+            "title": "第35部分",
+            "bodyText": "",
+            "spellID": 1237038,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 70,
+            "parentSectionID": 32456,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 32921,
+            "spellIDs": [
+              1237038
+            ]
+          },
+          {
+            "id": 32921,
+            "title": "第43部分",
+            "bodyText": "",
+            "spellID": 1238708,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 71,
+            "parentSectionID": 32456,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 0,
+            "spellIDs": [
+              1238708
+            ]
+          }
+        ]
+      },
+      {
+        "id": 34077,
+        "title": "第一阶段：虚影尖塔",
+        "bodyText": "",
+        "spellID": 0,
+        "iconFlags": 0,
+        "type": 0,
+        "difficultyMask": 0,
+        "iconCreatureDisplayInfoID": 0,
+        "orderIndex": 72,
+        "parentSectionID": 0,
+        "firstChildSectionID": 34080,
+        "nextSiblingSectionID": 34078,
+        "children": [
+          {
+            "id": 34080,
+            "title": "第78部分",
+            "bodyText": "",
+            "spellID": 1233602,
+            "iconFlags": 32,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 73,
+            "parentSectionID": 34077,
+            "firstChildSectionID": 34081,
+            "nextSiblingSectionID": 34082,
+            "children": [
+              {
+                "id": 34081,
+                "title": "第79部分",
+                "bodyText": "",
+                "spellID": 1233689,
+                "iconFlags": 4096,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 74,
+                "parentSectionID": 34080,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 0,
+                "spellIDs": [
+                  1233689
+                ]
+              }
+            ],
+            "spellIDs": [
+              1233602
+            ]
+          },
+          {
+            "id": 34082,
+            "title": "第80部分",
+            "bodyText": "",
+            "spellID": 1232467,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 75,
+            "parentSectionID": 34077,
+            "firstChildSectionID": 34197,
+            "nextSiblingSectionID": 34083,
+            "children": [
+              {
+                "id": 34197,
+                "title": "第104部分",
+                "bodyText": "",
+                "spellID": 1255378,
+                "iconFlags": 0,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 76,
+                "parentSectionID": 34082,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 0,
+                "spellIDs": [
+                  1255378
+                ]
+              }
+            ],
+            "spellIDs": [
+              1232467
+            ]
+          },
+          {
+            "id": 34083,
+            "title": "第81部分",
+            "bodyText": "$[!15,16\r\n\r\n在史诗和英雄难度下，虚空斥力还会瞄准额外的玩家。$]",
+            "spellID": 1255368,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 77,
+            "parentSectionID": 34077,
+            "firstChildSectionID": 34084,
+            "nextSiblingSectionID": 34085,
+            "children": [
+              {
+                "id": 34084,
+                "title": "第82部分",
+                "bodyText": "",
+                "spellID": 1242553,
+                "iconFlags": 0,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 78,
+                "parentSectionID": 34083,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 0,
+                "spellIDs": [
+                  1242553
+                ]
+              }
+            ],
+            "spellIDs": [
+              1255368
+            ]
+          },
+          {
+            "id": 34085,
+            "title": "第83部分",
+            "bodyText": "",
+            "spellID": 1233865,
+            "iconFlags": 132,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 79,
+            "parentSectionID": 34077,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 34086,
+            "spellIDs": [
+              1233865
+            ]
+          },
+          {
+            "id": 34086,
+            "title": "不朽哨兵",
+            "bodyText": "不朽哨兵与其虚空传送门有着不可分割的联系，如果离开传送门超过$1243863s1码，不朽哨兵就会传送回来。",
+            "spellID": 0,
+            "iconFlags": 0,
+            "type": 0,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 80,
+            "parentSectionID": 34077,
+            "firstChildSectionID": 34089,
+            "nextSiblingSectionID": 34087,
+            "children": [
+              {
+                "id": 34089,
+                "title": "殁里乌姆",
+                "bodyText": "",
+                "spellID": 0,
+                "iconFlags": 0,
+                "type": 1,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 92689,
+                "orderIndex": 81,
+                "parentSectionID": 34086,
+                "firstChildSectionID": 34090,
+                "nextSiblingSectionID": 34093,
+                "children": [
+                  {
+                    "id": 34090,
+                    "title": "第90部分",
+                    "bodyText": "",
+                    "spellID": 1233778,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 82,
+                    "parentSectionID": 34089,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 34091,
+                    "spellIDs": [
+                      1233778
+                    ]
+                  },
+                  {
+                    "id": 34091,
+                    "title": "第93部分",
+                    "bodyText": "",
+                    "spellID": 1233787,
+                    "iconFlags": 1,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 83,
+                    "parentSectionID": 34089,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 34092,
+                    "spellIDs": [
+                      1233787
+                    ]
+                  },
+                  {
+                    "id": 34092,
+                    "title": "第94部分",
+                    "bodyText": "",
+                    "spellID": 1233470,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 84,
+                    "parentSectionID": 34089,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 0,
+                    "spellIDs": [
+                      1233470
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": 34093,
+                "title": "殆米阿尔",
+                "bodyText": "",
+                "spellID": 0,
+                "iconFlags": 0,
+                "type": 1,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 60651,
+                "orderIndex": 85,
+                "parentSectionID": 34086,
+                "firstChildSectionID": 34094,
+                "nextSiblingSectionID": 34097,
+                "children": [
+                  {
+                    "id": 34094,
+                    "title": "第91部分",
+                    "bodyText": "",
+                    "spellID": 1233778,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 86,
+                    "parentSectionID": 34093,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 34095,
+                    "spellIDs": [
+                      1233778
+                    ]
+                  },
+                  {
+                    "id": 34095,
+                    "title": "第97部分",
+                    "bodyText": "",
+                    "spellID": 1243743,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 87,
+                    "parentSectionID": 34093,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 34096,
+                    "spellIDs": [
+                      1243743
+                    ]
+                  },
+                  {
+                    "id": 34096,
+                    "title": "第95部分",
+                    "bodyText": "",
+                    "spellID": 1233470,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 88,
+                    "parentSectionID": 34093,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 0,
+                    "spellIDs": [
+                      1233470
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": 34097,
+                "title": "龌勒卢思",
+                "bodyText": "",
+                "spellID": 0,
+                "iconFlags": 0,
+                "type": 1,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 112807,
+                "orderIndex": 89,
+                "parentSectionID": 34086,
+                "firstChildSectionID": 34098,
+                "nextSiblingSectionID": 0,
+                "children": [
+                  {
+                    "id": 34098,
+                    "title": "第92部分",
+                    "bodyText": "",
+                    "spellID": 1233778,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 90,
+                    "parentSectionID": 34097,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 34099,
+                    "spellIDs": [
+                      1233778
+                    ]
+                  },
+                  {
+                    "id": 34099,
+                    "title": "第98部分",
+                    "bodyText": "",
+                    "spellID": 1243753,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 91,
+                    "parentSectionID": 34097,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 34100,
+                    "spellIDs": [
+                      1243753
+                    ]
+                  },
+                  {
+                    "id": 34100,
+                    "title": "第96部分",
+                    "bodyText": "",
+                    "spellID": 1233470,
+                    "iconFlags": 0,
+                    "type": 2,
+                    "difficultyMask": -1,
+                    "iconCreatureDisplayInfoID": 0,
+                    "orderIndex": 92,
+                    "parentSectionID": 34097,
+                    "firstChildSectionID": 0,
+                    "nextSiblingSectionID": 0,
+                    "spellIDs": [
+                      1233470
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": 34087,
+            "title": "虚空小液滴",
+            "bodyText": "",
+            "spellID": 0,
+            "iconFlags": 0,
+            "type": 1,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 94300,
+            "orderIndex": 93,
+            "parentSectionID": 34077,
+            "firstChildSectionID": 34088,
+            "nextSiblingSectionID": 0,
+            "children": [
+              {
+                "id": 34088,
+                "title": "第86部分",
+                "bodyText": "",
+                "spellID": 1261531,
+                "iconFlags": 128,
+                "type": 2,
+                "difficultyMask": -1,
+                "iconCreatureDisplayInfoID": 0,
+                "orderIndex": 94,
+                "parentSectionID": 34087,
+                "firstChildSectionID": 0,
+                "nextSiblingSectionID": 0,
+                "spellIDs": [
+                  1261531
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 34078,
+        "title": "阶段转换：碾压奇点",
+        "bodyText": "",
+        "spellID": 0,
+        "iconFlags": 0,
+        "type": 0,
+        "difficultyMask": 0,
+        "iconCreatureDisplayInfoID": 0,
+        "orderIndex": 95,
+        "parentSectionID": 0,
+        "firstChildSectionID": 34102,
+        "nextSiblingSectionID": 34079,
+        "children": [
+          {
+            "id": 34102,
+            "title": "第100部分",
+            "bodyText": "",
+            "spellID": 1243982,
+            "iconFlags": 32,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 96,
+            "parentSectionID": 34078,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 34101,
+            "spellIDs": [
+              1243982
+            ]
+          },
+          {
+            "id": 34101,
+            "title": "第99部分",
+            "bodyText": "",
+            "spellID": 1234569,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 97,
+            "parentSectionID": 34078,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 34103,
+            "spellIDs": [
+              1234569
+            ]
+          },
+          {
+            "id": 34103,
+            "title": "第101部分",
+            "bodyText": "",
+            "spellID": 1235622,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 98,
+            "parentSectionID": 34078,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 34104,
+            "spellIDs": [
+              1235622
+            ]
+          },
+          {
+            "id": 34104,
+            "title": "第102部分",
+            "bodyText": "",
+            "spellID": 1245874,
+            "iconFlags": 0,
+            "type": 2,
+            "difficultyMask": -1,
+            "iconCreatureDisplayInfoID": 0,
+            "orderIndex": 99,
+            "parentSectionID": 34078,
+            "firstChildSectionID": 0,
+            "nextSiblingSectionID": 0,
+            "spellIDs": [
+              1245874
+            ]
+          }
+        ]
+      },
+      {
+        "id": 34079,
+        "title": "第二阶段：终末之末",
+        "bodyText": "狂乱的宇宙能量化作失控的漩涡，决定了虚影尖塔顶端所有人的命运……",
+        "spellID": 0,
+        "iconFlags": 0,
+        "type": 0,
+        "difficultyMask": 0,
+        "iconCreatureDisplayInfoID": 0,
+        "orderIndex": 100,
+        "parentSectionID": 0,
+        "firstChildSectionID": 0,
+        "nextSiblingSectionID": 0
+      }
+    ]
+  },
+  "warnings": []
+}
