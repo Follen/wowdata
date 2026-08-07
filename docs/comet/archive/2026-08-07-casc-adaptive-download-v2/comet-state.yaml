@@ -1,0 +1,23 @@
+schema: comet.native.v3
+minimum_runtime_version: 3
+revision: 5
+verification_protocol: legacy-v1
+name: casc-adaptive-download-v2
+language: zh-CN
+phase: archive
+brief: brief.md
+approval: confirmed
+approved_contract_hash: c221d5ce18bf343b0bbe30610ad304e7246689f82c974f69155fbe20591c059f
+spec_changes:
+  - capability: casc-download
+    operation: create
+    source: specs/casc-download/spec.md
+    base_hash: null
+verification_result: pass
+verification_report: verification.md
+implementation_scope: runtime/evidence/scopes/fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29.json
+verification_evidence: runtime/evidence/verifications/ee503b8e205623535dfa426c947ceb014a4a3d1a151d72c6909daceffa41cb1d.json
+partial_allowance: null
+archived: true
+created_at: 2026-08-07
+run_id: 05200dca-7482-4d00-9555-13182781f631

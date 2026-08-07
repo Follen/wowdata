@@ -292,10 +292,14 @@ func (r *CASCRemote) GetDataFile(cdnFile string) ([]byte, error) {
 	url := r.Host + "data/" + cdnFile
 	if r.Cache != nil {
 		partPath, statePath := ResumeObjectPaths(r.Cache.ResumeRoot(), url)
+		chunkSize := r.RangeChunkSize
+		if chunkSize == defaultRangeChunkSize {
+			chunkSize = 0
+		}
 		if data, err := DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath, ResumeOptions{
 			Workers: r.ResourcePlan().LargeRangeWorkers, CacheRoot: r.CacheRoot, MaxBytes: r.CacheMaxBytes, TTL: DefaultResumeTTL, Budget: r.cacheBudget,
 			Scheduler: r.ResourceScheduler(),
-			ChunkSize: r.RangeChunkSize,
+			ChunkSize: chunkSize, Adaptive: true, MergeRanges: true,
 		}); err == nil {
 			return data, nil
 		} else if IsCacheQuotaError(err) {

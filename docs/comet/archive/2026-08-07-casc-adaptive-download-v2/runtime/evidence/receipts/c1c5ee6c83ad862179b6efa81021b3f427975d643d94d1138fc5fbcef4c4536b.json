@@ -1,0 +1,30 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "casc-adaptive-download-v2",
+    "sourceRevision": 3,
+    "contractHash": "c221d5ce18bf343b0bbe30610ad304e7246689f82c974f69155fbe20591c059f",
+    "scopeHash": "fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29",
+    "snapshotHash": "c7215be28ce044f3d6a9d48dc237b20a442388497628c375ea5110bad9014e59",
+    "artifactHash": "6dd506dad6948df4e0a966221eaeb0ad4c91d901164a123bf1573eb7a902184f"
+  },
+  "acceptanceIds": [
+    "acceptance-323ed061a0e181b0048bed0b8139f8c57bc71b44bbceffd2d383ed91ddb8cc0f",
+    "acceptance-8bbe9325b98a420e0507380d4b1314d3dfc2c3af2370d74d426b8cc373875c2c",
+    "acceptance-c52e1185db5d4dcedb419bd7ddf1c6457d2460218fb029d62ad4023940ac3f33"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-07T11:49:44.794Z",
+  "evidence": {
+    "steps": [
+      "Review the completed local benchmark and validated resume-state run."
+    ],
+    "observations": [
+      "Baseline and optimized output SHA-256 are identical. The measured P50 improvement formula yields 56.15%. A valid resume identity reuses the completed state without a duplicate HEAD; missing identity validators retain HEAD."
+    ]
+  },
+  "receiptHash": "c1c5ee6c83ad862179b6efa81021b3f427975d643d94d1138fc5fbcef4c4536b"
+}
