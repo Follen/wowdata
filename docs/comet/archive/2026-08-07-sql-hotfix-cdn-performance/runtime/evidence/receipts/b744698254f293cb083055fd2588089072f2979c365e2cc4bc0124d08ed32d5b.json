@@ -1,0 +1,34 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-hotfix-cdn-performance",
+    "sourceRevision": 5,
+    "contractHash": "5d4f8eabb427935d8aab490526d4fa979819fb830f78d123daf91b3b8e6326db",
+    "scopeHash": "ed49fde7aeec9694ef30fc24751f7df0dff7cab68294777ab5761ca26ec2f97d",
+    "snapshotHash": "5a4cdb8c87752dd6d9fc767682f38041e188f0e99b7050bd710820ae3b8d4e38",
+    "artifactHash": "2f9cfb6a241ad68791730fabce2d8163154ae0cdf83dcaff5c8cf6eaa222e482"
+  },
+  "acceptanceIds": [
+    "acceptance-30e3bc8263186530b33ec48c4e02d71a1b51cfde2e3c220c9bda62f6a687a967",
+    "acceptance-8f409e6f00eb5ba112d9db54ce2e0f63306ae4fac0c120d1a28fdd4efd3931c2",
+    "acceptance-9904a768cd3c1031e77dd96b2e6a4a4bfd80d01d8b99bca2fb0be26662e8a85d",
+    "acceptance-caad24d1a3baf19cd6341c49b34f3954e3cb0f8199f882a17537ef9797d0e835",
+    "acceptance-dc4552154990df3e306825078ac1399723745a215c2a08d3e9060fece8eba81d",
+    "acceptance-de9cdc580ae90849b15f6c4fff2d4bb9a75154989c643cac87428fa93c9008bc",
+    "acceptance-f1f2f99405ca1870e0130130b7822e0221f62e3ae8fd911610b2b0bfa73952bc"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-07T07:36:43.131Z",
+  "evidence": {
+    "steps": [
+      "审阅本地 SQL 11-case、物理算子和旧命令 baseline/candidate 报告"
+    ],
+    "observations": [
+      "baseline aa0fd3c；SQL 11 类全本地且 network_calls=0。top-k P50 5.789→2.614ms，hash-join 12.560→4.431ms；CLI 总体 P50 319.553→319.798ms，固定启动/DB2装载成本单列。10/11 hash 等价，selective-scan 是 WHERE-before-LIMIT 正确性修复；旧命令 7 个 hash 等价，db2-search 与 decor-list 差异均由定向测试锁定。报告：analyze/sql-hotfix-cdn-performance/candidate/sql-physical-comparison-final.json、sql-performance-comparison-final.json、sql-local-functional-final.json、local-legacy-command-matrix-final.json。"
+    ]
+  },
+  "receiptHash": "b744698254f293cb083055fd2588089072f2979c365e2cc4bc0124d08ed32d5b"
+}

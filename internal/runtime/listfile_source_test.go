@@ -244,9 +244,9 @@ func TestHTTPListfileSourceBinaryComponentUsesRangeChunksForLargeFile(t *testing
 func serveRangeBody(t *testing.T, w http.ResponseWriter, r *http.Request, body []byte) {
 	t.Helper()
 	w.Header().Set("Accept-Ranges", "bytes")
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
 	rangeHeader := r.Header.Get("Range")
 	if rangeHeader == "" {
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(body)
 		return
@@ -258,6 +258,7 @@ func serveRangeBody(t *testing.T, w http.ResponseWriter, r *http.Request, body [
 	if end >= len(body) {
 		end = len(body) - 1
 	}
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", end-start+1))
 	w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(body)))
 	w.WriteHeader(http.StatusPartialContent)
 	_, _ = w.Write(body[start : end+1])

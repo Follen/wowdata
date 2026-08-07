@@ -38,12 +38,19 @@ func TestDecorGetByModel(t *testing.T) {
 
 func TestDecorListAll(t *testing.T) {
 	svc := NewDecorService()
-	svc.AddItem(DecorItem{ID: 1})
-	svc.AddItem(DecorItem{ID: 2})
+	svc.AddItem(DecorItem{ID: 20, ItemID: 3, ModelFileDataID: 300})
+	svc.AddItem(DecorItem{ID: 1, ItemID: 2, ModelFileDataID: 200})
+	svc.AddItem(DecorItem{ID: 10, ItemID: 1, ModelFileDataID: 100})
 
 	all := svc.ListAll()
-	if len(all) != 2 {
+	if len(all) != 3 {
 		t.Fatalf("count = %d", len(all))
+	}
+	want := []uint32{1, 10, 20}
+	for i := range want {
+		if all[i].ID != want[i] {
+			t.Fatalf("ids = [%d %d %d], want %v", all[0].ID, all[1].ID, all[2].ID, want)
+		}
 	}
 }
 

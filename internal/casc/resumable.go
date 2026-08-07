@@ -28,13 +28,16 @@ const (
 )
 
 type ResumeOptions struct {
-	Workers   int
-	CacheRoot string
-	MaxBytes  int64
-	TTL       time.Duration
-	Budget    *CacheBudget
-	Scheduler *resource.Scheduler
-	ChunkSize int64
+	Workers        int
+	CacheRoot      string
+	MaxBytes       int64
+	ObjectMaxBytes int64
+	TTL            time.Duration
+	Budget         *CacheBudget
+	Scheduler      *resource.Scheduler
+	ChunkSize      int64
+	Context        context.Context
+	KeepPart       bool
 }
 
 type cacheQuotaState struct {
@@ -91,11 +94,15 @@ func DownloadHTTPConcurrentResumable(url, partPath, statePath string, workers in
 
 func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string, opts ResumeOptions) ([]byte, error) {
 	started := time.Now()
+	ctx := opts.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	workers := opts.Workers
 	if workers <= 0 {
 		workers = rangeWorkerCount
 	}
-	head, err := http.NewRequest("HEAD", url, nil)
+	head, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -111,6 +118,9 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 		return nil, fmt.Errorf("remote object has no content length")
 	}
 	size := resp.ContentLength
+	if opts.ObjectMaxBytes > 0 && size > opts.ObjectMaxBytes {
+		return nil, fmt.Errorf("remote object exceeds object byte limit: size=%d max=%d", size, opts.ObjectMaxBytes)
+	}
 	if opts.TTL > 0 && resumeStateExpired(statePath, opts.TTL) {
 		_ = os.Remove(partPath)
 		_ = os.Remove(statePath)
@@ -124,9 +134,8 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 	}
 	if !supportsByteRanges(resp.Header.Get("Accept-Ranges")) {
 		_ = os.Remove(statePath)
-		data, err := downloadHTTPFull(url, size)
-		_ = os.Remove(partPath)
-		return data, err
+		data, err := downloadHTTPFull(ctx, url, size)
+		return finishFullFallback(partPath, data, opts.KeepPart, err)
 	}
 	chunkSize := opts.ChunkSize
 	if chunkSize <= 0 {
@@ -195,7 +204,7 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 				if end >= size {
 					end = size - 1
 				}
-				data, fetchErr := fetchResumeRange(url, start, end, opts.Scheduler)
+				data, fetchErr := fetchResumeRange(ctx, url, start, end, opts.Scheduler)
 				if fetchErr != nil {
 					stateMu.Lock()
 					if errors.Is(fetchErr, errRangeIgnored) {
@@ -241,12 +250,25 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 			}
 		}()
 	}
+	queueCanceled := false
 	for index := 0; index < chunkCount; index++ {
 		stateMu.Lock()
 		done := state.Complete[index]
 		stateMu.Unlock()
 		if !done {
-			jobs <- index
+			select {
+			case jobs <- index:
+			case <-ctx.Done():
+				stateMu.Lock()
+				if firstErr == nil {
+					firstErr = ctx.Err()
+				}
+				stateMu.Unlock()
+				queueCanceled = true
+			}
+			if queueCanceled {
+				break
+			}
 		}
 	}
 	close(jobs)
@@ -263,9 +285,8 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 			return nil, err
 		}
 		_ = os.Remove(statePath)
-		data, err := downloadHTTPFull(url, size)
-		_ = os.Remove(partPath)
-		return data, err
+		data, err := downloadHTTPFull(ctx, url, size)
+		return finishFullFallback(partPath, data, opts.KeepPart, err)
 	}
 	if firstErr != nil {
 		return nil, firstErr
@@ -281,6 +302,14 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 	if err := file.Close(); err != nil {
 		return nil, err
 	}
+	if opts.KeepPart {
+		if downloadProgressWriter != nil {
+			fmt.Fprintf(downloadProgressWriter, "download method=range-resume url=%s bytes=%d reusedBytes=%d downloadedBytes=%d reusedChunks=%d downloadedChunks=%d workers=%d duration=%s\n",
+				url, size, reusedBytes, downloadedBytes, reusedChunks, downloadedChunks, workers, time.Since(started).Round(time.Millisecond))
+		}
+		_ = os.Remove(statePath)
+		return nil, nil
+	}
 	data, err := resource.ReadFile(partPath)
 	if err != nil {
 		return nil, err
@@ -294,6 +323,20 @@ func DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath string,
 	}
 	_ = os.Remove(partPath)
 	_ = os.Remove(statePath)
+	return data, nil
+}
+
+func finishFullFallback(partPath string, data []byte, keepPart bool, downloadErr error) ([]byte, error) {
+	if downloadErr != nil {
+		return nil, downloadErr
+	}
+	if keepPart {
+		if err := storage.AtomicWriteFile(partPath, data, 0o644); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
+	_ = os.Remove(partPath)
 	return data, nil
 }
 
@@ -391,8 +434,12 @@ func supportsByteRanges(value string) bool {
 	return strings.EqualFold(strings.TrimSpace(value), "bytes")
 }
 
-func downloadHTTPFull(url string, expectedSize int64) ([]byte, error) {
-	resp, err := httpClient.Get(url)
+func downloadHTTPFull(ctx context.Context, url string, expectedSize int64) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -442,14 +489,14 @@ func hashBytes(data []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func fetchResumeRange(url string, start, end int64, scheduler *resource.Scheduler) ([]byte, error) {
+func fetchResumeRange(ctx context.Context, url string, start, end int64, scheduler *resource.Scheduler) ([]byte, error) {
 	var lastErr error
 	for attempt := 0; attempt < httpDownloadAttempts; attempt++ {
-		release, acquireErr := scheduler.Acquire(context.Background(), resource.LargeRangePool)
+		release, acquireErr := scheduler.Acquire(ctx, resource.LargeRangePool)
 		if acquireErr != nil {
 			return nil, acquireErr
 		}
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
 			release()
 			return nil, err
@@ -478,7 +525,13 @@ func fetchResumeRange(url string, start, end int64, scheduler *resource.Schedule
 			lastErr = err
 		}
 		if attempt+1 < httpDownloadAttempts {
-			time.Sleep(time.Duration(attempt+1) * 100 * time.Millisecond)
+			timer := time.NewTimer(time.Duration(attempt+1) * 100 * time.Millisecond)
+			select {
+			case <-timer.C:
+			case <-ctx.Done():
+				timer.Stop()
+				return nil, ctx.Err()
+			}
 		}
 	}
 	return nil, lastErr

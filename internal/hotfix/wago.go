@@ -62,17 +62,16 @@ func (v *flexInt64) UnmarshalJSON(b []byte) error {
 }
 
 type wagoRecord struct {
-	ID         flexInt64    `json:"id"`
-	PushID     flexInt64    `json:"push_id"`
-	RecordID   flexInt64    `json:"record_id"`
-	Status     flexInt64    `json:"status"`
-	Build      stringNumber `json:"build"`
-	TableName  string       `json:"table_name"`
-	Data       any          `json:"data"`
-	CreatedAt  string       `json:"created_at"`
-	RegionID   flexInt64    `json:"region_id"`
-	Locale     string       `json:"locale"`
-	SearchText string       `json:"search_text"`
+	ID        flexInt64       `json:"id"`
+	PushID    flexInt64       `json:"push_id"`
+	RecordID  flexInt64       `json:"record_id"`
+	Status    flexInt64       `json:"status"`
+	Build     stringNumber    `json:"build"`
+	TableName string          `json:"table_name"`
+	Data      json.RawMessage `json:"data"`
+	CreatedAt string          `json:"created_at"`
+	RegionID  flexInt64       `json:"region_id"`
+	Locale    string          `json:"locale"`
 }
 type stringNumber string
 
@@ -106,26 +105,22 @@ func ParseWagoHTML(raw []byte, q Query) (Result, WagoPageMeta, error) {
 	if err != nil {
 		return Result{}, WagoPageMeta{}, err
 	}
-	var root map[string]json.RawMessage
+	var root struct {
+		Component string `json:"component"`
+		Props     struct {
+			Hotfixes *wagoPagination `json:"hotfixes"`
+		} `json:"props"`
+	}
 	if err = json.Unmarshal(embedded, &root); err != nil {
 		return Result{}, WagoPageMeta{}, errf("hotfix_protocol_changed", "data-page", "invalid JSON: %v", err)
 	}
-	var component string
-	if v, ok := root["component"]; !ok || json.Unmarshal(v, &component) != nil || component != "Hotfixes" {
+	if root.Component != "Hotfixes" {
 		return Result{}, WagoPageMeta{}, errf("hotfix_protocol_changed", "component", "expected Hotfixes")
 	}
-	var props map[string]json.RawMessage
-	if v, ok := root["props"]; !ok || json.Unmarshal(v, &props) != nil {
-		return Result{}, WagoPageMeta{}, errf("hotfix_protocol_changed", "props", "missing object")
-	}
-	v, ok := props["hotfixes"]
-	if !ok {
+	if root.Props.Hotfixes == nil {
 		return Result{}, WagoPageMeta{}, errf("hotfix_protocol_changed", "props.hotfixes", "missing pagination object")
 	}
-	var page wagoPagination
-	if err = json.Unmarshal(v, &page); err != nil {
-		return Result{}, WagoPageMeta{}, errf("hotfix_protocol_changed", "props.hotfixes", "%v", err)
-	}
+	page := root.Props.Hotfixes
 	if page.CurrentPage < 1 || page.LastPage < page.CurrentPage || page.PerPage < 1 {
 		return Result{}, WagoPageMeta{}, errf("hotfix_protocol_changed", "pagination", "invalid page metadata")
 	}
@@ -135,23 +130,20 @@ func ParseWagoHTML(raw []byte, q Query) (Result, WagoPageMeta, error) {
 		if wr.ID < 0 || wr.PushID < 0 || wr.RecordID < 0 || wr.RegionID < 0 || wr.Status < 0 || wr.Status > 255 {
 			return Result{}, WagoPageMeta{}, errf("hotfix_protocol_changed", "record", "invalid numeric field")
 		}
-		created := time.Time{}
-		if wr.CreatedAt != "" {
-			created, _ = time.Parse("2006-01-02 15:04:05", wr.CreatedAt)
-			if created.IsZero() {
-				created, _ = time.Parse(time.RFC3339, wr.CreatedAt)
-			}
-		}
-		records = append(records, Record{ID: uint64(wr.ID), Product: q.Product, PushID: int32(wr.PushID), RecordID: uint32(wr.RecordID), Status: uint8(wr.Status), Build: string(wr.Build), Region: uint32(wr.RegionID), Locale: wr.Locale, TableName: wr.TableName, CreatedAt: created, Data: wr.Data})
 		if wr.Status < 1 || wr.Status > 4 {
 			warnings = append(warnings, fmt.Sprintf("hotfix_unknown_status:%d", wr.Status))
 		}
+		if !wagoRecordMatches(wr, q) {
+			continue
+		}
+		created := parseWagoTime(wr.CreatedAt)
+		if q.From != nil && created.Before(*q.From) || q.To != nil && created.After(*q.To) {
+			continue
+		}
+		records = append(records, Record{ID: uint64(wr.ID), Product: q.Product, PushID: int32(wr.PushID), RecordID: uint32(wr.RecordID), Status: uint8(wr.Status), Build: string(wr.Build), Region: uint32(wr.RegionID), Locale: wr.Locale, TableName: wr.TableName, CreatedAt: created, Data: wr.Data})
 	}
-	filtered, err := Filter(records, q)
-	if err != nil {
-		return Result{}, WagoPageMeta{}, err
-	}
-	if len(filtered) == 0 && len(records) > 0 {
+	filtered := orderRecords(records, q)
+	if len(filtered) == 0 && len(page.Data) > 0 {
 		warnings = append(warnings, "wago_search_candidates_did_not_match_exact_filters")
 	}
 	sum := sha256.Sum256(raw)
@@ -160,7 +152,43 @@ func ParseWagoHTML(raw []byte, q Query) (Result, WagoPageMeta, error) {
 	return Result{Query: q, Source: "wago", Coverage: cov, Records: filtered, Warnings: warnings, Page: page.CurrentPage, LastPage: page.LastPage, Total: int64(page.Total)}, meta, nil
 }
 
+func wagoRecordMatches(wr wagoRecord, q Query) bool {
+	if q.Build != "" && !buildMatches(q.Build, string(wr.Build)) || q.Region != 0 && uint32(wr.RegionID) != q.Region || q.Locale != "" && !strings.EqualFold(wr.Locale, q.Locale) {
+		return false
+	}
+	if q.Table != "" && !strings.EqualFold(wr.TableName, q.Table) || q.TableHash != nil && *q.TableHash != 0 {
+		return false
+	}
+	return (q.RecordID == nil || uint32(wr.RecordID) == *q.RecordID) && (q.PushID == nil || int32(wr.PushID) == *q.PushID) && (q.Status == nil || uint8(wr.Status) == *q.Status)
+}
+
+func parseWagoTime(value string) time.Time {
+	if value == "" {
+		return time.Time{}
+	}
+	created, _ := time.Parse("2006-01-02 15:04:05", value)
+	if created.IsZero() {
+		created, _ = time.Parse(time.RFC3339, value)
+	}
+	return created
+}
+
 func findInertiaPage(raw []byte) ([]byte, error) {
+	// The production page carries a large head before div#app. Locate the
+	// common exact marker first, then still let the HTML tokenizer validate the
+	// tag and decode its attributes. Unusual quoting/order falls back to a full
+	// document scan.
+	if marker := bytes.Index(raw, []byte(`id="app"`)); marker >= 0 {
+		if div := bytes.LastIndex(raw[:marker], []byte("<div")); div >= 0 && marker-div <= 4096 {
+			if page, err := findInertiaPageTokenized(raw[div:]); err == nil {
+				return page, nil
+			}
+		}
+	}
+	return findInertiaPageTokenized(raw)
+}
+
+func findInertiaPageTokenized(raw []byte) ([]byte, error) {
 	z := xhtml.NewTokenizer(bytes.NewReader(raw))
 	for {
 		tt := z.Next()

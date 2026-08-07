@@ -63,7 +63,7 @@ func TestRunInterleavesAndBuildsSelection(t *testing.T) {
 		}
 		return path
 	}
-	r, err := run(config{CDNMetadataURL: server.URL, CDNRangeURL: server.URL, GitHubURL: server.URL, DBDURL: server.URL, MetadataTournament: write("m.json", metadata), LargeRangeTournament: write("l.json", largeRange), ChunkTournament: write("c.json", chunk), Rounds: 2, RangeMiB: 1, MultiConnections: 1, Timeout: time.Second})
+	r, err := run(config{CDNMetadataURL: server.URL, CDNRangeURL: server.URL, GitHubURL: server.URL, DBDURL: server.URL, MetadataTournament: write("m.json", metadata), LargeRangeTournament: write("l.json", largeRange), ChunkTournament: write("c.json", chunk), Rounds: 2, RangeMiB: 1, MultiConnections: 1, Timeout: time.Second, TotalTimeout: time.Minute, MaxRequests: 100, MaxResponseBytes: 128 << 20})
 	if err != nil {
 		t.Fatal(err)
 	}

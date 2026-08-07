@@ -1,0 +1,52 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-hotfix-cdn-performance",
+    "sourceRevision": 7,
+    "contractHash": "980590caf3546077a0b817fa77e80bcb494f07999596d8ebb84a7a8d81e19e56",
+    "scopeHash": "91bba1ef3d7f76bad518fce5ac08bb1bab69c63e518e7c02f0201a9bb42ba833",
+    "snapshotHash": "edeadb1abf03d0a6660d02484247ce3381d74d878ab05a9391d4d670f2604599",
+    "artifactHash": "2f9cfb6a241ad68791730fabce2d8163154ae0cdf83dcaff5c8cf6eaa222e482"
+  },
+  "acceptanceIds": [
+    "acceptance-1e7859fce96203d6c4bec2c1d8dc22f0782775bbaa061d0e1c7081e78df1857a",
+    "acceptance-2b03f85096b7c4379b12e21205654547c16faac34b0566b7e8673f2a2ae98533",
+    "acceptance-70c21d23162e501d81cd687c1d5911e38693d25d85c6cdd51b6bb8eda999ef2f",
+    "acceptance-b72849e0e84ecb3fbe199ceff4087bdaa838244316995a1722d6dfb43a7bed02"
+  ],
+  "actor": "native-runtime:command:cmd.exe",
+  "issuedAt": "2026-08-07T09:04:29.440Z",
+  "evidence": {
+    "executable": "cmd.exe",
+    "args": [
+      "/d",
+      "/c",
+      "analyze\\sql-hotfix-cdn-performance\\candidate\\verify-skill-pass.cmd"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 600000,
+    "startedAt": "2026-08-07T09:04:28.982Z",
+    "endedAt": "2026-08-07T09:04:29.440Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "aa0fd3c293560effcf37338444f54169904c5311",
+      "afterCommit": "aa0fd3c293560effcf37338444f54169904c5311"
+    },
+    "afterFence": {
+      "snapshotHash": "edeadb1abf03d0a6660d02484247ce3381d74d878ab05a9391d4d670f2604599",
+      "scopeHash": "91bba1ef3d7f76bad518fce5ac08bb1bab69c63e518e7c02f0201a9bb42ba833",
+      "matched": true
+    },
+    "outputHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "outputSummary": "(exit 0)",
+    "outputTruncated": false
+  },
+  "receiptHash": "772551524930309f49befb18e782058bce9014544e343a8255c992430601f979"
+}

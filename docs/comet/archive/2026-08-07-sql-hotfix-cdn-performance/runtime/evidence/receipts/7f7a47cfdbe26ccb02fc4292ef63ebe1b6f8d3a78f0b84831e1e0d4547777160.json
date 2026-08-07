@@ -1,0 +1,29 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-hotfix-cdn-performance",
+    "sourceRevision": 7,
+    "contractHash": "980590caf3546077a0b817fa77e80bcb494f07999596d8ebb84a7a8d81e19e56",
+    "scopeHash": "91bba1ef3d7f76bad518fce5ac08bb1bab69c63e518e7c02f0201a9bb42ba833",
+    "snapshotHash": "edeadb1abf03d0a6660d02484247ce3381d74d878ab05a9391d4d670f2604599",
+    "artifactHash": "2f9cfb6a241ad68791730fabce2d8163154ae0cdf83dcaff5c8cf6eaa222e482"
+  },
+  "acceptanceIds": [
+    "acceptance-62c1826ee248a6910cac5568725bad6f1c18dc2f175f01d2ffaa33ee088c7a80",
+    "acceptance-9b5261ab4df5c61a8bd83804da8ce3816f3c38290a62bf3a516ec62738659b6a"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-07T09:05:33.723Z",
+  "evidence": {
+    "steps": [
+      "审阅 Hotfix 域级与 CDN 本地 fixture 50% 门禁汇总"
+    ],
+    "observations": [
+      "Hotfix 代表矩阵采用 DBCache cold 104.933ms、DBCache warm 55.934ms、Wago offline 32.332ms 对 baseline 238.591ms、114.141ms、32.908ms 的三项 P50 中位数，114.141→55.934ms，降低51.00%。CDN 本地 fixture baseline/candidate P50 50.977→25.490ms，降低50.00%，请求2→1；唯一既有 live 不纳入性能门禁。"
+    ]
+  },
+  "receiptHash": "7f7a47cfdbe26ccb02fc4292ef63ebe1b6f8d3a78f0b84831e1e0d4547777160"
+}

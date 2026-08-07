@@ -1,0 +1,307 @@
+{
+  "schema": "comet.native.verification-evidence.v2",
+  "change": "sql-hotfix-cdn-performance",
+  "sourceRevision": 5,
+  "result": "fail",
+  "freshness": "complete",
+  "contractHash": "5d4f8eabb427935d8aab490526d4fa979819fb830f78d123daf91b3b8e6326db",
+  "acceptanceCriteriaHash": "78bf538039b342048ff70b5e8fa10ea71a7e9682a1236cfd19e6dc675a396750",
+  "implementationScopeRef": "runtime/evidence/scopes/ed49fde7aeec9694ef30fc24751f7df0dff7cab68294777ab5761ca26ec2f97d.json",
+  "implementationScopeHash": "ed49fde7aeec9694ef30fc24751f7df0dff7cab68294777ab5761ca26ec2f97d",
+  "reportRef": "verification.md",
+  "reportHash": "10b57bc00a46af01b72cd40fb62beaf665e1358b04bc278bb33403c2b46fa388",
+  "acceptanceTrace": {
+    "schema": "comet.native.acceptance-trace.v2",
+    "nativeRootRef": "docs/comet",
+    "criteriaHash": "78bf538039b342048ff70b5e8fa10ea71a7e9682a1236cfd19e6dc675a396750",
+    "total": 27,
+    "evidenced": 22,
+    "skipped": 5,
+    "entries": [
+      {
+        "acceptanceId": "acceptance-09508656219f2f76c7e680d07f50fca62cd5ff0e2e8ede4587f8cfc6639873ec",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/07650b6cadde2fbdc54ad8d585089d2659b3f82323b526640748543b287aa675.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-0aafaa972ee9fd4a61c3da3ee0a19e861621910df9c5d52c9edb58d2242cc7c3",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "Hotfix Wago offline P95 40.810ms→42.862ms，发生回退；Hotfix 代表矩阵整体 P50 也尚未达到 50% 门禁。"
+      },
+      {
+        "acceptanceId": "acceptance-0bc079665771bfc4e8209702c652872ae24de7bb17b2e3afe38b692f38ea2221",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "唯一 CDN live 使用 184,690,499-byte 对象，发生在 16MiB HEAD 保护加入前；没有追加受上限保护的 live 样本。"
+      },
+      {
+        "acceptanceId": "acceptance-0f96b4df6f61d02f922404d58690c47e69885791aa91adb8bbd6cb98c82a6499",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/07650b6cadde2fbdc54ad8d585089d2659b3f82323b526640748543b287aa675.json",
+          "runtime/evidence/receipts/161e90f9f0079c104e60aaf09f7fdf0cd61a23f8868b350447584a9fecab69cb.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-1e7859fce96203d6c4bec2c1d8dc22f0782775bbaa061d0e1c7081e78df1857a",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/d8b63f88f39f1204e0a20a3f527ce0b7e728d2c7b61988ed84f26b470a13dddc.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-2772ba131b7876a6ad34e3f4b251a8c55aab82bfd53770867bf80456a8768b1a",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/c6d005ecc5aff1a318e7d4b1723ff8a98168d5881219343e7efbd6ef75d38ee9.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-27aff872f6d89fa54357e9a14a56a338cb0a1b851468badd2211ca5517b17d9a",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/07650b6cadde2fbdc54ad8d585089d2659b3f82323b526640748543b287aa675.json",
+          "runtime/evidence/receipts/c6d005ecc5aff1a318e7d4b1723ff8a98168d5881219343e7efbd6ef75d38ee9.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-2b03f85096b7c4379b12e21205654547c16faac34b0566b7e8673f2a2ae98533",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/d8b63f88f39f1204e0a20a3f527ce0b7e728d2c7b61988ed84f26b470a13dddc.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-30e3bc8263186530b33ec48c4e02d71a1b51cfde2e3c220c9bda62f6a687a967",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/0e7ecf2ecb851bce0305da4949f1e4a42200cdd130f7c6ffe09b6d244dc6975d.json",
+          "runtime/evidence/receipts/b744698254f293cb083055fd2588089072f2979c365e2cc4bc0124d08ed32d5b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-39e740e2186579402d2fb48b2db9727a6ca55459ea11d19b07edd971a79651b1",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/07650b6cadde2fbdc54ad8d585089d2659b3f82323b526640748543b287aa675.json",
+          "runtime/evidence/receipts/161e90f9f0079c104e60aaf09f7fdf0cd61a23f8868b350447584a9fecab69cb.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-41eee0890acbf601d0b4786d056b4861764d54f2861d42408cda9247ce0d6854",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/07650b6cadde2fbdc54ad8d585089d2659b3f82323b526640748543b287aa675.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-4eb40bccd1806fc7be694a9e22703822eec2b7b0bfd56fac995936e25305b38e",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/07650b6cadde2fbdc54ad8d585089d2659b3f82323b526640748543b287aa675.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-62c1826ee248a6910cac5568725bad6f1c18dc2f175f01d2ffaa33ee088c7a80",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "Hotfix 三个代表 P50 的中位值由 97.612ms 降至 51.557ms，仅降低 47.18%，未达到至少 50%。"
+      },
+      {
+        "acceptanceId": "acceptance-631f0afbe93905c714e71e87887afc8e2c9859e5580b0523c6957d3a78f4eee6",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/07650b6cadde2fbdc54ad8d585089d2659b3f82323b526640748543b287aa675.json",
+          "runtime/evidence/receipts/161e90f9f0079c104e60aaf09f7fdf0cd61a23f8868b350447584a9fecab69cb.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-70c21d23162e501d81cd687c1d5911e38693d25d85c6cdd51b6bb8eda999ef2f",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/d8b63f88f39f1204e0a20a3f527ce0b7e728d2c7b61988ed84f26b470a13dddc.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-837f43e25377c0b160e24ee1aff7eecf466cc0061d4e8fe4e71400aff9d6da3f",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "新增 ObjectMaxBytes 已由本地 httptest 证明 HEAD 超限后 GET=0，但没有再次发起公网请求，故缺少受该上限保护的 live 观察。"
+      },
+      {
+        "acceptanceId": "acceptance-8f409e6f00eb5ba112d9db54ce2e0f63306ae4fac0c120d1a28fdd4efd3931c2",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/07650b6cadde2fbdc54ad8d585089d2659b3f82323b526640748543b287aa675.json",
+          "runtime/evidence/receipts/b744698254f293cb083055fd2588089072f2979c365e2cc4bc0124d08ed32d5b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-9904a768cd3c1031e77dd96b2e6a4a4bfd80d01d8b99bca2fb0be26662e8a85d",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/b744698254f293cb083055fd2588089072f2979c365e2cc4bc0124d08ed32d5b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-a7fc88ecf2bbfbb9ddfc3d221e1df51b19c3637cc453e251c211957487686814",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/07650b6cadde2fbdc54ad8d585089d2659b3f82323b526640748543b287aa675.json",
+          "runtime/evidence/receipts/c6d005ecc5aff1a318e7d4b1723ff8a98168d5881219343e7efbd6ef75d38ee9.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-b025497e49cadd32cc33f6d3c31c241a20783accad697f1f3e8ae23428fbebce",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/161e90f9f0079c104e60aaf09f7fdf0cd61a23f8868b350447584a9fecab69cb.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-b72849e0e84ecb3fbe199ceff4087bdaa838244316995a1722d6dfb43a7bed02",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/d8b63f88f39f1204e0a20a3f527ce0b7e728d2c7b61988ed84f26b470a13dddc.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-c4e05f45d8f3e40bb5e99a31118900c480ba38e100df4dee9b6d4b6fc8b698ac",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "Go/race/vet/fuzz/Skill/npm/本地矩阵已通过，但 Hotfix 50% 门禁未达标，且未执行受新对象上限保护的 CDN live。"
+      },
+      {
+        "acceptanceId": "acceptance-caad24d1a3baf19cd6341c49b34f3954e3cb0f8199f882a17537ef9797d0e835",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/b744698254f293cb083055fd2588089072f2979c365e2cc4bc0124d08ed32d5b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-dc4552154990df3e306825078ac1399723745a215c2a08d3e9060fece8eba81d",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/07650b6cadde2fbdc54ad8d585089d2659b3f82323b526640748543b287aa675.json",
+          "runtime/evidence/receipts/b744698254f293cb083055fd2588089072f2979c365e2cc4bc0124d08ed32d5b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-de9cdc580ae90849b15f6c4fff2d4bb9a75154989c643cac87428fa93c9008bc",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/07650b6cadde2fbdc54ad8d585089d2659b3f82323b526640748543b287aa675.json",
+          "runtime/evidence/receipts/b744698254f293cb083055fd2588089072f2979c365e2cc4bc0124d08ed32d5b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-f1f2f99405ca1870e0130130b7822e0221f62e3ae8fd911610b2b0bfa73952bc",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/07650b6cadde2fbdc54ad8d585089d2659b3f82323b526640748543b287aa675.json",
+          "runtime/evidence/receipts/b744698254f293cb083055fd2588089072f2979c365e2cc4bc0124d08ed32d5b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-f49188410396637abdf55a6019a080a1643a155a78f6bebb26d2f68afb2a576a",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/0e7ecf2ecb851bce0305da4949f1e4a42200cdd130f7c6ffe09b6d244dc6975d.json"
+        ],
+        "skippedReason": null
+      }
+    ],
+    "traceHash": "465c14e276be25b0b8eda04e207e93223c8ecb9950447539cd32932509ada59c"
+  },
+  "partialAllowanceRef": null,
+  "partialAllowanceHash": null,
+  "requiredReceiptRefs": [],
+  "receiptRefs": [
+    "runtime/evidence/receipts/07650b6cadde2fbdc54ad8d585089d2659b3f82323b526640748543b287aa675.json",
+    "runtime/evidence/receipts/0e7ecf2ecb851bce0305da4949f1e4a42200cdd130f7c6ffe09b6d244dc6975d.json",
+    "runtime/evidence/receipts/161e90f9f0079c104e60aaf09f7fdf0cd61a23f8868b350447584a9fecab69cb.json",
+    "runtime/evidence/receipts/b744698254f293cb083055fd2588089072f2979c365e2cc4bc0124d08ed32d5b.json",
+    "runtime/evidence/receipts/c6d005ecc5aff1a318e7d4b1723ff8a98168d5881219343e7efbd6ef75d38ee9.json",
+    "runtime/evidence/receipts/d8b63f88f39f1204e0a20a3f527ce0b7e728d2c7b61988ed84f26b470a13dddc.json"
+  ],
+  "createdAt": "2026-08-07T07:39:10.501Z",
+  "envelopeHash": "b8cd0002ccd35f4a543a6c5fde55c28fe4ba6601d59ffed4816196597d45e116"
+}

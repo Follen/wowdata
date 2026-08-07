@@ -2,12 +2,15 @@ package casc
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -303,6 +306,84 @@ func TestHTTPRangeLargeFileUsesConcurrentChunks(t *testing.T) {
 	}
 }
 
+func TestDownloadHTTPConcurrentUsesFirstRangeAsProbe(t *testing.T) {
+	payload := bytes.Repeat([]byte("probe"), (rangeChunkSize*3)/5+1)
+	var mu sync.Mutex
+	requests := make([]string, 0, 4)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		requests = append(requests, r.Method+" "+r.Header.Get("Range"))
+		mu.Unlock()
+		var start, end int
+		if _, err := fmt.Sscanf(r.Header.Get("Range"), "bytes=%d-%d", &start, &end); err != nil {
+			t.Fatalf("bad range header %q: %v", r.Header.Get("Range"), err)
+		}
+		if end >= len(payload) {
+			end = len(payload) - 1
+		}
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(payload)))
+		w.WriteHeader(http.StatusPartialContent)
+		_, _ = w.Write(payload[start : end+1])
+	}))
+	defer server.Close()
+
+	got, err := DownloadHTTPConcurrentWithWorkers(server.URL, 2)
+	if err != nil {
+		t.Fatalf("DownloadHTTPConcurrentWithWorkers: %v", err)
+	}
+	if !bytes.Equal(got, payload) {
+		t.Fatal("downloaded payload differs")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(requests) != 4 {
+		t.Fatalf("requests = %v, want exactly one request per payload chunk", requests)
+	}
+	for _, request := range requests {
+		if strings.HasPrefix(request, http.MethodHead+" ") {
+			t.Fatalf("unexpected serialized HEAD probe: %v", requests)
+		}
+	}
+}
+
+func TestDownloadHTTPConcurrentCompletesSmallObjectWithProbe(t *testing.T) {
+	payload := bytes.Repeat([]byte("small"), 1024)
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes 0-%d/%d", len(payload)-1, len(payload)))
+		w.WriteHeader(http.StatusPartialContent)
+		_, _ = w.Write(payload)
+	}))
+	defer server.Close()
+
+	got, err := DownloadHTTPConcurrent(server.URL)
+	if err != nil || !bytes.Equal(got, payload) {
+		t.Fatalf("download err=%v equal=%v", err, bytes.Equal(got, payload))
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("requests=%d, want 1", got)
+	}
+}
+
+func TestDownloadHTTPConcurrentUsesIgnoredRangeResponseAsFullBody(t *testing.T) {
+	payload := bytes.Repeat([]byte("full"), 1024)
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		_, _ = w.Write(payload)
+	}))
+	defer server.Close()
+
+	got, err := DownloadHTTPConcurrent(server.URL)
+	if err != nil || !bytes.Equal(got, payload) {
+		t.Fatalf("download err=%v equal=%v", err, bytes.Equal(got, payload))
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("requests=%d, want 1", got)
+	}
+}
+
 func TestResumableDownloadReusesCompletedChunks(t *testing.T) {
 	payload := bytes.Repeat([]byte("r"), rangeChunkSize*2+17)
 	var requested []string
@@ -412,6 +493,72 @@ func TestResumableDownloadUsesConfiguredChunkSize(t *testing.T) {
 	}
 }
 
+func TestResumableDownloadKeepPartAvoidsReadback(t *testing.T) {
+	payload := bytes.Repeat([]byte("keep-part"), (2<<20)/9+1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Accept-Ranges", "bytes")
+		if r.Method == http.MethodHead {
+			w.Header().Set("Content-Length", strconv.Itoa(len(payload)))
+			return
+		}
+		var start, end int
+		_, _ = fmt.Sscanf(r.Header.Get("Range"), "bytes=%d-%d", &start, &end)
+		if end >= len(payload) {
+			end = len(payload) - 1
+		}
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(payload)))
+		w.WriteHeader(http.StatusPartialContent)
+		_, _ = w.Write(payload[start : end+1])
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	part := filepath.Join(dir, "payload.part")
+	statePath := filepath.Join(dir, "payload.state.json")
+	data, err := DownloadHTTPConcurrentResumableWithOptions(server.URL, part, statePath, ResumeOptions{
+		Workers: 2, TTL: time.Hour, ChunkSize: 1 << 20, KeepPart: true,
+	})
+	if err != nil {
+		t.Fatalf("download: %v", err)
+	}
+	if data != nil {
+		t.Fatalf("KeepPart returned %d in-memory bytes, want nil", len(data))
+	}
+	got, err := os.ReadFile(part)
+	if err != nil || !bytes.Equal(got, payload) {
+		t.Fatalf("part err=%v equal=%v", err, bytes.Equal(got, payload))
+	}
+	if _, err := os.Stat(statePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("state should be removed after completed part: %v", err)
+	}
+}
+
+func TestResumableDownloadHonorsContextDeadline(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Accept-Ranges", "bytes")
+		if r.Method == http.MethodHead {
+			w.Header().Set("Content-Length", strconv.Itoa(2<<20))
+			return
+		}
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	dir := t.TempDir()
+	started := time.Now()
+	_, err := DownloadHTTPConcurrentResumableWithOptions(server.URL, filepath.Join(dir, "payload.part"), filepath.Join(dir, "payload.state.json"), ResumeOptions{
+		Workers: 2, TTL: time.Hour, ChunkSize: 1 << 20, Context: ctx,
+	})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("err=%v, want context deadline exceeded", err)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("cancellation took %s", elapsed)
+	}
+}
+
 func TestResumableDownloadRejectsQuotaBeforeGET(t *testing.T) {
 	payload := bytes.Repeat([]byte("q"), rangeChunkSize)
 	var gets atomic.Int32
@@ -440,6 +587,30 @@ func TestResumableDownloadRejectsQuotaBeforeGET(t *testing.T) {
 	}
 	if _, statErr := os.Stat(part); !os.IsNotExist(statErr) {
 		t.Fatalf("quota failure published reservation: %v", statErr)
+	}
+}
+
+func TestResumableDownloadRejectsObjectLimitBeforeGET(t *testing.T) {
+	var gets atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Accept-Ranges", "bytes")
+		w.Header().Set("Content-Length", "1048577")
+		if r.Method == http.MethodGet {
+			gets.Add(1)
+		}
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	_, err := DownloadHTTPConcurrentResumableWithOptions(server.URL,
+		filepath.Join(dir, "payload.part"), filepath.Join(dir, "payload.state.json"), ResumeOptions{
+			Workers: 2, ObjectMaxBytes: 1 << 20, TTL: time.Hour,
+		})
+	if err == nil || !strings.Contains(err.Error(), "object byte limit") {
+		t.Fatalf("error = %v, want object byte limit", err)
+	}
+	if got := gets.Load(); got != 0 {
+		t.Fatalf("GET requests = %d, want zero before object limit rejection", got)
 	}
 }
 

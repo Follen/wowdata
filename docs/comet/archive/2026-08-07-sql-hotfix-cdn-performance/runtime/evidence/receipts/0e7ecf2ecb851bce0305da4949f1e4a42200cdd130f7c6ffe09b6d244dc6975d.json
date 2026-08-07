@@ -1,0 +1,29 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-hotfix-cdn-performance",
+    "sourceRevision": 5,
+    "contractHash": "5d4f8eabb427935d8aab490526d4fa979819fb830f78d123daf91b3b8e6326db",
+    "scopeHash": "ed49fde7aeec9694ef30fc24751f7df0dff7cab68294777ab5761ca26ec2f97d",
+    "snapshotHash": "5a4cdb8c87752dd6d9fc767682f38041e188f0e99b7050bd710820ae3b8d4e38",
+    "artifactHash": "2f9cfb6a241ad68791730fabce2d8163154ae0cdf83dcaff5c8cf6eaa222e482"
+  },
+  "acceptanceIds": [
+    "acceptance-30e3bc8263186530b33ec48c4e02d71a1b51cfde2e3c220c9bda62f6a687a967",
+    "acceptance-f49188410396637abdf55a6019a080a1643a155a78f6bebb26d2f68afb2a576a"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-07T07:36:44.258Z",
+  "evidence": {
+    "steps": [
+      "审阅 Skill 路由与正式 Comet 文档的版本控制范围"
+    ],
+    "observations": [
+      "skill/wowdata/SKILL.md 已减薄并把 SQL/Hotfix/errors/commands 下沉 references；复杂静态 DB2 查询路由 wowdata sql，Hotfix 仅路由 wowdata hotfix query。docs/comet/changes/sql-hotfix-cdn-performance 下 brief/spec/verification 为正式交付物；.comet/current-change.json 等 Runtime 临时状态明确排除提交。"
+    ]
+  },
+  "receiptHash": "0e7ecf2ecb851bce0305da4949f1e4a42200cdd130f7c6ffe09b6d244dc6975d"
+}

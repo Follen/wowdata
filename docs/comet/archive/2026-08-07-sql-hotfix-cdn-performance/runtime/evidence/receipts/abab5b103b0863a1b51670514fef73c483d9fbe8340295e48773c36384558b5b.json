@@ -1,0 +1,31 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-hotfix-cdn-performance",
+    "sourceRevision": 7,
+    "contractHash": "980590caf3546077a0b817fa77e80bcb494f07999596d8ebb84a7a8d81e19e56",
+    "scopeHash": "91bba1ef3d7f76bad518fce5ac08bb1bab69c63e518e7c02f0201a9bb42ba833",
+    "snapshotHash": "edeadb1abf03d0a6660d02484247ce3381d74d878ab05a9391d4d670f2604599",
+    "artifactHash": "2f9cfb6a241ad68791730fabce2d8163154ae0cdf83dcaff5c8cf6eaa222e482"
+  },
+  "acceptanceIds": [
+    "acceptance-0aafaa972ee9fd4a61c3da3ee0a19e861621910df9c5d52c9edb58d2242cc7c3",
+    "acceptance-2772ba131b7876a6ad34e3f4b251a8c55aab82bfd53770867bf80456a8768b1a",
+    "acceptance-27aff872f6d89fa54357e9a14a56a338cb0a1b851468badd2211ca5517b17d9a",
+    "acceptance-a7fc88ecf2bbfbb9ddfc3d221e1df51b19c3637cc453e251c211957487686814"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-07T09:04:57.751Z",
+  "evidence": {
+    "steps": [
+      "审阅 Hotfix DBCache/sidecar/Wago offline 与性能报告"
+    ],
+    "observations": [
+      "DBCache cold 238.591→104.933ms、warm 114.141→55.934ms，分别降低56.02%和51.00%，结果 SHA 一致；Wago offline CLI P50 32.908→32.332ms，P95 34.521ms，fixture SHA 固定；整体三代表 P50 降51.00%，未接入 SQL provider。"
+    ]
+  },
+  "receiptHash": "abab5b103b0863a1b51670514fef73c483d9fbe8340295e48773c36384558b5b"
+}

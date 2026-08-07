@@ -45,7 +45,7 @@ func getRowsContext(ctx context.Context, reader RowReader, ids []uint32, fields 
 	return rows, ctx.Err()
 }
 
-func searchRowsContext(ctx context.Context, reader RowReader, field, query string, caseSensitive bool, limit int) ([]map[string]interface{}, error) {
+func searchRowsContext(ctx context.Context, reader RowReader, field, query string, caseSensitive bool, fields []string, limit int) ([]map[string]interface{}, error) {
 	searchQuery := query
 	if !caseSensitive {
 		searchQuery = strings.ToLower(query)
@@ -55,16 +55,17 @@ func searchRowsContext(ctx context.Context, reader RowReader, field, query strin
 		if !exists {
 			return false
 		}
-		text := fmt.Sprint(value)
-		if !caseSensitive {
-			text = strings.ToLower(text)
-		}
-		return strings.Contains(text, searchQuery)
+		return containsSearchValue(value, searchQuery, caseSensitive)
 	}
 	if scanner, ok := reader.(ContextScanRowReader); ok {
-		return scanner.ScanContext(ctx, nil, match, limit)
+		return scanner.ScanContext(ctx, fields, match, limit)
 	}
 	rows := SearchRows(reader, field, query, caseSensitive, limit)
+	if len(fields) > 0 {
+		for i, row := range rows {
+			rows[i] = projectFields(row, fields)
+		}
+	}
 	return rows, ctx.Err()
 }
 
@@ -89,6 +90,56 @@ func getForeignRowsContext(ctx context.Context, reader RowReader, table, field s
 	match := func(row map[string]interface{}) bool { return rowForeignValue(row[field]) == value }
 	if scanner, ok := reader.(ContextScanRowReader); ok {
 		rows, err := scanner.ScanContext(ctx, nil, match, 0)
+		return rows, false, err
+	}
+	return nil, false, fmt.Errorf("context relationship reader for %s has no scan fallback", table)
+}
+
+func getForeignRowsBatchContext(ctx context.Context, reader RowReader, table, field string, values []uint32, fields []string) ([]map[string]interface{}, bool, error) {
+	if len(values) == 0 {
+		return nil, true, ctx.Err()
+	}
+	if batch, ok := reader.(ContextBatchRelationshipRowReader); ok {
+		byValue, err := batch.GetRelationshipRowsBatchContext(ctx, values, fields)
+		if err != nil {
+			return nil, false, err
+		}
+		rows := make([]map[string]interface{}, 0)
+		allHandled := true
+		for _, value := range values {
+			matched, handled := byValue[value]
+			if !handled || (len(matched) > 0 && !relationshipRowsMatchField(matched, field, value)) {
+				allHandled = false
+				break
+			}
+			rows = append(rows, matched...)
+		}
+		if allHandled {
+			return rows, true, nil
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
+	if _, native := reader.(ContextBatchRelationshipRowReader); !native {
+		var rows []map[string]interface{}
+		allRelationship := true
+		for _, value := range values {
+			matched, relationship := GetForeignRows(reader, table, field, value)
+			allRelationship = allRelationship && relationship
+			for _, row := range matched {
+				rows = append(rows, projectFields(row, fields))
+			}
+		}
+		return rows, allRelationship, ctx.Err()
+	}
+	wanted := make(map[uint32]struct{}, len(values))
+	for _, value := range values {
+		wanted[value] = struct{}{}
+	}
+	match := func(row map[string]interface{}) bool { _, ok := wanted[rowForeignValue(row[field])]; return ok }
+	if scanner, ok := reader.(ContextScanRowReader); ok {
+		rows, err := scanner.ScanContext(ctx, fields, match, 0)
 		return rows, false, err
 	}
 	return nil, false, fmt.Errorf("context relationship reader for %s has no scan fallback", table)

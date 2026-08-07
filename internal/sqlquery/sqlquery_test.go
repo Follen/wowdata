@@ -2,14 +2,17 @@ package sqlquery
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 )
 
 type fakeSource struct {
 	tables                                    map[string]fakeTable
 	lookupCalls, relationshipCalls, scanCalls int
+	describeCalls, textSearchCalls            int
 	streamCalls                               int
 }
 
@@ -49,11 +52,34 @@ func testSource() *fakeSource {
 }
 
 func (s *fakeSource) Describe(ctx context.Context, table string) (TableInfo, error) {
+	s.describeCalls++
 	t, ok := s.tables[lower(table)]
 	if !ok {
 		return TableInfo{}, sqlErr("sql_unknown_table", Position{}, "table not found: "+table)
 	}
 	return t.info, ctx.Err()
+}
+
+func (s *fakeSource) TextSearch(ctx context.Context, table, field, query string, caseSensitive bool, fields []string, limit int) ([]Row, AccessStats, error) {
+	s.textSearchCalls++
+	needle := query
+	if !caseSensitive {
+		needle = strings.ToLower(needle)
+	}
+	var out []Row
+	for _, row := range s.tables[lower(table)].rows {
+		value := fmt.Sprint(row[field])
+		if !caseSensitive {
+			value = strings.ToLower(value)
+		}
+		if strings.Contains(value, needle) {
+			out = append(out, projectTest(row, fields))
+			if limit > 0 && len(out) >= limit {
+				break
+			}
+		}
+	}
+	return out, AccessStats{Physical: "WDCTextSearch", InputRows: len(s.tables[lower(table)].rows), OutputRows: len(out)}, ctx.Err()
 }
 func (s *fakeSource) Lookup(ctx context.Context, table string, ids []uint32, fields []string) ([]Row, AccessStats, error) {
 	s.lookupCalls++
@@ -115,6 +141,53 @@ func lower(s string) string {
 	return string(b)
 }
 
+func benchmarkSQLSource(rows int) *fakeSource {
+	left := make([]Row, rows)
+	right := make([]Row, rows/10)
+	for i := range left {
+		left[i] = Row{"ID": uint32(i + 1), "JoinID": uint32(i % len(right)), "Score": int64(rows - i)}
+	}
+	for i := range right {
+		right[i] = Row{"ID": uint32(i), "Name": fmt.Sprintf("name-%d", i)}
+	}
+	return &fakeSource{tables: map[string]fakeTable{
+		"benchleft":  {info: TableInfo{Name: "BenchLeft", RowCount: len(left), Columns: []Column{{Name: "ID", ID: true}, {Name: "JoinID"}, {Name: "Score"}}}, rows: left},
+		"benchright": {info: TableInfo{Name: "BenchRight", RowCount: len(right), Columns: []Column{{Name: "ID", ID: true}, {Name: "Name"}}}, rows: right},
+	}}
+}
+
+func BenchmarkEngineTopKSingleKey(b *testing.B) {
+	src := benchmarkSQLSource(10000)
+	st, err := Parse("SELECT ID, Score FROM BenchLeft ORDER BY Score DESC LIMIT 20")
+	if err != nil {
+		b.Fatal(err)
+	}
+	engine := &Engine{Source: src}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := engine.Execute(context.Background(), st, nil); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEngineHashJoin(b *testing.B) {
+	src := benchmarkSQLSource(10000)
+	st, err := Parse("SELECT l.ID, r.Name FROM BenchLeft l JOIN BenchRight r ON l.JoinID=r.ID LIMIT 100")
+	if err != nil {
+		b.Fatal(err)
+	}
+	engine := &Engine{Source: src}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := engine.Execute(context.Background(), st, nil); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func TestParseSelectAndUnsupportedJoin(t *testing.T) {
 	st, err := Parse("EXPLAIN ANALYZE SELECT se.ID, COALESCE(se.BasePoints, 0) AS points FROM static.SpellEffect se WHERE se.ID IN (1, 2) ORDER BY se.ID DESC LIMIT 1")
 	if err != nil {
@@ -148,6 +221,24 @@ func TestEngineUsesPointLookupAndStableOrder(t *testing.T) {
 	}
 	if !containsString(res.Plan.Physical, "WDCRecordIDLookup") {
 		t.Fatalf("physical=%v", res.Plan.Physical)
+	}
+	if src.describeCalls != 1 {
+		t.Fatalf("Describe calls=%d, want one bind-time lookup", src.describeCalls)
+	}
+}
+
+func TestEnginePushesSimpleCaseInsensitiveContainsSearch(t *testing.T) {
+	src := testSource()
+	st, err := Parse("SELECT ID, Name_lang FROM SpellName WHERE LOWER(Name_lang) LIKE '%ir%' LIMIT 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := (&Engine{Source: src}).Execute(context.Background(), st, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if src.textSearchCalls != 1 || src.scanCalls != 0 || len(res.Rows) != 1 || res.Rows[0]["ID"] != uint32(100) {
+		t.Fatalf("textSearch=%d scan=%d rows=%v", src.textSearchCalls, src.scanCalls, res.Rows)
 	}
 }
 
@@ -238,6 +329,24 @@ func TestHashJoinBuildsSmallerSideAndPreservesLeftMajorOrder(t *testing.T) {
 		t.Fatalf("join=%+v", join)
 	}
 	if len(res.Rows) != 3 || res.Rows[0]["ID"] != uint32(1) || res.Rows[2]["ID"] != uint32(3) {
+		t.Fatalf("rows=%v", res.Rows)
+	}
+}
+
+func TestHashJoinMatchesEquivalentIntegerTypes(t *testing.T) {
+	src := &fakeSource{tables: map[string]fakeTable{
+		"lefttable":  {info: TableInfo{Name: "LeftTable", Columns: []Column{{Name: "ID", ID: true}, {Name: "Key"}}}, rows: []Row{{"ID": uint32(1), "Key": uint16(7)}}},
+		"righttable": {info: TableInfo{Name: "RightTable", Columns: []Column{{Name: "ID", ID: true}, {Name: "Key"}}}, rows: []Row{{"ID": uint32(2), "Key": int64(7)}}},
+	}}
+	st, err := Parse("SELECT l.ID AS left_id, r.ID AS right_id FROM LeftTable l JOIN RightTable r ON l.Key=r.Key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := (&Engine{Source: src}).Execute(context.Background(), st, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Rows) != 1 || res.Rows[0]["left_id"] != uint32(1) || res.Rows[0]["right_id"] != uint32(2) {
 		t.Fatalf("rows=%v", res.Rows)
 	}
 }

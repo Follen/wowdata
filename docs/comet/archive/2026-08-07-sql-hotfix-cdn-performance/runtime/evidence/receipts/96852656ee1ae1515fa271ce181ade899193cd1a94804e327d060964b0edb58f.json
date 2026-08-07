@@ -1,0 +1,33 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-hotfix-cdn-performance",
+    "sourceRevision": 7,
+    "contractHash": "980590caf3546077a0b817fa77e80bcb494f07999596d8ebb84a7a8d81e19e56",
+    "scopeHash": "91bba1ef3d7f76bad518fce5ac08bb1bab69c63e518e7c02f0201a9bb42ba833",
+    "snapshotHash": "edeadb1abf03d0a6660d02484247ce3381d74d878ab05a9391d4d670f2604599",
+    "artifactHash": "2f9cfb6a241ad68791730fabce2d8163154ae0cdf83dcaff5c8cf6eaa222e482"
+  },
+  "acceptanceIds": [
+    "acceptance-0f96b4df6f61d02f922404d58690c47e69885791aa91adb8bbd6cb98c82a6499",
+    "acceptance-39e740e2186579402d2fb48b2db9727a6ca55459ea11d19b07edd971a79651b1",
+    "acceptance-631f0afbe93905c714e71e87887afc8e2c9859e5580b0523c6957d3a78f4eee6",
+    "acceptance-707f6ba59a26320ee841eb32bd580feecafceae83491d1b53f7cd0eda7a9f879",
+    "acceptance-981223c76fd91bd6c77c9f41ca6ebef02276644d6b22b602c1c226cade8d24d6",
+    "acceptance-9d9d37cb0fb9a28f8d1af11acd1dcbe63536ae0ea5c96286bf0247103da1b3bc"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-07T09:04:58.975Z",
+  "evidence": {
+    "steps": [
+      "审阅 CDN 本地 fixture 与唯一既有 live 兼容观察"
+    ],
+    "observations": [
+      "本地 fixture P50 50.977→25.490ms，降低50.00%，请求2→1；range/resume/cancel/SHA/原子发布与超限 HEAD/GET=0 均由 httptest 覆盖。2026-08-07 唯一 live 仅核对 Build/object/SHA/预算/退出码，不追加公网请求。"
+    ]
+  },
+  "receiptHash": "96852656ee1ae1515fa271ce181ade899193cd1a94804e327d060964b0edb58f"
+}

@@ -1,4 +1,4 @@
 interface:
   display_name: "wowdata"
-  short_description: "Query and export World of Warcraft data with the wowdata CLI"
-  default_prompt: "Use $wowdata to query or export WoW data with an explicit product and a complete target."
+  short_description: "Query WoW data with SQL, Hotfix, and CLI"
+  default_prompt: "Use $wowdata to run a targeted WoW DB2 SQL or Hotfix query with an explicit data target."

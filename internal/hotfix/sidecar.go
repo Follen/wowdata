@@ -1,6 +1,7 @@
 package hotfix
 
 import (
+	"bufio"
 	"container/heap"
 	"encoding/binary"
 	"errors"
@@ -12,15 +13,21 @@ import (
 )
 
 const (
-	SidecarMagic      uint32 = 0x31534648 // "HFS1"
-	SidecarVersion    uint32 = 1
-	SidecarHeaderSize int64  = 32
-	SidecarEntrySize  int64  = 40
+	SidecarMagic              uint32 = 0x31534648 // "HFS1"
+	SidecarVersion            uint32 = 2
+	SidecarHeaderSize         int64  = 32
+	SidecarEntrySize          int64  = 40
+	maxInMemorySidecarEntries int64  = 262144
+	maxInMemorySidecarBytes   int64  = 16 << 20
 )
 
 type Sidecar struct {
-	f     *os.File
-	count uint64
+	f             *os.File
+	count         uint64
+	sourceSize    uint64
+	sourceBuild   int32
+	sourceVersion uint32
+	data          []byte
 }
 
 func WriteSidecar(path string, r *Reader) error {
@@ -31,20 +38,31 @@ func WriteSidecar(path string, r *Reader) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	work, err := os.MkdirTemp(dir, ".hotfix-sidecar-sort-")
+	var entries []SidecarEntry
+	var chunks []string
+	var count uint64
+	work := ""
+	var err error
+	if sidecarFitsMemory(r) {
+		entries, err = collectSidecarEntries(r)
+		count = uint64(len(entries))
+	} else {
+		work, err = os.MkdirTemp(dir, ".hotfix-sidecar-sort-")
+		if err == nil {
+			chunks, count, err = writeSortedChunks(work, r, 32768)
+		}
+	}
+	if work != "" {
+		defer os.RemoveAll(work)
+	}
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(work)
-	chunks, count, err := writeSortedChunks(work, r, 32768)
+	f, err := os.CreateTemp(dir, "."+filepath.Base(path)+"-*.tmp")
 	if err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
+	tmp := f.Name()
 	good := false
 	defer func() {
 		f.Close()
@@ -57,11 +75,28 @@ func WriteSidecar(path string, r *Reader) error {
 	binary.LittleEndian.PutUint32(h[4:8], SidecarVersion)
 	binary.LittleEndian.PutUint64(h[8:16], count)
 	binary.LittleEndian.PutUint64(h[16:24], uint64(r.size))
+	binary.LittleEndian.PutUint32(h[24:28], uint32(r.Header.Build))
+	binary.LittleEndian.PutUint32(h[28:32], r.Header.Version)
 	if _, err = f.Write(h); err != nil {
 		return err
 	}
-	if err = mergeSortedChunks(f, chunks); err != nil {
-		return err
+	if entries != nil {
+		body := make([]byte, len(entries)*int(SidecarEntrySize))
+		for i, entry := range entries {
+			start := i * int(SidecarEntrySize)
+			encodeSidecarEntry(body[start:start+int(SidecarEntrySize)], entry)
+		}
+		if _, err = f.Write(body); err != nil {
+			return err
+		}
+	} else {
+		bw := bufio.NewWriterSize(f, 256<<10)
+		if err = mergeSortedChunks(bw, chunks); err == nil {
+			err = bw.Flush()
+		}
+		if err != nil {
+			return err
+		}
 	}
 	if err = f.Sync(); err != nil {
 		return err
@@ -83,6 +118,34 @@ func WriteSidecar(path string, r *Reader) error {
 	_ = os.Remove(backup)
 	good = true
 	return nil
+}
+
+func sidecarFitsMemory(r *Reader) bool {
+	if r.size <= r.headerSize {
+		return true
+	}
+	return (r.size-r.headerSize)/24 <= maxInMemorySidecarEntries
+}
+
+func collectSidecarEntries(r *Reader) ([]SidecarEntry, error) {
+	capacity := 0
+	if r.size > r.headerSize {
+		max := (r.size - r.headerSize) / 24
+		if max > maxInMemorySidecarEntries {
+			max = maxInMemorySidecarEntries
+		}
+		capacity = int(max)
+	}
+	out := make([]SidecarEntry, 0, capacity)
+	err := r.ForEachEntry(func(e Entry) error {
+		out = append(out, SidecarEntry{e.TableHash, e.RecordID, e.PushID, e.Region, e.Status, uint64(e.PayloadOffset), uint32(e.PayloadLength)})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sortSidecar(out)
+	return out, nil
 }
 
 func encodeSidecarEntry(b []byte, e SidecarEntry) {
@@ -117,15 +180,19 @@ func writeSortedChunks(dir string, r *Reader, chunkSize int) ([]string, uint64, 
 		if err != nil {
 			return err
 		}
+		bw := bufio.NewWriterSize(f, 256<<10)
 		buf := make([]byte, SidecarEntrySize)
 		for _, entry := range entries {
 			encodeSidecarEntry(buf, entry)
-			if _, err = f.Write(buf); err != nil {
+			if _, err = bw.Write(buf); err != nil {
 				_ = f.Close()
 				return err
 			}
 		}
-		if err = f.Sync(); err == nil {
+		if err = bw.Flush(); err == nil {
+			err = f.Sync()
+		}
+		if err == nil {
 			err = f.Close()
 		} else {
 			_ = f.Close()
@@ -186,12 +253,12 @@ func (h *chunkHeap) Pop() any {
 }
 
 func readChunkEntry(f *os.File) (SidecarEntry, error) {
-	b := make([]byte, SidecarEntrySize)
-	_, err := io.ReadFull(f, b)
+	var b [SidecarEntrySize]byte
+	_, err := io.ReadFull(f, b[:])
 	if err != nil {
 		return SidecarEntry{}, err
 	}
-	return decodeSidecarEntry(b), nil
+	return decodeSidecarEntry(b[:]), nil
 }
 
 func mergeSortedChunks(dst io.Writer, paths []string) error {
@@ -251,10 +318,22 @@ func OpenSidecar(path string) (*Sidecar, error) {
 		f.Close()
 		return nil, errf("hotfix_corrupt_cache", "sidecar_header", "truncated sidecar")
 	}
-	h := make([]byte, SidecarHeaderSize)
-	if _, err = f.ReadAt(h, 0); err != nil {
-		f.Close()
-		return nil, errf("hotfix_corrupt_cache", "sidecar_header", "%v", err)
+	var h, body []byte
+	if st.Size() <= maxInMemorySidecarBytes {
+		raw := make([]byte, int(st.Size()))
+		if _, err = io.ReadFull(f, raw); err != nil {
+			f.Close()
+			return nil, errf("hotfix_corrupt_cache", "sidecar", "%v", err)
+		}
+		_ = f.Close()
+		f = nil
+		h, body = raw[:SidecarHeaderSize], raw[SidecarHeaderSize:]
+	} else {
+		h = make([]byte, SidecarHeaderSize)
+		if _, err = f.ReadAt(h, 0); err != nil {
+			f.Close()
+			return nil, errf("hotfix_corrupt_cache", "sidecar_header", "%v", err)
+		}
 	}
 	if binary.LittleEndian.Uint32(h[0:4]) != SidecarMagic {
 		return nilClose(f, errf("hotfix_corrupt_cache", "sidecar_magic", "unexpected sidecar signature"))
@@ -266,9 +345,49 @@ func OpenSidecar(path string) (*Sidecar, error) {
 	if int64(count) > (st.Size()-SidecarHeaderSize)/SidecarEntrySize {
 		return nilClose(f, errf("hotfix_corrupt_cache", "sidecar_entries", "truncated sidecar entries"))
 	}
-	return &Sidecar{f: f, count: count}, nil
+	return &Sidecar{f: f, count: count, sourceSize: binary.LittleEndian.Uint64(h[16:24]), sourceBuild: int32(binary.LittleEndian.Uint32(h[24:28])), sourceVersion: binary.LittleEndian.Uint32(h[28:32]), data: body}, nil
 }
-func nilClose(f *os.File, err error) (*Sidecar, error) { _ = f.Close(); return nil, err }
+
+func OpenOrBuildSidecar(path string, r *Reader) (*Sidecar, error) {
+	if r == nil {
+		return nil, errf("hotfix_invalid_query", "sidecar", "reader is nil")
+	}
+	if s, err := OpenSidecar(path); err == nil {
+		if s.matches(r) {
+			return s, nil
+		}
+		_ = s.Close()
+	}
+	if err := WriteSidecar(path, r); err != nil {
+		// A concurrent builder may have published a valid sidecar first.
+		if s, openErr := OpenSidecar(path); openErr == nil {
+			if s.matches(r) {
+				return s, nil
+			}
+			_ = s.Close()
+		}
+		return nil, err
+	}
+	s, err := OpenSidecar(path)
+	if err != nil {
+		return nil, err
+	}
+	if !s.matches(r) {
+		_ = s.Close()
+		return nil, errf("hotfix_corrupt_cache", "sidecar_identity", "sidecar does not match DBCache source")
+	}
+	return s, nil
+}
+
+func (s *Sidecar) matches(r *Reader) bool {
+	return s != nil && r != nil && s.sourceSize == uint64(r.size) && s.sourceBuild == r.Header.Build && s.sourceVersion == r.Header.Version
+}
+func nilClose(f *os.File, err error) (*Sidecar, error) {
+	if f != nil {
+		_ = f.Close()
+	}
+	return nil, err
+}
 func (s *Sidecar) Close() error {
 	if s == nil || s.f == nil {
 		return nil
@@ -279,8 +398,12 @@ func (s *Sidecar) entry(i uint64) (SidecarEntry, error) {
 	if i >= s.count {
 		return SidecarEntry{}, io.EOF
 	}
-	b := make([]byte, SidecarEntrySize)
-	if _, err := s.f.ReadAt(b, SidecarHeaderSize+int64(i)*SidecarEntrySize); err != nil {
+	if s.data != nil {
+		off := int64(i) * SidecarEntrySize
+		return decodeSidecarEntry(s.data[off : off+SidecarEntrySize]), nil
+	}
+	var b [SidecarEntrySize]byte
+	if _, err := s.f.ReadAt(b[:], SidecarHeaderSize+int64(i)*SidecarEntrySize); err != nil {
 		return SidecarEntry{}, err
 	}
 	return SidecarEntry{binary.LittleEndian.Uint32(b[0:4]), binary.LittleEndian.Uint32(b[4:8]), int32(binary.LittleEndian.Uint32(b[8:12])), binary.LittleEndian.Uint32(b[12:16]), b[16], binary.LittleEndian.Uint64(b[20:28]), binary.LittleEndian.Uint32(b[28:32])}, nil

@@ -1209,10 +1209,8 @@ func httpGetWithStage(url string, stage resource.StageID) (*http.Response, error
 	return resp, nil
 }
 
-// DownloadHTTPConcurrent downloads a URL using HTTP range chunks when the
-// remote advertises byte ranges and the file is large enough. Small files or
-// servers without range support return an error so callers can use a normal
-// GET fallback.
+// DownloadHTTPConcurrent downloads a URL with one request for small/non-range
+// objects and concurrent chunks for large range-capable objects.
 func DownloadHTTPConcurrent(url string) ([]byte, error) {
 	return DownloadHTTPConcurrentWithWorkers(url, rangeWorkerCount)
 }
@@ -1226,26 +1224,66 @@ func downloadHTTPConcurrentWithScheduler(url string, workers int, scheduler *res
 }
 
 func httpGetConcurrent(url string, workers int, scheduler *resource.Scheduler) ([]byte, error) {
-	req, err := http.NewRequest("HEAD", url, nil)
+	startedAt := time.Now()
+	// Use the first payload range as the capability/size probe. This removes the
+	// serialized HEAD round trip and avoids downloading the first chunk twice.
+	probeEnd := rangeChunkSize - 1
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("Range", fmt.Sprintf("bytes=0-%d", probeEnd))
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d head from %s", resp.StatusCode, url)
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		data, readErr := io.ReadAll(resp.Body)
+		if readErr == nil {
+			ReportDownloadProgress(url, "get", len(data), 0, time.Since(startedAt))
+		}
+		return data, readErr
 	}
-	if !strings.Contains(strings.ToLower(resp.Header.Get("Accept-Ranges")), "bytes") {
-		return nil, fmt.Errorf("server does not advertise range support")
+	if resp.StatusCode != http.StatusPartialContent {
+		return nil, fmt.Errorf("HTTP %d range probe from %s", resp.StatusCode, url)
 	}
-	size := int(resp.ContentLength)
+	probeStart, probeLast, total, err := parseContentRange(resp.Header.Get("Content-Range"))
+	if err != nil {
+		return nil, err
+	}
+	if probeStart != 0 {
+		return nil, fmt.Errorf("range probe started at %d, want 0", probeStart)
+	}
+	size := int(total)
+	out := make([]byte, size)
+	probeLength := int(probeLast + 1)
+	if _, err := io.ReadFull(resp.Body, out[:probeLength]); err != nil {
+		return nil, err
+	}
 	if size <= rangeChunkSize {
-		return nil, fmt.Errorf("file is below concurrent download threshold")
+		ReportDownloadProgress(url, "range", size, 1, time.Since(startedAt))
+		return out, nil
 	}
-	return httpRangeConcurrentWithScheduler(url, 0, size-1, workers, scheduler)
+	if _, err := resp.Body.Read(make([]byte, 1)); err != io.EOF {
+		if err == nil {
+			return nil, fmt.Errorf("range probe returned more than %d bytes", probeLength)
+		}
+		return nil, err
+	}
+	actualWorkers, err := httpRangeConcurrentInto(url, out, 0, probeLength, size-1, workers, scheduler, 0)
+	if err != nil {
+		return nil, err
+	}
+	ReportDownloadProgress(url, "range", size, actualWorkers, time.Since(startedAt))
+	return out, nil
+}
+
+func parseContentRange(value string) (start, end, total int64, err error) {
+	if _, err = fmt.Sscanf(strings.TrimSpace(value), "bytes %d-%d/%d", &start, &end, &total); err != nil || start < 0 || end < start || total <= end {
+		return 0, 0, 0, fmt.Errorf("invalid Content-Range %q", value)
+	}
+	return start, end, total, nil
 }
 
 func httpRange(url string, start, end int) ([]byte, error) {
@@ -1343,6 +1381,19 @@ func httpRangeConcurrentWithSchedulerStage(url string, start, end, workers int, 
 		return nil, fmt.Errorf("invalid range %d-%d", start, end)
 	}
 	out := make([]byte, length)
+	actualWorkers, err := httpRangeConcurrentInto(url, out, start, start, end, workers, scheduler, stage)
+	if err != nil {
+		return nil, err
+	}
+	ReportDownloadProgress(url, "range", length, actualWorkers, time.Since(startedAt))
+	return out, nil
+}
+
+func httpRangeConcurrentInto(url string, out []byte, outBase, start, end, workers int, scheduler *resource.Scheduler, stage resource.StageID) (int, error) {
+	length := end - start + 1
+	if length <= 0 {
+		return 0, nil
+	}
 	type chunk struct {
 		start int
 		end   int
@@ -1376,7 +1427,7 @@ func httpRangeConcurrentWithSchedulerStage(url string, start, end, workers int, 
 					}
 					return
 				}
-				offset := job.start - start
+				offset := job.start - outBase
 				copy(out[offset:offset+len(data)], data)
 			}
 		}()
@@ -1391,7 +1442,7 @@ func httpRangeConcurrentWithSchedulerStage(url string, start, end, workers int, 
 		case err := <-errCh:
 			close(jobs)
 			wg.Wait()
-			return nil, err
+			return workers, err
 		case jobs <- chunk{start: chunkStart, end: chunkEnd}:
 		}
 	}
@@ -1399,9 +1450,8 @@ func httpRangeConcurrentWithSchedulerStage(url string, start, end, workers int, 
 	wg.Wait()
 	select {
 	case err := <-errCh:
-		return nil, err
+		return workers, err
 	default:
-		ReportDownloadProgress(url, "range", length, workers, time.Since(startedAt))
-		return out, nil
+		return workers, nil
 	}
 }

@@ -28,7 +28,9 @@ type config struct {
 	Output, CDNMetadataURL, CDNRangeURL, GitHubURL, DBDURL    string
 	MetadataTournament, LargeRangeTournament, ChunkTournament string
 	Rounds, RangeMiB, MultiConnections                        int
-	Timeout                                                   time.Duration
+	Timeout, TotalTimeout                                     time.Duration
+	MaxRequests                                               int
+	MaxResponseBytes                                          int64
 }
 
 type report struct {
@@ -44,6 +46,9 @@ type protocol struct {
 	RangeBytes       int      `json:"rangeBytes"`
 	MultiConnections int      `json:"multiConnections"`
 	Timeout          string   `json:"timeout"`
+	TotalTimeout     string   `json:"totalTimeout"`
+	MaxRequests      int      `json:"maxRequests"`
+	MaxResponseBytes int64    `json:"maxResponseBytes"`
 	OrderPolicy      string   `json:"orderPolicy"`
 	CachePolicy      string   `json:"cachePolicy"`
 	Sources          []string `json:"sources"`
@@ -60,6 +65,8 @@ type sample struct {
 	HTTPStatuses      []int          `json:"httpStatuses,omitempty"`
 	Protocols         map[string]int `json:"protocols,omitempty"`
 	Requests          int            `json:"requests"`
+	WarmupRequests    int            `json:"warmupRequests,omitempty"`
+	WarmupBytes       int64          `json:"warmupBytes,omitempty"`
 	Connections       int            `json:"connections"`
 	ReusedConnections int            `json:"reusedConnections"`
 	ResponseBytes     int64          `json:"responseBytes"`
@@ -143,10 +150,13 @@ func main() {
 	flag.StringVar(&cfg.MetadataTournament, "metadata-tournament", "analyze/benchmark/metadata-tournament-r12-10x-rotating-tail64/report.json", "metadata tournament report")
 	flag.StringVar(&cfg.LargeRangeTournament, "large-range-tournament", "analyze/benchmark/large-range-tournament-r36-demand-final/report.json", "on-demand large-range tournament report")
 	flag.StringVar(&cfg.ChunkTournament, "chunk-tournament", "analyze/benchmark/chunk-tournament-r13-10x-rotating-tail64-meta24/report.json", "chunk tournament report")
-	flag.IntVar(&cfg.Rounds, "rounds", 3, "interleaved rounds")
+	flag.IntVar(&cfg.Rounds, "rounds", 2, "interleaved rounds")
 	flag.IntVar(&cfg.RangeMiB, "range-mib", 4, "MiB per CDN throughput sample")
 	flag.IntVar(&cfg.MultiConnections, "multi-connections", 4, "parallel disjoint CDN ranges")
 	flag.DurationVar(&cfg.Timeout, "timeout", 20*time.Second, "per probe timeout")
+	flag.DurationVar(&cfg.TotalTimeout, "total-timeout", 4*time.Minute+30*time.Second, "hard suite deadline (maximum 5m)")
+	flag.IntVar(&cfg.MaxRequests, "max-requests", 96, "hard HTTP request budget")
+	flag.Int64Var(&cfg.MaxResponseBytes, "max-response-bytes", 256<<20, "hard response byte budget")
 	flag.Parse()
 	r, err := run(cfg)
 	if err != nil {
@@ -167,9 +177,11 @@ func main() {
 }
 
 func run(cfg config) (report, error) {
-	if cfg.Rounds < 1 || cfg.Rounds > 20 || cfg.RangeMiB < 1 || cfg.RangeMiB > 64 || cfg.MultiConnections < 1 || cfg.MultiConnections > 16 || cfg.Timeout <= 0 {
-		return report{}, errors.New("rounds=1..20, range-mib=1..64, multi-connections=1..16, and positive timeout required")
+	if cfg.Rounds < 1 || cfg.Rounds > 20 || cfg.RangeMiB < 1 || cfg.RangeMiB > 64 || cfg.MultiConnections < 1 || cfg.MultiConnections > 16 || cfg.Timeout <= 0 || cfg.TotalTimeout <= 0 || cfg.TotalTimeout > 5*time.Minute || cfg.MaxRequests < 1 || cfg.MaxResponseBytes < 1 {
+		return report{}, errors.New("rounds=1..20, range-mib=1..64, multi-connections=1..16, positive probe timeout, total-timeout<=5m, and positive request/byte budgets required")
 	}
+	suiteCtx, cancel := context.WithTimeout(context.Background(), cfg.TotalTimeout)
+	defer cancel()
 	specs := []probeSpec{
 		{"cdn-metadata", cfg.CDNMetadataURL, "metadata", 0, 1, false},
 		{"github-revision", cfg.GitHubURL, "metadata", 0, 1, false},
@@ -180,9 +192,23 @@ func run(cfg config) (report, error) {
 		{"cdn-small-24", cfg.CDNRangeURL, "range-small-shared", 24 * 64 << 10, 24, true},
 	}
 	var samples []sample
+	requests := 0
+	responseBytes := int64(0)
 	for round := 0; round < cfg.Rounds; round++ {
 		for order := range specs {
-			samples = append(samples, probe(context.Background(), cfg.Timeout, round+1, order+1, specs[(order+round)%len(specs)]))
+			if err := suiteCtx.Err(); err != nil {
+				return report{}, fmt.Errorf("network calibration deadline: %w", err)
+			}
+			if requests >= cfg.MaxRequests || responseBytes >= cfg.MaxResponseBytes {
+				return report{}, fmt.Errorf("network calibration budget exhausted: requests=%d/%d bytes=%d/%d", requests, cfg.MaxRequests, responseBytes, cfg.MaxResponseBytes)
+			}
+			s := probe(suiteCtx, cfg.Timeout, round+1, order+1, specs[(order+round)%len(specs)])
+			samples = append(samples, s)
+			requests += s.Requests + s.WarmupRequests
+			responseBytes += s.ResponseBytes + s.WarmupBytes
+			if requests > cfg.MaxRequests || responseBytes > cfg.MaxResponseBytes {
+				return report{}, fmt.Errorf("network calibration budget exceeded: requests=%d/%d bytes=%d/%d", requests, cfg.MaxRequests, responseBytes, cfg.MaxResponseBytes)
+			}
 		}
 	}
 	sources := summarize(samples)
@@ -198,7 +224,7 @@ func run(cfg config) (report, error) {
 	if err != nil {
 		return report{}, fmt.Errorf("chunk tournament: %w", err)
 	}
-	p := protocol{Rounds: cfg.Rounds, RangeBytes: cfg.RangeMiB << 20, MultiConnections: cfg.MultiConnections, Timeout: cfg.Timeout.String(), OrderPolicy: "rotating-latin", Sources: []string{cfg.CDNMetadataURL, cfg.CDNRangeURL, cfg.GitHubURL, cfg.DBDURL}, CachePolicy: "fresh Transport per sample; shared small-range probes warm the Transport before the measured steady-state window; Cache-Control no-cache; disjoint immutable CDN ranges; payload retained only in memory"}
+	p := protocol{Rounds: cfg.Rounds, RangeBytes: cfg.RangeMiB << 20, MultiConnections: cfg.MultiConnections, Timeout: cfg.Timeout.String(), TotalTimeout: cfg.TotalTimeout.String(), MaxRequests: cfg.MaxRequests, MaxResponseBytes: cfg.MaxResponseBytes, OrderPolicy: "rotating-latin", Sources: []string{cfg.CDNMetadataURL, cfg.CDNRangeURL, cfg.GitHubURL, cfg.DBDURL}, CachePolicy: "fresh Transport per sample; shared small-range probes warm the Transport before the measured steady-state window; Cache-Control no-cache; disjoint immutable CDN ranges; payload retained only in memory"}
 	return report{Schema: schema, GeneratedAt: time.Now().UTC().Format(time.RFC3339Nano), Protocol: p, Samples: samples, Sources: sources, Selection: decide(metadata, largeRange, chunk, sources, cfg)}, nil
 }
 
@@ -238,6 +264,8 @@ func probe(parent context.Context, timeout time.Duration, round, order int, spec
 			sharedTransport.CloseIdleConnections()
 			return s
 		}
+		s.WarmupRequests = 1
+		s.WarmupBytes = warm.bytes
 		defer sharedTransport.CloseIdleConnections()
 	}
 	started := time.Now()
