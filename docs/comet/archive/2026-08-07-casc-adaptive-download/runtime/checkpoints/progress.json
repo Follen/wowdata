@@ -1,0 +1,15 @@
+{
+  "schema": "comet.native.progress-checkpoint.v1",
+  "id": "0814eb7e-2333-47d6-98dc-7df465075cdf",
+  "change": "casc-adaptive-download",
+  "phase": "build",
+  "previousRevision": 14,
+  "stateRevision": 15,
+  "summary": "CASC：HTTP/1.1 adaptive、1MiB大对象分块、可选Range合并/多URL benchmark、peak working set采样已完成；全量go test/race/vet通过。真实CDN最新16-worker实验P50/P95改善28.8%/29.8%，最佳单样本47.4%；DBD冷缓存31.7%。25/27验收通过。",
+  "nextAction": "停止重复并发/多host探针；下一轮改用首Range携带Content-Range的元数据探针减少HEAD，并用184690499字节/实测速率计算网络下界，只有本地fixture证明可越过50%后再做一次受控公网验证。",
+  "inputHash": "6a8b101a52f55b2b809f9c85479e75bf56a33def5e8da96f40c41045cd958c83",
+  "manifestHash": "3ca42d9b691559326bb6bbe364a0a3512adeefa298dd06cf7fd2ae121f6138e0",
+  "manifestRef": "runtime/checkpoints/manifests/3ca42d9b691559326bb6bbe364a0a3512adeefa298dd06cf7fd2ae121f6138e0.json",
+  "artifactCount": 1,
+  "createdAt": "2026-08-07T13:51:29.151Z"
+}

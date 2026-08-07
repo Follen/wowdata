@@ -1,0 +1,70 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "casc-adaptive-download",
+    "sourceRevision": 9,
+    "contractHash": "435540e1acf5c41b6e7ddd32d4dc68aeec3f5c54555c1d43f2c24807c4b8eb3c",
+    "scopeHash": "b6c3724554a85b42fe783b09802bc2b77051e7e8a1b4b91f1592d48c44b24acc",
+    "snapshotHash": "333146ad1a8918d66ed815d4c77bba78350a192693f09f3e35fe29462954d0ae",
+    "artifactHash": "2f59d10b99fd39704b29d287d0608ab7d70907e785547041eeef0f613caf9880"
+  },
+  "acceptanceIds": [
+    "acceptance-08621d8f8b14b3db28a772b8b6c95af387915d6278c765d37f2217d2f4a5c5f2",
+    "acceptance-104d35548144e52959b26f2b424eea7581c58fb9940b6dcb4da5532a13797d36",
+    "acceptance-1640b9e6de2c6cc46e59f83e553708d9ce2cd885e2fa19ae532000615810ca1c",
+    "acceptance-19975f021b321c4de43557db35ba7f2466bdf8810e0a35d90cdea08484ccabd6",
+    "acceptance-1d889e7086219544b32057b72612d6b0ab92feb90d6aed680ead015faafe79ec",
+    "acceptance-20a91b9a4dd1bbad6d258554c6754add8620ca0bd0f409db913a8edec8277e34",
+    "acceptance-28a97880f795f0957cebba539d9aaeb75c1d8b4da3684870a6f2b6a95b6eaf98",
+    "acceptance-4c07468806fe8c6e49ff2e3f2d0420e4fc377778a53d2c21abd0538da4a5a916",
+    "acceptance-54746c01a818dd41cb0d9e27f8534170604b1d677940652980811b0dd6c933df",
+    "acceptance-5a76bfb4a85dffcdbef519b41655c34a92e185175c00a1edf52ef9156f261a2f",
+    "acceptance-5cd32b9cd7b005ae277ba43ade854ce82d96f2639579854f67a20a82847a6a0c",
+    "acceptance-5fd4edc920fd7b16275666009379d1013bebb083d8bc8f3e0eaa49f3820024f5",
+    "acceptance-86f8017368d8350ecb4b0e51cc22b7e081af2870af6d47a5e9707ed1f44d2ff5",
+    "acceptance-99dc97b2fd8d907ad7f73df62744e4b476abd8ec0cbe41470f3c907cd8c2835a",
+    "acceptance-9ff91b4ef4a7b5805ee3c0d9985f3df63c6f3bc2059ddfc195a6fff68e6c2e2f",
+    "acceptance-9ffe43a7f2d7e70073b503a8cd4daffcac41713fb92c9accc62eba15b55717c2",
+    "acceptance-a5145e999203e0fcdd6500c967d04757865a86f9125e1968e188324a71f1f328",
+    "acceptance-b33a46e4a38ada7de77aa703dc985c08da36c5fff647da61c5039e446ce95236",
+    "acceptance-d7b56aa6cfa56aaa3f3539676b0eaf0cc30a7d4a7f2e9d2420d13cc311017e21",
+    "acceptance-e10602460fbbdf6ba8b4d2ccadbfb5053e75b7eba263636e26d114b00cfd9511",
+    "acceptance-efa19e2f1e19c43f019c1b707c44b5af1b2ea0ee22981ddcd825b58120bcaacd",
+    "acceptance-f1e41145f36ecb5aa2054c0d3328380ea69e10a57bc2f14dea9065463bf2e93f"
+  ],
+  "actor": "native-runtime:command:go",
+  "issuedAt": "2026-08-07T13:21:43.911Z",
+  "evidence": {
+    "executable": "go",
+    "args": [
+      "test",
+      "./...",
+      "-count=1"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 120000,
+    "startedAt": "2026-08-07T13:21:40.265Z",
+    "endedAt": "2026-08-07T13:21:43.911Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "2f9bce25656863ccb914c29c7f08415229d86253",
+      "afterCommit": "2f9bce25656863ccb914c29c7f08415229d86253"
+    },
+    "afterFence": {
+      "snapshotHash": "333146ad1a8918d66ed815d4c77bba78350a192693f09f3e35fe29462954d0ae",
+      "scopeHash": "b6c3724554a85b42fe783b09802bc2b77051e7e8a1b4b91f1592d48c44b24acc",
+      "matched": true
+    },
+    "outputHash": "152c00e3f6c060c2fffb32813b36fd2ac9c1a20ea2b778729a228180555f3015",
+    "outputSummary": "ok  \twowdata/cmd/wowdata\t0.600s\nok  \twowdata/internal/app\t2.593s\nok  \twowdata/internal/blp\t0.074s\nok  \twowdata/internal/blte\t0.122s\nok  \twowdata/internal/casc\t2.559s\nok  \twowdata/internal/crypto\t0.086s\nok  \twowdata/internal/db2\t0.103s\nok  \twowdata/internal/dbd\t0.071s\nok  \twowdata/internal/diagnostics\t0.046s\nok  \twowdata/internal/export\t0.151s\nok  \twowdata/internal/golden\t0.060s\nok  \twowdata/internal/hotfix\t0.277s\nok  \twowdata/internal/listfile\t0.062s\nok  \twowdata/internal/resource\t0.104s\nok  \twowdata/internal/runtime\t0.943s\nok  \twowdata/internal/sqlquery\t0.110s\nok  \twowdata/internal/storage\t0.475s\nok  \twowdata/internal/tact\t0.120s\nok  \twowdata/internal/video\t0.107s\nok  \twowdata/internal/wowdata\t0.116s\nok  \twowdata/tools/benchmark/calibrate\t0.787s\n?   \twowdata/tools/benchmark/coverage\t[no test files]\nok  \twowdata/tools/benchmark/floor\t0.132s\nok  \twowdata/tools/benchmark/integration\t0.166s\n?   \twowdata/tools/benchmark/manifest\t[no test files]\nok  \twowdata/tools/benchmark/matrix\t0.128s\nok  \twowdata/tools/benchmark/networkcalibrate\t0.203s\nok  \twowdata/tools/benchmark/processprobe\t0.111s\n?   \twowdata/tools/benchmark/rangedownload\t[no test files]\nok  \twowdata/tools/benchmark/report\t0.141s\nok  \twowdata/tools/corpus\t0.088s\nok  \twowdata/tools/golden/runner\t0.077s\n?   \twowdata/tools/sqlhotfixbench\t[no test files]",
+    "outputTruncated": false
+  },
+  "receiptHash": "10d0b56d77b85fb20c621b0ffa548815cc5d97f4cc7e4b379abc8435f85a7161"
+}

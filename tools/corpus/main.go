@@ -138,7 +138,7 @@ func run(home, out, targetText string, workers int) error {
 		return err
 	}
 	dbdCacheRoot := filepath.Join(cacheRoot, "dbd")
-	revisionSource := appruntime.NewHTTPDBDRevisionSource(dbdCacheRoot, "https://api.github.com/repos/wowdev/WoWDBDefs/commits/master")
+	revisionSource := appruntime.NewHTTPDBDRevisionSource(dbdCacheRoot, "https://api.github.com/repos/wowdev/WoWDBDefs/git/ref/heads/master")
 	commit, err := revisionSource.Revision()
 	if err != nil {
 		return err

@@ -1,0 +1,299 @@
+{
+  "schema": "comet.native.verification-evidence.v2",
+  "change": "casc-adaptive-download",
+  "sourceRevision": 13,
+  "result": "fail",
+  "freshness": "complete",
+  "contractHash": "435540e1acf5c41b6e7ddd32d4dc68aeec3f5c54555c1d43f2c24807c4b8eb3c",
+  "acceptanceCriteriaHash": "106db37a725239201d128fbde3125235830d11832dbaf44c0115581a5de1107c",
+  "implementationScopeRef": "runtime/evidence/scopes/a7314700d4a10616c40145fc075f30879033241bfeb8ced2e17fbc75a75e2a72.json",
+  "implementationScopeHash": "a7314700d4a10616c40145fc075f30879033241bfeb8ced2e17fbc75a75e2a72",
+  "reportRef": "verification.md",
+  "reportHash": "4bf350a490e7d26de7afce746b06d8b563e6968b70886913ca48e5d5ce697e8f",
+  "acceptanceTrace": {
+    "schema": "comet.native.acceptance-trace.v2",
+    "nativeRootRef": "docs/comet",
+    "criteriaHash": "106db37a725239201d128fbde3125235830d11832dbaf44c0115581a5de1107c",
+    "total": 27,
+    "evidenced": 25,
+    "skipped": 2,
+    "entries": [
+      {
+        "acceptanceId": "acceptance-058298df72d32a9b8b024449facca7f64f90d7db634c5d318db970c18217af40",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/804670939e955b6308e1981b2dcea9974dba2a9a14cdbad158f15dcabc7312a2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-08621d8f8b14b3db28a772b8b6c95af387915d6278c765d37f2217d2f4a5c5f2",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-104d35548144e52959b26f2b424eea7581c58fb9940b6dcb4da5532a13797d36",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-1640b9e6de2c6cc46e59f83e553708d9ce2cd885e2fa19ae532000615810ca1c",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-19975f021b321c4de43557db35ba7f2466bdf8810e0a35d90cdea08484ccabd6",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-1d889e7086219544b32057b72612d6b0ab92feb90d6aed680ead015faafe79ec",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-20a91b9a4dd1bbad6d258554c6754add8620ca0bd0f409db913a8edec8277e34",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-247641bffc855401293087f5d28a8c06281f663b1c9bed11f6a091542afa18c7",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/804670939e955b6308e1981b2dcea9974dba2a9a14cdbad158f15dcabc7312a2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-28a97880f795f0957cebba539d9aaeb75c1d8b4da3684870a6f2b6a95b6eaf98",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-3fdd7977535ddbf973756466a5a15b25714d162fa98f6a46f4f725fdb7e769e1",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "DBD 冷缓存实测仅提升 31.7%，未达到 change 的 50% 性能目标。"
+      },
+      {
+        "acceptanceId": "acceptance-4c07468806fe8c6e49ff2e3f2d0420e4fc377778a53d2c21abd0538da4a5a916",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-54746c01a818dd41cb0d9e27f8534170604b1d677940652980811b0dd6c933df",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-57c0a5af54373031f82d4280b8413639222efaa1f6421f8e5d7f1bb5e95fa09a",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "受控真实 CDN 探针 P50 提升 25.6%、P95 提升 33.2%，均未达到至少 50% 的硬门禁。"
+      },
+      {
+        "acceptanceId": "acceptance-5a76bfb4a85dffcdbef519b41655c34a92e185175c00a1edf52ef9156f261a2f",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-5cd32b9cd7b005ae277ba43ade854ce82d96f2639579854f67a20a82847a6a0c",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-5fd4edc920fd7b16275666009379d1013bebb083d8bc8f3e0eaa49f3820024f5",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-74677107f316b021cb781280a485c9835703d48d443856570a724116181da9bf",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/804670939e955b6308e1981b2dcea9974dba2a9a14cdbad158f15dcabc7312a2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-86f8017368d8350ecb4b0e51cc22b7e081af2870af6d47a5e9707ed1f44d2ff5",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-99dc97b2fd8d907ad7f73df62744e4b476abd8ec0cbe41470f3c907cd8c2835a",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-9ff91b4ef4a7b5805ee3c0d9985f3df63c6f3bc2059ddfc195a6fff68e6c2e2f",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-9ffe43a7f2d7e70073b503a8cd4daffcac41713fb92c9accc62eba15b55717c2",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-a5145e999203e0fcdd6500c967d04757865a86f9125e1968e188324a71f1f328",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-b33a46e4a38ada7de77aa703dc985c08da36c5fff647da61c5039e446ce95236",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-d7b56aa6cfa56aaa3f3539676b0eaf0cc30a7d4a7f2e9d2420d13cc311017e21",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-e10602460fbbdf6ba8b4d2ccadbfb5053e75b7eba263636e26d114b00cfd9511",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-efa19e2f1e19c43f019c1b707c44b5af1b2ea0ee22981ddcd825b58120bcaacd",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-f1e41145f36ecb5aa2054c0d3328380ea69e10a57bc2f14dea9065463bf2e93f",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json"
+        ],
+        "skippedReason": null
+      }
+    ],
+    "traceHash": "132559d4cf961ad78f94547c039714ed577c0abae32bd24a9a4a9ebf0a571094"
+  },
+  "partialAllowanceRef": null,
+  "partialAllowanceHash": null,
+  "requiredReceiptRefs": [],
+  "receiptRefs": [
+    "runtime/evidence/receipts/5b4bc81484769bf517bda9b553d6c9f52cd1c98df1724381f9fe12a3b8e71ab2.json",
+    "runtime/evidence/receipts/804670939e955b6308e1981b2dcea9974dba2a9a14cdbad158f15dcabc7312a2.json"
+  ],
+  "createdAt": "2026-08-07T13:51:03.458Z",
+  "envelopeHash": "016cff2b636834ecd97d465f47bc60b103edc1cb833525c6b8da62ea5298ddae"
+}

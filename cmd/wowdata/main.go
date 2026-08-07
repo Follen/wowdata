@@ -416,7 +416,7 @@ loadSource:
 		if len(opts.Tables) > 0 {
 			manifestCh = make(chan manifestResult, 1)
 			go func() {
-				manifest, stage, err := rt.loadDBDManifestWithStage(0)
+				manifest, stage, err := rt.loadDBDManifestWithStage(0, opts.Tables...)
 				manifestCh <- manifestResult{manifest: manifest, stage: stage, err: err}
 			}()
 		}
@@ -527,7 +527,7 @@ loadSource:
 		}
 		fileDataIDs := append([]uint32(nil), opts.FileDataIDs...)
 		if len(opts.Tables) > 0 {
-			manifest, stage, manifestErr := rt.loadDBDManifestWithStage(0)
+			manifest, stage, manifestErr := rt.loadDBDManifestWithStage(0, opts.Tables...)
 			if manifestErr != nil {
 				return result, warmupStepError{Code: "dbd_manifest_failed", Err: manifestErr}
 			}
@@ -694,7 +694,9 @@ func applyResourceExperimentOverrides(remote *casc.CASCRemote) error {
 		return fmt.Errorf("WOWDATA_ARCHIVE_TAIL_KIB must be between 1 and 1024")
 	}
 	remote.MetadataWorkers = metadata
-	remote.LargeRangeWorkers = largeRange
+	if largeRange > 0 {
+		remote.LargeRangeWorkers = largeRange
+	}
 	if chunkMiB > 0 {
 		remote.RangeChunkSize = int64(chunkMiB) * resource.MiB
 	}
@@ -1102,11 +1104,11 @@ func (rt *Runtime) loadDBDManifest() (*dbd.Manifest, error) {
 	return manifest, err
 }
 
-func (rt *Runtime) loadDBDManifestWithStage(parent resource.StageID) (*dbd.Manifest, resource.StageID, error) {
+func (rt *Runtime) loadDBDManifestWithStage(parent resource.StageID, prefetchTables ...string) (*dbd.Manifest, resource.StageID, error) {
 	var revisionStage resource.StageID
 	if rt.DBDCommit == "" {
 		revisionStage = resource.StartStage("dbd-revision", resource.StageOptions{ParentID: parent, Wave: resource.StageWaveInitial, DependsOn: []resource.StageDependency{resource.Dependency(parent, resource.StageRelationHard)}})
-		revisionSource := appruntime.NewHTTPDBDRevisionSource(rt.dbdCacheDir(), "https://api.github.com/repos/wowdev/WoWDBDefs/commits/master").WithStage(revisionStage)
+		revisionSource := appruntime.NewHTTPDBDRevisionSource(rt.dbdCacheDir(), "https://api.github.com/repos/wowdev/WoWDBDefs/git/ref/heads/master").WithStage(revisionStage)
 		commit, err := revisionSource.Revision()
 		if err != nil {
 			resource.FinishStage(revisionStage, err)
@@ -1125,7 +1127,45 @@ func (rt *Runtime) loadDBDManifestWithStage(parent resource.StageID) (*dbd.Manif
 	}
 	manifestStage := resource.StartStage("dbd-manifest", resource.StageOptions{ParentID: parent, Wave: resource.StageWaveInitial, DependsOn: deps})
 	manifestSource.WithStage(manifestStage)
+	var prefetch sync.WaitGroup
+	if len(prefetchTables) > 0 {
+		definitions := appruntime.NewHTTPDBDSource(cacheDir, []string{
+			"https://raw.githubusercontent.com/wowdev/WoWDBDefs/" + rt.DBDCommit + "/definitions/%s.dbd",
+		}).WithCacheFirst()
+		jobs := make(chan string)
+		workers := 4
+		if workers > len(prefetchTables) {
+			workers = len(prefetchTables)
+		}
+		for i := 0; i < workers; i++ {
+			prefetch.Add(1)
+			go func() {
+				defer prefetch.Done()
+				for table := range jobs {
+					stage := resource.StartStage("dbd-definition-prefetch", resource.StageOptions{ParentID: parent, Wave: resource.StageWaveInitial, Instance: table, DependsOn: deps})
+					_, definitionErr := definitions.DefinitionWithStage(table, stage)
+					resource.FinishStage(stage, definitionErr)
+				}
+			}()
+		}
+		go func() {
+			seen := make(map[string]struct{}, len(prefetchTables))
+			for _, table := range prefetchTables {
+				table = strings.TrimSpace(table)
+				if table == "" {
+					continue
+				}
+				if _, ok := seen[table]; ok {
+					continue
+				}
+				seen[table] = struct{}{}
+				jobs <- table
+			}
+			close(jobs)
+		}()
+	}
 	manifest, err := manifestSource.Manifest()
+	prefetch.Wait()
 	resource.FinishStage(manifestStage, err)
 	return manifest, manifestStage, err
 }

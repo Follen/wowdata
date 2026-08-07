@@ -1,0 +1,347 @@
+{
+  "schema": "comet.native.implementation-scope.v2",
+  "contractHash": "435540e1acf5c41b6e7ddd32d4dc68aeec3f5c54555c1d43f2c24807c4b8eb3c",
+  "baselineProjectionRef": "runtime/evidence/snapshots/c5ed36608a89c71d481063e10da39eb93f0ab456af4c405b8615f860b8f798f2.json",
+  "baselineProjectionHash": "c5ed36608a89c71d481063e10da39eb93f0ab456af4c405b8615f860b8f798f2",
+  "currentProjectionRef": "runtime/evidence/snapshots/333146ad1a8918d66ed815d4c77bba78350a192693f09f3e35fe29462954d0ae.json",
+  "currentProjectionHash": "333146ad1a8918d66ed815d4c77bba78350a192693f09f3e35fe29462954d0ae",
+  "complete": false,
+  "declaredArtifacts": [
+    {
+      "path": "analyze/benchmark/casc-adaptive-live-20260807-postfix/report.json",
+      "kind": "file"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cmd/wowdata/main.go",
+      "kind": "modified",
+      "before": {
+        "hash": "a747d78cc515f13a8d489ea5a2b25a5a0340d4c16ed1cfe71a5ce4dac5aaf91d",
+        "size": 42816
+      },
+      "after": {
+        "hash": "ecf41d304d181541b6a3d89e1638e539d6d4d29098bb3df44fdfeebe87b70ff5",
+        "size": 42782
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/adaptive_download_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "0992bbed4b19e923d794df702707ce870c8400172e715c5f724a93c53f5def8c",
+        "size": 5344
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/remotesource.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1e1aab9dcf9484e9210db354f0b7495c0099594920f78ee332b2180124f7c569",
+        "size": 50122
+      },
+      "after": {
+        "hash": "f9c054aa5dfbbe8ea1549bab686f3ff40375af065523ffb95ac3dab7a247000c",
+        "size": 49108
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/resumable.go",
+      "kind": "modified",
+      "before": {
+        "hash": "779e8ec4c4d85233bccfb274ddd2325d3deabe5c25410ba85be7e70735e037ef",
+        "size": 16293
+      },
+      "after": {
+        "hash": "99c9e413da3e7d882dccb4f235d351935e1c6f5c957d0404aaa871d85f933c0c",
+        "size": 20101
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/db2_loader.go",
+      "kind": "modified",
+      "before": {
+        "hash": "ede672b96ad413685008cda8d9f5d704b1d87569056c65447b015fa5b7c6fe66",
+        "size": 4576
+      },
+      "after": {
+        "hash": "d42468174994320e4b723850eee086b0b2ee2030e79bc786c30384867dfa14e4",
+        "size": 4998
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/db2_loader_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "b4749463ad3c6a5444ddc3f9e31f84e123173999d623ad8c6f67511b75646627",
+        "size": 1301
+      },
+      "after": {
+        "hash": "0cce6e9a0ade0369f604494c76c400934a79fb246a0afa68a37a21c64f09b681",
+        "size": 2730
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/dbd_revision.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1dcd64d2ffeff08d77f23e78b3c7b62521d0255da0f1bad2868e9d7134d4240e",
+        "size": 3231
+      },
+      "after": {
+        "hash": "55dd6759560f01d5de64e73d0eab43131fc16562933bbd4f436abec930cf1069",
+        "size": 3261
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/dbd_revision_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "defcf2a7916177dad779bfa77d389f71e70c104edcd125a39ad2f09ba2d90ad6",
+        "size": 1077
+      },
+      "after": {
+        "hash": "3b0b5d9896bbaa7b3b610e54b338f766e5d37c38a777f10dbf205b3d085224f9",
+        "size": 1513
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "tools/benchmark/rangedownload/main.go",
+      "kind": "modified",
+      "before": {
+        "hash": "0afdc255dbeff14936e83d9646a6c15b7c14b87fdb4e62387799400ce9e5fbb8",
+        "size": 4153
+      },
+      "after": {
+        "hash": "0e82499090a7eb7cbd713ca8a8a8ae1a0e69b5ae01373107266c232dc2b131c3",
+        "size": 4687
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "tools/corpus/main.go",
+      "kind": "modified",
+      "before": {
+        "hash": "7e320e86aa7c2c8db73f06420a84352db42f476edcd9fa6daff77ae93b65b6f1",
+        "size": 30032
+      },
+      "after": {
+        "hash": "0340c6c46c8e5313d1e91383887016b47aee345243d379a8d4ccdd3943a4be42",
+        "size": 29171
+      },
+      "attributedTo": []
+    }
+  ],
+  "unattributed": [
+    {
+      "path": "cmd/wowdata/main.go",
+      "kind": "modified",
+      "before": {
+        "hash": "a747d78cc515f13a8d489ea5a2b25a5a0340d4c16ed1cfe71a5ce4dac5aaf91d",
+        "size": 42816
+      },
+      "after": {
+        "hash": "ecf41d304d181541b6a3d89e1638e539d6d4d29098bb3df44fdfeebe87b70ff5",
+        "size": 42782
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/adaptive_download_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "0992bbed4b19e923d794df702707ce870c8400172e715c5f724a93c53f5def8c",
+        "size": 5344
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/remotesource.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1e1aab9dcf9484e9210db354f0b7495c0099594920f78ee332b2180124f7c569",
+        "size": 50122
+      },
+      "after": {
+        "hash": "f9c054aa5dfbbe8ea1549bab686f3ff40375af065523ffb95ac3dab7a247000c",
+        "size": 49108
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/resumable.go",
+      "kind": "modified",
+      "before": {
+        "hash": "779e8ec4c4d85233bccfb274ddd2325d3deabe5c25410ba85be7e70735e037ef",
+        "size": 16293
+      },
+      "after": {
+        "hash": "99c9e413da3e7d882dccb4f235d351935e1c6f5c957d0404aaa871d85f933c0c",
+        "size": 20101
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/db2_loader.go",
+      "kind": "modified",
+      "before": {
+        "hash": "ede672b96ad413685008cda8d9f5d704b1d87569056c65447b015fa5b7c6fe66",
+        "size": 4576
+      },
+      "after": {
+        "hash": "d42468174994320e4b723850eee086b0b2ee2030e79bc786c30384867dfa14e4",
+        "size": 4998
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/db2_loader_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "b4749463ad3c6a5444ddc3f9e31f84e123173999d623ad8c6f67511b75646627",
+        "size": 1301
+      },
+      "after": {
+        "hash": "0cce6e9a0ade0369f604494c76c400934a79fb246a0afa68a37a21c64f09b681",
+        "size": 2730
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/dbd_revision.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1dcd64d2ffeff08d77f23e78b3c7b62521d0255da0f1bad2868e9d7134d4240e",
+        "size": 3231
+      },
+      "after": {
+        "hash": "55dd6759560f01d5de64e73d0eab43131fc16562933bbd4f436abec930cf1069",
+        "size": 3261
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/dbd_revision_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "defcf2a7916177dad779bfa77d389f71e70c104edcd125a39ad2f09ba2d90ad6",
+        "size": 1077
+      },
+      "after": {
+        "hash": "3b0b5d9896bbaa7b3b610e54b338f766e5d37c38a777f10dbf205b3d085224f9",
+        "size": 1513
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "tools/benchmark/rangedownload/main.go",
+      "kind": "modified",
+      "before": {
+        "hash": "0afdc255dbeff14936e83d9646a6c15b7c14b87fdb4e62387799400ce9e5fbb8",
+        "size": 4153
+      },
+      "after": {
+        "hash": "0e82499090a7eb7cbd713ca8a8a8ae1a0e69b5ae01373107266c232dc2b131c3",
+        "size": 4687
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "tools/corpus/main.go",
+      "kind": "modified",
+      "before": {
+        "hash": "7e320e86aa7c2c8db73f06420a84352db42f476edcd9fa6daff77ae93b65b6f1",
+        "size": 30032
+      },
+      "after": {
+        "hash": "0340c6c46c8e5313d1e91383887016b47aee345243d379a8d4ccdd3943a4be42",
+        "size": 29171
+      },
+      "attributedTo": []
+    }
+  ],
+  "unresolvedScopes": [
+    {
+      "id": "scope:d6dd4bd265681e868440e8ad67ded3f2604338d2556cc83d54ecf35586d7c6a9",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "cmd/wowdata/main.go",
+      "reason": "Changed path is not covered by a declared artifact: cmd/wowdata/main.go"
+    },
+    {
+      "id": "scope:6cc7099a94ba4b539cafbc25c3e19f373af9846e6208260180710da74f38090c",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/casc/adaptive_download_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/casc/adaptive_download_test.go"
+    },
+    {
+      "id": "scope:2255760f5125deeebf1f5d941f4b73dffdcedfce68a0b7e1450c95c596e08081",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/casc/remotesource.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/casc/remotesource.go"
+    },
+    {
+      "id": "scope:60985ce3d96babe2dd87999d7d91552c548392bf4834dcc4bf35f8095bdde7e7",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/casc/resumable.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/casc/resumable.go"
+    },
+    {
+      "id": "scope:e004367050a5e7d1f7b631887380c9ee7f5c896938f35affc98814a3d68d3cb6",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/runtime/db2_loader.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/runtime/db2_loader.go"
+    },
+    {
+      "id": "scope:a3e7283a7021bbed9ef93102c0bfc0b5235f8c8287672be6e809c9c625d69959",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/runtime/db2_loader_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/runtime/db2_loader_test.go"
+    },
+    {
+      "id": "scope:305f9040cee409fa6e93f1008c2d18d2d24fb7446a05bd2fdf63f6f11b82287c",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/runtime/dbd_revision.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/runtime/dbd_revision.go"
+    },
+    {
+      "id": "scope:71c96b7796e592ee9a787140c759f2328e7122ceb232ffcf07a76ebd2cc14a95",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/runtime/dbd_revision_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/runtime/dbd_revision_test.go"
+    },
+    {
+      "id": "scope:e09d690bf80b572c6a9bcb2ac3b2fe8e72cece1eb4dae754f992dbe1db03b9e3",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "tools/benchmark/rangedownload/main.go",
+      "reason": "Changed path is not covered by a declared artifact: tools/benchmark/rangedownload/main.go"
+    },
+    {
+      "id": "scope:407a3442ea276294c662787ea62d54cd127ffcd6c7f5f131e7d6295a11f5d396",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "tools/corpus/main.go",
+      "reason": "Changed path is not covered by a declared artifact: tools/corpus/main.go"
+    }
+  ],
+  "noCodeReason": null,
+  "scopeHash": "04e71d1935c41867e411926f4d095a704817c52e7d7f8a5924bcc484036129db"
+}

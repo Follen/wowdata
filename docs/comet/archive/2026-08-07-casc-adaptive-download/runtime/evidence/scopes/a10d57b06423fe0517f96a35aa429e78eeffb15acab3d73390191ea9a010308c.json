@@ -1,0 +1,101 @@
+{
+  "schema": "comet.native.implementation-scope.v2",
+  "contractHash": "99cd0fbc86ad0e111700dc1be2c5789283fa486ae6d554520598ea8317b68be5",
+  "baselineProjectionRef": "runtime/evidence/snapshots/c5ed36608a89c71d481063e10da39eb93f0ab456af4c405b8615f860b8f798f2.json",
+  "baselineProjectionHash": "c5ed36608a89c71d481063e10da39eb93f0ab456af4c405b8615f860b8f798f2",
+  "currentProjectionRef": "runtime/evidence/snapshots/491ac06bcd89dc738a710e24fa339c27a052b0e80eb8a6e19b2e8b1d29df7f9d.json",
+  "currentProjectionHash": "491ac06bcd89dc738a710e24fa339c27a052b0e80eb8a6e19b2e8b1d29df7f9d",
+  "complete": false,
+  "declaredArtifacts": [
+    {
+      "path": "internal/casc",
+      "kind": "directory"
+    }
+  ],
+  "changes": [
+    {
+      "path": "docs/superpowers/reports/2026-08-07-casc-adaptive-download-verify.md",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "2c80b619049d44693ad8c45bf5c93af42323c27a2988bdaa91e49805ed8900f4",
+        "size": 7403
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/adaptive_download_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "e4b01feeff76f67f2c109e0ecdd6042a772e22d20972188124b55849a8c4c5ca",
+        "size": 4248
+      },
+      "attributedTo": [
+        {
+          "path": "internal/casc",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/casc/remotesource.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1e1aab9dcf9484e9210db354f0b7495c0099594920f78ee332b2180124f7c569",
+        "size": 50122
+      },
+      "after": {
+        "hash": "9ee65ff053a9e50b0a73f1b8c8ceae95a97d3ae44c1ce76917b925bd77a07c0d",
+        "size": 48723
+      },
+      "attributedTo": [
+        {
+          "path": "internal/casc",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/casc/resumable.go",
+      "kind": "modified",
+      "before": {
+        "hash": "779e8ec4c4d85233bccfb274ddd2325d3deabe5c25410ba85be7e70735e037ef",
+        "size": 16293
+      },
+      "after": {
+        "hash": "90f9c0091a6333df8954a5491fcc38fbbdd41f240362361dca794a9dd326c070",
+        "size": 18775
+      },
+      "attributedTo": [
+        {
+          "path": "internal/casc",
+          "kind": "directory"
+        }
+      ]
+    }
+  ],
+  "unattributed": [
+    {
+      "path": "docs/superpowers/reports/2026-08-07-casc-adaptive-download-verify.md",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "2c80b619049d44693ad8c45bf5c93af42323c27a2988bdaa91e49805ed8900f4",
+        "size": 7403
+      },
+      "attributedTo": []
+    }
+  ],
+  "unresolvedScopes": [
+    {
+      "id": "scope:267864a13932f944568105219e181473a01d68546516f87b09c996bfd7401f88",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "docs/superpowers/reports/2026-08-07-casc-adaptive-download-verify.md",
+      "reason": "Changed path is not covered by a declared artifact: docs/superpowers/reports/2026-08-07-casc-adaptive-download-verify.md"
+    }
+  ],
+  "noCodeReason": null,
+  "scopeHash": "a10d57b06423fe0517f96a35aa429e78eeffb15acab3d73390191ea9a010308c"
+}

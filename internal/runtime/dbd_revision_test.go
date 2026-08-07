@@ -37,3 +37,16 @@ func TestDBDRevisionUsesETagAndCachedSHA(t *testing.T) {
 		t.Fatalf("HTTP metrics = %#v", metrics)
 	}
 }
+
+func TestDBDRevisionAcceptsGitRefResponse(t *testing.T) {
+	const sha = "89abcdef0123456789abcdef0123456789abcdef"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintf(w, `{"object":{"sha":%q}}`, sha)
+	}))
+	defer server.Close()
+	source := NewHTTPDBDRevisionSource(filepath.Join(t.TempDir(), "dbd"), server.URL)
+	got, err := source.Revision()
+	if err != nil || got != sha {
+		t.Fatalf("Revision = %q, %v", got, err)
+	}
+}

@@ -1,0 +1,12 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "casc-adaptive-download",
+  "artifacts": [
+    {
+      "path": "analyze/benchmark/casc-adaptive-live-20260807-postfix/report.json",
+      "hash": "dcb9214ae7bf30db07380766a673766dce6cb0ff394ce57e6b10174a4e93fa4a",
+      "size": 3181
+    }
+  ],
+  "totalBytes": 3181
+}

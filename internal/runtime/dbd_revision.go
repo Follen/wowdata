@@ -74,14 +74,21 @@ func (s *HTTPDBDRevisionSource) Revision() (string, error) {
 				}
 			case http.StatusOK:
 				var payload struct {
-					SHA string `json:"sha"`
+					SHA    string `json:"sha"`
+					Object struct {
+						SHA string `json:"sha"`
+					} `json:"object"`
 				}
 				decodeErr := json.NewDecoder(resp.Body).Decode(&payload)
 				etag := resp.Header.Get("ETag")
 				_ = resp.Body.Close()
-				if decodeErr == nil && gitSHA1Pattern.MatchString(payload.SHA) {
+				sha := payload.SHA
+				if sha == "" {
+					sha = payload.Object.SHA
+				}
+				if decodeErr == nil && gitSHA1Pattern.MatchString(sha) {
 					state = DBDRevisionState{
-						Schema: "wowdata.dbd-revision.v1", SHA: payload.SHA,
+						Schema: "wowdata.dbd-revision.v1", SHA: sha,
 						ETag: etag, CheckedAt: time.Now().UTC().Format(time.RFC3339),
 					}
 					if writeErr := storage.AtomicWriteJSON(statePath, state, 0o644); writeErr != nil {

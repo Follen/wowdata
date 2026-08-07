@@ -1,0 +1,38 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "static-inspection",
+  "role": "required-check",
+  "status": "passed",
+  "bindings": {
+    "change": "casc-adaptive-download",
+    "sourceRevision": 16,
+    "contractHash": "b197218ef21de6f87c25596c401ce5489a6d74d649cc59f868bc719599727444",
+    "scopeHash": "d56bbb3bb3c4e9d4fc2e9774e8f984ee4405fd192b338b57aaf647a21f96fb6b",
+    "snapshotHash": "c4856514fd6346f8f82b1c747582b9493a6c4bd643c98d864e0cd9a57507c6b4",
+    "artifactHash": "61be97a9f956cc4dd388b4cda6153373fdfcf65d4ea98c659f89b399d23422b3"
+  },
+  "acceptanceIds": [],
+  "actor": "native-runtime:scoped-text-safety",
+  "issuedAt": "2026-08-07T14:06:06.753Z",
+  "evidence": {
+    "subjects": [
+      "cmd/wowdata/main.go",
+      "internal/casc/adaptive_download_test.go",
+      "internal/casc/remotesource.go",
+      "internal/casc/resumable.go",
+      "internal/runtime/db2_loader.go",
+      "internal/runtime/db2_loader_test.go",
+      "internal/runtime/dbd_revision.go",
+      "internal/runtime/dbd_revision_test.go",
+      "tools/benchmark/rangedownload/main.go",
+      "tools/benchmark/rangedownload/working_set_other.go",
+      "tools/benchmark/rangedownload/working_set_windows.go",
+      "tools/corpus/main.go"
+    ],
+    "rule": "scoped-text-safety",
+    "resultSummary": "The built-in scoped inspection passed without skipped or blocking input.",
+    "checkReceiptRef": "runtime/evidence/check-receipts/c3661ce94177fa10f7f59beab5dc281817ba7897e51f0bc4f2151d845d6a8d74.json",
+    "checkReceiptHash": "c3661ce94177fa10f7f59beab5dc281817ba7897e51f0bc4f2151d845d6a8d74"
+  },
+  "receiptHash": "e97c7ae98bc8989d7b05c6870934fa4cc0d266d01d15c0d1d85d2698440c2f0b"
+}
