@@ -1,0 +1,29 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-hotfix-cdn-performance",
+    "sourceRevision": 7,
+    "contractHash": "980590caf3546077a0b817fa77e80bcb494f07999596d8ebb84a7a8d81e19e56",
+    "scopeHash": "91bba1ef3d7f76bad518fce5ac08bb1bab69c63e518e7c02f0201a9bb42ba833",
+    "snapshotHash": "edeadb1abf03d0a6660d02484247ce3381d74d878ab05a9391d4d670f2604599",
+    "artifactHash": "2f9cfb6a241ad68791730fabce2d8163154ae0cdf83dcaff5c8cf6eaa222e482"
+  },
+  "acceptanceIds": [
+    "acceptance-b72849e0e84ecb3fbe199ceff4087bdaa838244316995a1722d6dfb43a7bed02",
+    "acceptance-f49188410396637abdf55a6019a080a1643a155a78f6bebb26d2f68afb2a576a"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-07T09:05:00.047Z",
+  "evidence": {
+    "steps": [
+      "审阅正式 Comet 文档和 Skill 交付范围"
+    ],
+    "observations": [
+      "brief、完整 spec、verification、正式报告引用和 Skill references 均在 change scope；.comet Runtime 临时状态不作为人工改写对象。"
+    ]
+  },
+  "receiptHash": "3f20e8db45c57994335db888ac10eb097dfe33e4298988830c11223a2f114e36"
+}

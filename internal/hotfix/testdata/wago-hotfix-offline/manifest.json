@@ -6,15 +6,15 @@
   "items": [
     {
       "path": "internal/hotfix/testdata/wago-hotfix-offline/response-page-1.html",
-      "sha256": "699b34d2f89e48f9318b863714079cb10a7a0681c738ea70ada6b0b46cb80b0f",
-      "bytes": 52108,
+      "sha256": "cdd1124fae509bc845df8ffdff190559e01c31648e4305eeb1b42a6c1e1812df",
+      "bytes": 52107,
       "kind": "wago-html-inertia",
       "request": "GET /hotfixes"
     },
     {
       "path": "internal/hotfix/testdata/wago-hotfix-offline/response-page-2.html",
-      "sha256": "09104ca29641d1c4f9137c139fb3eadd446bd3f35382a6f015a656fa6cc13af3",
-      "bytes": 52594,
+      "sha256": "b33b441d8cd7b5c274fc6c57519b065481b1ad60ccc1ad5a4b9417e261d32bad",
+      "bytes": 52593,
       "kind": "wago-html-inertia",
       "request": "GET /hotfixes?version=12.0.7.68974 (server-rendered page 1)"
     },

@@ -1,55 +1,36 @@
 ---
 name: wowdata
-description: Query and export World of Warcraft game data with the wowdata CLI, including CASC and DB2 schemas and rows, files, icons, textures, spells, encounters, items, creatures, decor, Builds, profiles, cache, and diagnostics. Use when a user asks to inspect or export WoW data from a local client or CDN, resolve a product/Build/locale target, or diagnose wowdata.
+description: Query and export World of Warcraft data with the wowdata CLI, including local or CDN CASC/DB2 data, read-only SQL atomic queries, independent Hotfix records, files, icons, textures, spells, encounters, items, creatures, decor, Builds, profiles, cache, and diagnostics. Use when a user asks to inspect, search, stream, decode, or export WoW data or diagnose wowdata.
 ---
 
 # wowdata
 
 Use the `wowdata` executable from `PATH`. This Skill is CLI-only: do not search for a bundled executable and do not use MCP or another server transport.
 
-## Resolve The Target
+## Choose the command
 
-Resolve the target before running a command that reads CASC or DB2 data.
+- Use `sql` for a read-only DB2 query, including joins, subqueries, CTEs, aggregates, ordering, limits, `EXPLAIN`, or `ANALYZE`. Read [sql.md](references/sql.md).
+- Use `hotfix query` for Hotfix records. Hotfix is an independent query system, not a DB2 SQL table. Read [hotfix.md](references/hotfix.md).
+- Use `db2` for schema, rows, search, foreign-key, and stream operations; use domain commands for semantic workflows; use `casc`, `file`, `icon`, `video`, `profile`, `cache`, `doctor`, or `warmup` for their named purposes. Read [commands.md](references/commands.md) when a flag or command shape is unfamiliar, and [tables.yaml](references/tables.yaml) when mapping a semantic request to DB2 tables.
 
-1. If the user gives a Profile, pass only `--profile <name>`. Do not combine a Profile with target flags.
-2. Resolve the product from the user's words or established conversation context. Read [clients.yaml](references/clients.yaml) for English and Chinese aliases. Product has no default; if it is still missing or ambiguous, ask one short product question and do not run a data command yet. Treat “硬核服” as a server rule, not a product: resolve its classic-era or anniversary product from context, or ask which one.
-3. Preserve every explicit source, path, region, product, Build, and locale value.
-4. When no source or local path is stated, use remote CDN data.
-5. For an otherwise unspecified remote target, pass `--source remote --region cn --build latest --locale zhCN` plus the resolved product.
-6. For `--source local`, require the client `--path` and complete every remaining target field explicitly. Do not replace missing local-client facts with guesses.
+## Resolve the target
 
-Never rely on CLI target defaults; the CLI intentionally has none. `--build latest` resolves at execution time, so never store a current Build number in this Skill. Read [locales.yaml](references/locales.yaml) when mapping natural-language locale names.
+Resolve the target before reading CASC or DB2 data.
 
-Commands that do not read a game target do not need the full target: `video demux`, `doctor`, `cache`, `profile`, `update`, and `uninstall`. `casc products` uses only source discovery flags such as `--source remote --region cn` or `--source local --path <client>`.
+1. If the user gives a Profile, pass only `--profile <name>`; do not combine it with target flags.
+2. Resolve product from the user's words or conversation context. Read [clients.yaml](references/clients.yaml) for aliases. Product has no default; if it remains ambiguous, ask one short product question before running a data command. Treat “硬核服” as a server rule and resolve its actual product from context.
+3. Preserve every explicit source, path, region, product, Build, and locale. Read [locales.yaml](references/locales.yaml) for locale aliases.
+4. If no source or local path is stated, use remote CDN. For an otherwise unspecified remote target, pass `--source remote --region cn --build latest --locale zhCN` plus the resolved product.
+5. For `--source local`, require `--path <client>` and complete the remaining target fields explicitly; never guess missing local-client facts.
 
-## Run Atomic Commands
+Never rely on CLI target defaults; the CLI intentionally has none. `--build latest` resolves at execution time and must not be hard-coded in this Skill.
 
-Call the business command directly. Do not run `warmup` before an ordinary query. The CLI checks Build identity and cache integrity, downloads missing data, then completes the original query in the same process.
+Commands that do not read a game target do not need the full target: `video demux`, `doctor`, `cache`, `profile`, `update`, and `uninstall`. `casc products` needs only source discovery flags.
 
-- Use `casc products` when the user asks which products or Builds exist.
-- Use `warmup` only when the user explicitly asks to download data ahead of time.
-- Use `doctor` after an environment, target, cache, or network failure needs diagnosis.
-- Read [commands.md](references/commands.md) before composing an unfamiliar command.
-- Read [tables.yaml](references/tables.yaml) when translating a semantic request into DB2 tables.
-- Never invent a DB2 field name from a natural-language label. If the user requests selected fields without giving exact schema names, run `db2 schema <table>` first, then use names returned by that schema.
-- Use `db2 rows`, never the obsolete `query rows` spelling.
-- Keep exports at the user-requested path, or in the current workspace when no path is given.
-- Do not run `cache clear`, `profile remove`, `update`, or `uninstall` unless the user explicitly requests that action.
+## Execute and report
 
-```powershell
-wowdata db2 rows SpellName --id 133 --source remote --region cn --product wow --build latest --locale zhCN
-wowdata item textures --item-id 19019 --profile retail-cn
-wowdata icon export --file-data-id 134400 --format png --output output/icon.png --source remote --region cn --product wow --build latest --locale zhCN
-```
+Call the business command directly. Do not run `warmup` before an ordinary query; the CLI prepares required dependencies in-process. Keep exports at the requested path, or the current workspace when no path is given. Do not run destructive maintenance (`cache clear`, `profile remove`, `update`, `uninstall`) unless explicitly requested.
 
-## Read Results
+Treat stdout, stderr, and exit status as one contract: progress on stderr is informational; stdout is the result. Exit `0` is success. Exit `1` with JSON stdout is a structured failure—report `error.code` and `error.message`; plain stderr indicates CLI parsing/setup failure. A successful zero-row response is valid; check ID, product, Build, and locale before changing the query.
 
-Treat the streams and exit status as one contract:
-
-- stderr contains preparation and download progress. If it reports `prepare` or `download`, let the command continue; do not start a separate warmup.
-- stdout contains the final JSON. `db2 stream` defaults to JSONL; parse it line by line or pass `--format json` when one JSON document is preferable.
-- Exit code `0` corresponds to `"ok": true`.
-- Exit code `1` with JSON stdout corresponds to `"ok": false`; report `error.code` and `error.message`. A CLI parsing error may instead be plain stderr.
-- An `"ok": true` response with zero rows is a valid empty result. Recheck the ID, product, Build, and locale before trying another query.
-
-Return the requested result, not download narration. Preserve the product, resolved Build, region, locale, table or ID, and output path/hash when present so the answer remains traceable.
+Preserve the resolved product, Build, region, locale, table/record identifiers, format, and output path/hash when present. Return requested data rather than download narration. See [errors.md](references/errors.md) for recovery decisions.

@@ -15,6 +15,7 @@ import (
 type memoryDB2Table struct {
 	schema []SchemaField
 	reader db2.RowReader
+	info   sqlquery.TableInfo
 }
 
 func (s *MemoryDB2Store) Describe(ctx context.Context, table string) (sqlquery.TableInfo, error) {
@@ -22,42 +23,14 @@ func (s *MemoryDB2Store) Describe(ctx context.Context, table string) (sqlquery.T
 	if err != nil {
 		return sqlquery.TableInfo{}, err
 	}
-	info := sqlquery.TableInfo{Name: table}
-	if sized, ok := t.reader.(db2.SizedReader); ok {
-		info.RowCount = sized.Size()
-	}
-	schema := t.schema
-	if len(schema) == 0 {
-		// Compatibility-only path for legacy in-memory readers and tests. Real
-		// DB2 tables always arrive with a Build-specific DBD schema.
-		rows := t.reader.GetAllRows()
-		info.RowCount = len(rows)
-		for _, row := range rows {
-			for name, value := range row {
-				schema = append(schema, SchemaField{Name: name, Type: fmt.Sprintf("%T", value)})
-			}
-			break
-		}
-		sort.Slice(schema, func(i, j int) bool { return schema[i].Name < schema[j].Name })
-	}
-	for _, field := range schema {
-		typ := strings.ToLower(field.Type)
-		info.Columns = append(info.Columns, sqlquery.Column{
-			Name: field.Name, Type: field.Type,
-			ID:           strings.EqualFold(field.Name, "ID") || strings.Contains(typ, "noninlineid"),
-			Relationship: strings.Contains(typ, "relation"),
-		})
-	}
-	return info, ctx.Err()
+	return t.info, ctx.Err()
 }
 
 func (s *MemoryDB2Store) Lookup(ctx context.Context, table string, ids []uint32, fields []string) ([]sqlquery.Row, sqlquery.AccessStats, error) {
 	if _, err := s.table(table); err != nil {
 		return nil, sqlquery.AccessStats{}, err
 	}
-	snapshot := s.engine.Snapshot()
-	defer snapshot.Close()
-	result, stats, err := snapshot.Execute(ctx, db2.QueryPlan{Table: table, Mode: db2.PlanRows, IDs: ids, Fields: fields})
+	result, stats, err := s.engine.Execute(ctx, db2.QueryPlan{Table: table, Mode: db2.PlanRows, IDs: ids, Fields: fields})
 	return sqlRows(result.Rows), sqlAccess(stats), err
 }
 
@@ -65,42 +38,46 @@ func (s *MemoryDB2Store) Relationship(ctx context.Context, table, field string, 
 	if _, err := s.table(table); err != nil {
 		return nil, sqlquery.AccessStats{}, err
 	}
-	snapshot := s.engine.Snapshot()
-	defer snapshot.Close()
-	var rows []map[string]interface{}
-	combined := sqlquery.AccessStats{Physical: "WDCRelationshipLookup", BatchCount: 1}
-	for _, value := range values {
-		result, stats, err := snapshot.Execute(ctx, db2.QueryPlan{Table: table, Mode: db2.PlanForeignKey, ForeignField: field, ForeignValue: value, Fields: fields})
-		if err != nil {
-			return nil, combined, err
-		}
-		rows = append(rows, result.Rows...)
-		a := sqlAccess(stats)
-		combined.InputRows = maxInt(combined.InputRows, a.InputRows)
-		combined.VisitedRows += a.VisitedRows
-		combined.ScannedRows += a.ScannedRows
-		combined.DecodedRows += a.DecodedRows
-		combined.DecodedFields = maxInt(combined.DecodedFields, a.DecodedFields)
-		combined.OutputRows += a.OutputRows
-		if a.Fallback != "" {
-			combined.Fallback = a.Fallback
-		}
+	plan := db2.QueryPlan{Table: table, Mode: db2.PlanForeignKey, ForeignField: field, Fields: fields}
+	if len(values) == 1 {
+		plan.ForeignValue = values[0]
+	} else {
+		plan.ForeignValues = values
 	}
-	if combined.Fallback != "" {
-		combined.Physical = "WDCSectionScan"
+	result, stats, err := s.engine.Execute(ctx, plan)
+	return sqlRows(result.Rows), sqlAccess(stats), err
+}
+
+func (s *MemoryDB2Store) TextSearch(ctx context.Context, table, field, query string, caseSensitive bool, fields []string, limit int) ([]sqlquery.Row, sqlquery.AccessStats, error) {
+	if _, err := s.table(table); err != nil {
+		return nil, sqlquery.AccessStats{}, err
 	}
-	return sqlRows(rows), combined, ctx.Err()
+	result, stats, err := s.engine.Execute(ctx, db2.QueryPlan{Table: table, Mode: db2.PlanSearch, SearchField: field, SearchQuery: query, CaseSensitive: caseSensitive, Fields: fields, Limit: limit})
+	a := sqlAccess(stats)
+	a.Physical = "WDCTextSearch"
+	return sqlRows(result.Rows), a, err
 }
 
 func (s *MemoryDB2Store) Scan(ctx context.Context, table string, fields []string, limit int) ([]sqlquery.Row, sqlquery.AccessStats, error) {
 	if _, err := s.table(table); err != nil {
 		return nil, sqlquery.AccessStats{}, err
 	}
-	snapshot := s.engine.Snapshot()
-	defer snapshot.Close()
-	result, stats, err := snapshot.Execute(ctx, db2.QueryPlan{Table: table, Mode: db2.PlanRows, Fields: fields, Limit: limit})
+	result, stats, err := s.engine.Execute(ctx, db2.QueryPlan{Table: table, Mode: db2.PlanRows, Fields: fields, Limit: limit})
 	a := sqlAccess(stats)
 	a.Physical = "WDCColumnBatchScan"
+	return sqlRows(result.Rows), a, err
+}
+
+func (s *MemoryDB2Store) ScanFilter(ctx context.Context, table string, fields []string, predicate func(sqlquery.Row) bool, limit int) ([]sqlquery.Row, sqlquery.AccessStats, error) {
+	if _, err := s.table(table); err != nil {
+		return nil, sqlquery.AccessStats{}, err
+	}
+	filter := func(row map[string]interface{}) bool {
+		return predicate == nil || predicate(sqlquery.Row(row))
+	}
+	result, stats, err := s.engine.Execute(ctx, db2.QueryPlan{Table: table, Mode: db2.PlanRows, Fields: fields, Filter: filter, Limit: limit})
+	a := sqlAccess(stats)
+	a.Physical = "WDCPredicateScan"
 	return sqlRows(result.Rows), a, err
 }
 
@@ -108,9 +85,7 @@ func (s *MemoryDB2Store) ScanStream(ctx context.Context, table string, fields []
 	if _, err := s.table(table); err != nil {
 		return sqlquery.AccessStats{}, err
 	}
-	snapshot := s.engine.Snapshot()
-	defer snapshot.Close()
-	_, stats, err := snapshot.Execute(ctx, db2.QueryPlan{Table: table, Mode: db2.PlanStream, Fields: fields, Limit: limit, Yield: func(row map[string]interface{}) error {
+	_, stats, err := s.engine.Execute(ctx, db2.QueryPlan{Table: table, Mode: db2.PlanStream, Fields: fields, Limit: limit, Yield: func(row map[string]interface{}) error {
 		return yield(sqlquery.Row(row))
 	}})
 	a := sqlAccess(stats)
@@ -168,12 +143,38 @@ func (s *MemoryDB2Store) Reset() {
 func (s *MemoryDB2Store) AddTable(name string, schema []SchemaField, reader db2.RowReader) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.tables[name] = memoryDB2Table{schema: schema, reader: reader}
+	schema = append([]SchemaField(nil), schema...)
+	info := buildTableInfo(name, schema, reader)
+	s.tables[name] = memoryDB2Table{schema: schema, reader: reader, info: info}
 	if s.engine == nil {
 		s.engine = db2.NewEngine()
 	}
 	_ = s.engine.Register(name, nil, reader)
 	s.ready = true
+}
+
+func buildTableInfo(name string, schema []SchemaField, reader db2.RowReader) sqlquery.TableInfo {
+	info := sqlquery.TableInfo{Name: name}
+	if sized, ok := reader.(db2.SizedReader); ok {
+		info.RowCount = sized.Size()
+	}
+	if len(schema) == 0 {
+		rows := reader.GetAllRows()
+		info.RowCount = len(rows)
+		for _, row := range rows {
+			for field, value := range row {
+				schema = append(schema, SchemaField{Name: field, Type: fmt.Sprintf("%T", value)})
+			}
+			break
+		}
+		sort.Slice(schema, func(i, j int) bool { return schema[i].Name < schema[j].Name })
+	}
+	info.Columns = make([]sqlquery.Column, 0, len(schema))
+	for _, field := range schema {
+		typ := strings.ToLower(field.Type)
+		info.Columns = append(info.Columns, sqlquery.Column{Name: field.Name, Type: field.Type, ID: strings.EqualFold(field.Name, "ID") || strings.Contains(typ, "noninlineid"), Relationship: strings.Contains(typ, "relation")})
+	}
+	return info
 }
 
 func (s *MemoryDB2Store) Ready() bool {

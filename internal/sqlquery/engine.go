@@ -56,6 +56,19 @@ type StreamSource interface {
 	ScanStream(ctx context.Context, table string, fields []string, limit int, yield func(Row) error) (AccessStats, error)
 }
 
+// PredicateScanSource is an optional physical equality/filter pushdown. The
+// engine rechecks the predicate after retrieval, so a source may only use it
+// to reduce decoding and stop once the requested number of matches is found.
+type PredicateScanSource interface {
+	ScanFilter(ctx context.Context, table string, fields []string, predicate func(Row) bool, limit int) ([]Row, AccessStats, error)
+}
+
+// TextSearchSource is an optional physical fast path for the common
+// LOWER(column) LIKE '%literal%' predicate used by atomic search commands.
+type TextSearchSource interface {
+	TextSearch(ctx context.Context, table, field, query string, caseSensitive bool, fields []string, limit int) ([]Row, AccessStats, error)
+}
+
 type Parameters map[string]any
 
 type OperatorStats struct {
@@ -601,7 +614,11 @@ func (e *execEnv) runSelectOne(q *Select, outer Row) ([]map[string]any, error) {
 		started := time.Now()
 		before := len(rows) + len(right)
 		var js joinStats
-		rows, js, er = e.joinRows(rows, right, j)
+		joinLimit := 0
+		if len(q.Joins) == 1 && q.Where == nil && !hasAggregate(q) && len(q.OrderBy) == 0 && !q.Distinct && q.Limit != nil {
+			joinLimit = q.Offset + *q.Limit
+		}
+		rows, js, er = e.joinRows(rows, right, j, joinLimit)
 		if er != nil {
 			return nil, er
 		}
@@ -704,6 +721,7 @@ func (e *execEnv) runSelectOne(q *Select, outer Row) ([]map[string]any, error) {
 
 func (e *execEnv) readTable(t TableRef, q *Select, outer Row) ([]Row, error) {
 	alias := t.EffectiveAlias()
+	var err error
 	if t.Subquery != nil {
 		rr, err := e.runSelect(t.Subquery, outer)
 		if err != nil {
@@ -729,9 +747,12 @@ func (e *execEnv) readTable(t TableRef, q *Select, outer Row) ([]Row, error) {
 		}
 		return qualifyRows(rr, alias), nil
 	}
-	info, err := e.source.Describe(e.ctx, t.Name)
-	if err != nil {
-		return nil, err
+	info, ok := e.infos[strings.ToLower(alias)]
+	if !ok {
+		info, err = e.source.Describe(e.ctx, t.Name)
+		if err != nil {
+			return nil, err
+		}
 	}
 	fields := requiredFields(q, alias, info)
 	access := detectAccess(q.Where, alias, info, e.params)
@@ -753,9 +774,34 @@ func (e *execEnv) readTable(t TableRef, q *Select, outer Row) ([]Row, error) {
 		rows, st, err = e.source.Lookup(e.ctx, t.Name, access.values, fields)
 	case "relationship":
 		rows, st, err = e.source.Relationship(e.ctx, t.Name, access.field, access.values, fields)
+	case "search":
+		search, supported := e.source.(TextSearchSource)
+		if !supported {
+			rows, st, err = e.source.Scan(e.ctx, t.Name, fields, 0)
+			break
+		}
+		limit := 0
+		if access.complete && len(q.Joins) == 0 && !hasAggregate(q) && len(q.OrderBy) == 0 && !q.Distinct && q.Limit != nil {
+			limit = q.Offset + *q.Limit
+		}
+		rows, st, err = search.TextSearch(e.ctx, t.Name, access.field, access.text, access.caseSensitive, fields, limit)
+	case "predicate":
+		filter, supported := e.source.(PredicateScanSource)
+		if !supported {
+			rows, st, err = e.source.Scan(e.ctx, t.Name, fields, 0)
+			break
+		}
+		limit := 0
+		if access.complete && len(q.Joins) == 0 && !hasAggregate(q) && len(q.OrderBy) == 0 && !q.Distinct && q.Limit != nil {
+			limit = q.Offset + *q.Limit
+		}
+		literal := access.literal
+		rows, st, err = filter.ScanFilter(e.ctx, t.Name, fields, func(row Row) bool {
+			return literal != nil && row[access.field] != nil && compare(row[access.field], literal) == 0
+		}, limit)
 	default:
 		limit := 0
-		if len(q.Joins) == 0 && !hasAggregate(q) && len(q.OrderBy) == 0 && !q.Distinct && q.Limit != nil {
+		if q.Where == nil && len(q.Joins) == 0 && !hasAggregate(q) && len(q.OrderBy) == 0 && !q.Distinct && q.Limit != nil {
 			limit = q.Offset + *q.Limit
 		}
 		rows, st, err = e.source.Scan(e.ctx, t.Name, fields, limit)
@@ -763,8 +809,10 @@ func (e *execEnv) readTable(t TableRef, q *Select, outer Row) ([]Row, error) {
 	if err != nil {
 		return nil, err
 	}
-	for i := range rows {
-		rows[i] = qualify(rows[i], alias)
+	if queryNeedsQualification(q, alias) {
+		for i := range rows {
+			rows[i] = qualify(rows[i], alias)
+		}
 	}
 	e.addOp(OperatorStats{Name: t.Name, Physical: st.Physical, EstimatedRows: info.RowCount, InputRows: st.InputRows, VisitedRows: st.VisitedRows, ScannedRows: st.ScannedRows, DecodedRows: st.DecodedRows, DecodedFields: st.DecodedFields, OutputRows: len(rows), BatchCount: st.BatchCount, ReadBytes: st.ReadBytes, Fallback: st.Fallback})
 	return rows, nil
@@ -802,8 +850,12 @@ func (e *execEnv) runRecursiveCTE(name string, q *Select, outer Row) ([]map[stri
 }
 
 type accessPlan struct {
-	kind, field string
-	values      []uint32
+	kind, field   string
+	values        []uint32
+	text          string
+	literal       any
+	caseSensitive bool
+	complete      bool
 }
 
 func detectAccess(x Expr, alias string, info TableInfo, params Parameters) accessPlan {
@@ -830,7 +882,8 @@ func detectAccess(x Expr, alias string, info TableInfo, params Parameters) acces
 			}
 			if v.Op == "=" {
 				if col, ok := v.Left.(*Identifier); ok && (col.Qualifier == "" || strings.EqualFold(col.Qualifier, alias)) {
-					if n, yes := uintValue(literalValue(v.Right, params)); yes {
+					literal := literalValue(v.Right, params)
+					if n, yes := uintValue(literal); yes {
 						if strings.EqualFold(col.Name, id) {
 							return accessPlan{kind: "id", field: col.Name, values: []uint32{n}}
 						}
@@ -838,6 +891,19 @@ func detectAccess(x Expr, alias string, info TableInfo, params Parameters) acces
 							return accessPlan{kind: "relationship", field: col.Name, values: []uint32{n}}
 						}
 					}
+					if literal != nil {
+						return accessPlan{kind: "predicate", field: col.Name, literal: literal}
+					}
+				}
+				if col, ok := v.Right.(*Identifier); ok && (col.Qualifier == "" || strings.EqualFold(col.Qualifier, alias)) {
+					if literal := literalValue(v.Left, params); literal != nil {
+						return accessPlan{kind: "predicate", field: col.Name, literal: literal}
+					}
+				}
+			}
+			if strings.EqualFold(v.Op, "LIKE") {
+				if plan, ok := detectTextSearch(v, alias, params); ok {
+					return plan
 				}
 			}
 		case *InExpr:
@@ -863,7 +929,103 @@ func detectAccess(x Expr, alias string, info TableInfo, params Parameters) acces
 		}
 		return accessPlan{}
 	}
-	return find(x)
+	plan := find(x)
+	plan.complete = plan.kind != "" && x != nil && isSameAccessPredicate(x, plan, alias, params)
+	return plan
+}
+
+func detectTextSearch(v *BinaryExpr, alias string, params Parameters) (accessPlan, bool) {
+	pattern, ok := literalValue(v.Right, params).(string)
+	if !ok || len(pattern) < 2 || pattern[0] != '%' || pattern[len(pattern)-1] != '%' {
+		return accessPlan{}, false
+	}
+	needle := pattern[1 : len(pattern)-1]
+	if strings.ContainsAny(needle, "%_") {
+		return accessPlan{}, false
+	}
+	call, ok := v.Left.(*CallExpr)
+	if !ok || !strings.EqualFold(call.Name, "LOWER") || len(call.Args) != 1 {
+		return accessPlan{}, false
+	}
+	col, ok := call.Args[0].(*Identifier)
+	if !ok || (col.Qualifier != "" && !strings.EqualFold(col.Qualifier, alias)) {
+		return accessPlan{}, false
+	}
+	return accessPlan{kind: "search", field: col.Name, text: strings.ToLower(needle)}, true
+}
+
+func isSameAccessPredicate(x Expr, plan accessPlan, alias string, params Parameters) bool {
+	switch plan.kind {
+	case "search":
+		v, ok := x.(*BinaryExpr)
+		if !ok {
+			return false
+		}
+		_, ok = detectTextSearch(v, alias, params)
+		return ok
+	case "id", "relationship":
+		switch x.(type) {
+		case *BinaryExpr, *InExpr:
+			return true
+		}
+	case "predicate":
+		v, ok := x.(*BinaryExpr)
+		return ok && v.Op == "="
+	}
+	return false
+}
+
+func queryNeedsQualification(q *Select, alias string) bool {
+	if len(q.Joins) > 0 {
+		return true
+	}
+	needed := false
+	var walk func(Expr)
+	walk = func(x Expr) {
+		if needed || x == nil {
+			return
+		}
+		switch v := x.(type) {
+		case *Identifier:
+			needed = v.Qualifier != "" && strings.EqualFold(v.Qualifier, alias)
+		case *Star:
+			needed = v.Qualifier != "" && strings.EqualFold(v.Qualifier, alias)
+		case *UnaryExpr:
+			walk(v.X)
+		case *BinaryExpr:
+			walk(v.Left)
+			walk(v.Right)
+		case *InExpr:
+			walk(v.X)
+			for _, a := range v.List {
+				walk(a)
+			}
+		case *BetweenExpr:
+			walk(v.X)
+			walk(v.Low)
+			walk(v.High)
+		case *IsNullExpr:
+			walk(v.X)
+		case *CallExpr:
+			for _, a := range v.Args {
+				walk(a)
+			}
+		case *CastExpr:
+			walk(v.X)
+		}
+	}
+	for _, item := range q.Items {
+		walk(item.Expr)
+	}
+	walk(q.Where)
+	walk(q.Having)
+	for _, term := range q.OrderBy {
+		walk(term.Expr)
+	}
+	for _, expr := range q.GroupBy {
+		walk(expr)
+	}
+	return needed
 }
 
 func literalValue(x Expr, p Parameters) any {
@@ -972,27 +1134,34 @@ type joinStats struct {
 	fallback    string
 }
 
-func (e *execEnv) joinRows(left, right []Row, j Join) ([]Row, joinStats, error) {
+func (e *execEnv) joinRows(left, right []Row, j Join, limit int) ([]Row, joinStats, error) {
 	if j.Type == JoinCross {
 		if err := e.guardNestedJoin(len(left), len(right), j.Pos); err != nil {
 			return nil, joinStats{}, err
 		}
-		out := make([]Row, 0, len(left)*len(right))
+		capacity := len(left) * len(right)
+		if limit > 0 && limit < capacity {
+			capacity = limit
+		}
+		out := make([]Row, 0, capacity)
 		for _, l := range left {
 			for _, r := range right {
 				out = append(out, mergeRows(l, r))
+				if limit > 0 && len(out) >= limit {
+					return out, joinStats{physical: "BlockNestedLoopJoin", buildSide: "right", probeSide: "left", peakBytes: int64(len(out)) * 96}, nil
+				}
 			}
 		}
 		return out, joinStats{physical: "BlockNestedLoopJoin", buildSide: "right", probeSide: "left", peakBytes: int64(len(out)) * 96}, nil
 	}
 	bl, ok := j.On.(*BinaryExpr)
 	if !ok || bl.Op != "=" {
-		return e.nestedJoin(left, right, j)
+		return e.nestedJoin(left, right, j, limit)
 	}
 	li, lok := bl.Left.(*Identifier)
 	ri, rok := bl.Right.(*Identifier)
 	if !lok || !rok {
-		return e.nestedJoin(left, right, j)
+		return e.nestedJoin(left, right, j, limit)
 	}
 	leftExpr, rightExpr := Expr(li), Expr(ri)
 	if len(left) > 0 && len(right) > 0 && exprPresent(ri, left[0]) && exprPresent(li, right[0]) {
@@ -1014,24 +1183,31 @@ func (e *execEnv) joinRows(left, right []Row, j Join) ([]Row, joinStats, error) 
 		index int
 		row   Row
 	}
-	h := map[string][]indexed{}
+	h := make(map[joinHashKey][]indexed, len(buildRows))
 	for i, r := range buildRows {
 		value := e.eval(buildExpr, r, nil, nil)
 		if value == nil {
 			continue
 		}
-		k := hashKey(value)
+		k := makeJoinHashKey(value)
 		h[k] = append(h[k], indexed{i, r})
 	}
 	stats.hashEntries = len(buildRows)
 	stats.peakBytes = int64(len(buildRows)) * 112
 	if !buildLeft {
-		out := make([]Row, 0)
+		capacity := 0
+		if limit > 0 {
+			capacity = limit
+		}
+		out := make([]Row, 0, capacity)
 		for _, l := range probeRows {
 			value := e.eval(probeExpr, l, nil, nil)
-			matches := h[hashKey(value)]
+			matches := h[makeJoinHashKey(value)]
 			if len(matches) == 0 && j.Type == JoinLeft {
 				out = append(out, mergeRows(l, nil))
+				if limit > 0 && len(out) >= limit {
+					return out, stats, nil
+				}
 				continue
 			}
 			matched := false
@@ -1044,10 +1220,16 @@ func (e *execEnv) joinRows(left, right []Row, j Join) ([]Row, joinStats, error) 
 				if okv != nil && *okv {
 					out = append(out, m)
 					matched = true
+					if limit > 0 && len(out) >= limit {
+						return out, stats, nil
+					}
 				}
 			}
 			if !matched && j.Type == JoinLeft {
 				out = append(out, mergeRows(l, nil))
+				if limit > 0 && len(out) >= limit {
+					return out, stats, nil
+				}
 			}
 		}
 		return out, stats, nil
@@ -1057,7 +1239,7 @@ func (e *execEnv) joinRows(left, right []Row, j Join) ([]Row, joinStats, error) 
 	byLeft := make([][]Row, len(left))
 	for _, r := range probeRows {
 		value := e.eval(probeExpr, r, nil, nil)
-		for _, hit := range h[hashKey(value)] {
+		for _, hit := range h[makeJoinHashKey(value)] {
 			m := mergeRows(hit.row, r)
 			okv, err := truth(e.eval(j.On, m, nil, nil))
 			if err != nil {
@@ -1070,7 +1252,13 @@ func (e *execEnv) joinRows(left, right []Row, j Join) ([]Row, joinStats, error) 
 	}
 	out := make([]Row, 0)
 	for _, matches := range byLeft {
+		if limit > 0 && len(out)+len(matches) > limit {
+			matches = matches[:limit-len(out)]
+		}
 		out = append(out, matches...)
+		if limit > 0 && len(out) >= limit {
+			break
+		}
 	}
 	return out, stats, nil
 }
@@ -1090,11 +1278,15 @@ func exprPresent(id *Identifier, row Row) bool {
 	}
 	return false
 }
-func (e *execEnv) nestedJoin(left, right []Row, j Join) ([]Row, joinStats, error) {
+func (e *execEnv) nestedJoin(left, right []Row, j Join, limit int) ([]Row, joinStats, error) {
 	if err := e.guardNestedJoin(len(left), len(right), j.Pos); err != nil {
 		return nil, joinStats{}, err
 	}
-	out := make([]Row, 0)
+	capacity := 0
+	if limit > 0 {
+		capacity = limit
+	}
+	out := make([]Row, 0, capacity)
 	for _, l := range left {
 		matched := false
 		for _, r := range right {
@@ -1106,10 +1298,16 @@ func (e *execEnv) nestedJoin(left, right []Row, j Join) ([]Row, joinStats, error
 			if ok != nil && *ok {
 				out = append(out, m)
 				matched = true
+				if limit > 0 && len(out) >= limit {
+					return out, joinStats{physical: "BlockNestedLoopJoin", buildSide: "right", probeSide: "left", peakBytes: int64(len(out)) * 96, fallback: "non-equality predicate"}, nil
+				}
 			}
 		}
 		if !matched && j.Type == JoinLeft {
 			out = append(out, l)
+			if limit > 0 && len(out) >= limit {
+				break
+			}
 		}
 	}
 	return out, joinStats{physical: "BlockNestedLoopJoin", buildSide: "right", probeSide: "left", peakBytes: int64(len(out)) * 96, fallback: "non-equality predicate"}, nil
@@ -1125,6 +1323,16 @@ func (e *execEnv) guardNestedJoin(left, right int, pos Position) error {
 
 func (e *execEnv) project(q *Select, rows []Row, outer Row) ([]map[string]any, error) {
 	started := time.Now()
+	if len(q.Items) == 1 {
+		if star, ok := q.Items[0].Expr.(*Star); ok && star.Qualifier == "" && rowsAreUnqualified(rows) {
+			out := make([]map[string]any, len(rows))
+			for i, row := range rows {
+				out[i] = map[string]any(row)
+			}
+			e.addOp(OperatorStats{Name: "project", Physical: "IdentityProjection", InputRows: len(rows), OutputRows: len(out), BatchCount: maxInt(1, (len(rows)+255)/256), PeakBytes: int64(len(out)) * 8, Duration: time.Since(started)})
+			return out, nil
+		}
+	}
 	out := make([]map[string]any, 0, len(rows))
 	batches := 0
 	for base := 0; base < len(rows); base += 256 {
@@ -1135,7 +1343,11 @@ func (e *execEnv) project(q *Select, rows []Row, outer Row) ([]map[string]any, e
 			for i, it := range q.Items {
 				if s, ok := it.Expr.(*Star); ok {
 					for k, v := range r {
-						if strings.Contains(k, ".") && (s.Qualifier == "" || strings.HasPrefix(strings.ToLower(k), strings.ToLower(s.Qualifier)+".")) {
+						if !strings.Contains(k, ".") {
+							if s.Qualifier == "" {
+								dst[k] = v
+							}
+						} else if s.Qualifier == "" || strings.HasPrefix(strings.ToLower(k), strings.ToLower(s.Qualifier)+".") {
 							name := k[strings.IndexByte(k, '.')+1:]
 							dst[name] = v
 						}
@@ -1160,12 +1372,28 @@ func (e *execEnv) project(q *Select, rows []Row, outer Row) ([]map[string]any, e
 	return out, nil
 }
 
+func rowsAreUnqualified(rows []Row) bool {
+	if len(rows) == 0 {
+		return true
+	}
+	for key := range rows[0] {
+		if strings.Contains(key, ".") {
+			return false
+		}
+	}
+	return true
+}
+
 func (e *execEnv) projectOne(q *Select, r Row, outer Row) (map[string]any, error) {
 	dst := map[string]any{}
 	for i, it := range q.Items {
 		if s, ok := it.Expr.(*Star); ok {
 			for k, v := range r {
-				if strings.Contains(k, ".") && (s.Qualifier == "" || strings.HasPrefix(strings.ToLower(k), strings.ToLower(s.Qualifier)+".")) {
+				if !strings.Contains(k, ".") {
+					if s.Qualifier == "" {
+						dst[k] = v
+					}
+				} else if s.Qualifier == "" || strings.HasPrefix(strings.ToLower(k), strings.ToLower(s.Qualifier)+".") {
 					name := k[strings.IndexByte(k, '.')+1:]
 					dst[name] = v
 				}
@@ -1752,6 +1980,36 @@ func mergeRows(a, b Row) Row {
 	return out
 }
 func hashKey(v any) string { b, _ := json.Marshal(v); return string(b) }
+
+type joinHashKey struct {
+	kind   byte
+	number uint64
+	text   string
+	flag   bool
+}
+
+func makeJoinHashKey(v any) joinHashKey {
+	if n, ok := number(v); ok {
+		if n == 0 {
+			n = 0 // normalize negative zero
+		}
+		bits := math.Float64bits(n)
+		if math.IsNaN(n) {
+			bits = 0x7ff8000000000000
+		}
+		return joinHashKey{kind: 'n', number: bits}
+	}
+	switch x := v.(type) {
+	case nil:
+		return joinHashKey{kind: '0'}
+	case string:
+		return joinHashKey{kind: 's', text: x}
+	case bool:
+		return joinHashKey{kind: 'b', flag: x}
+	default:
+		return joinHashKey{kind: 'j', text: hashKey(v)}
+	}
+}
 func distinctValues(in []any) []any {
 	seen := map[string]bool{}
 	out := in[:0]
@@ -1797,6 +2055,7 @@ func (e *execEnv) distinctRows(in []map[string]any, pos Position) ([]map[string]
 type topKItem struct {
 	row   map[string]any
 	index int
+	key   any
 }
 
 type topKHeap struct {
@@ -1809,6 +2068,13 @@ func (h topKHeap) Len() int { return len(h.items) }
 func (h topKHeap) Less(i, j int) bool {
 	// container/heap puts the minimum at root; define "minimum" as the
 	// worst result so replacement is O(log k). Later equal rows are worse.
+	if len(h.terms) == 1 {
+		cmp := compareTopKKey(h.terms[0], h.items[i].key, h.items[j].key)
+		if cmp == 0 {
+			return h.items[i].index > h.items[j].index
+		}
+		return cmp > 0
+	}
 	if h.env.lessOrder(h.terms, h.items[j].row, h.items[i].row) {
 		return true
 	}
@@ -1843,14 +2109,28 @@ func (e *execEnv) topK(rows []map[string]any, terms []OrderTerm, k int, pos Posi
 	h := &topKHeap{env: e, terms: terms, items: make([]topKItem, 0, k)}
 	for i, row := range rows {
 		item := topKItem{row: row, index: i}
+		if len(terms) == 1 {
+			item.key = e.eval(terms[0].Expr, row, nil, nil)
+			if e.evalErr != nil {
+				err := e.evalErr
+				e.evalErr = nil
+				return nil, err
+			}
+		}
 		if h.Len() < k {
 			heap.Push(h, item)
 			continue
 		}
 		worst := h.items[0]
-		better := e.lessOrder(terms, item.row, worst.row)
-		if !better && !e.lessOrder(terms, worst.row, item.row) {
-			better = item.index < worst.index
+		better := false
+		if len(terms) == 1 {
+			cmp := compareTopKKey(terms[0], item.key, worst.key)
+			better = cmp < 0 || (cmp == 0 && item.index < worst.index)
+		} else {
+			better = e.lessOrder(terms, item.row, worst.row)
+			if !better && !e.lessOrder(terms, worst.row, item.row) {
+				better = item.index < worst.index
+			}
 		}
 		if better {
 			h.items[0] = item
@@ -1858,6 +2138,13 @@ func (e *execEnv) topK(rows []map[string]any, terms []OrderTerm, k int, pos Posi
 		}
 	}
 	sort.SliceStable(h.items, func(i, j int) bool {
+		if len(terms) == 1 {
+			cmp := compareTopKKey(terms[0], h.items[i].key, h.items[j].key)
+			if cmp == 0 {
+				return h.items[i].index < h.items[j].index
+			}
+			return cmp < 0
+		}
 		if e.lessOrder(terms, h.items[i].row, h.items[j].row) {
 			return true
 		}
@@ -1871,6 +2158,14 @@ func (e *execEnv) topK(rows []map[string]any, terms []OrderTerm, k int, pos Posi
 		out[i] = h.items[i].row
 	}
 	return out, nil
+}
+
+func compareTopKKey(term OrderTerm, a, b any) int {
+	cmp := compare(a, b)
+	if term.Desc {
+		return -cmp
+	}
+	return cmp
 }
 
 func (e *execEnv) requireMemory(bytes int64, pos Position, operator string) error {

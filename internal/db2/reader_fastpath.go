@@ -334,6 +334,9 @@ func (r *WDCReader) GetRelationshipRowsBatch(fkValues []uint32, fields []string)
 func (r *WDCReader) GetRelationshipRowsBatchContext(ctx context.Context, fkValues []uint32, fields []string) (map[uint32][]map[string]interface{}, error) {
 	result := make(map[uint32][]map[string]interface{}, len(fkValues))
 	for index, value := range fkValues {
+		// Presence distinguishes a known-empty relationship index result from
+		// an unsupported lookup and prevents a full-table scan on misses.
+		result[value] = nil
 		resource.RecordWDCQuery(0, 0, 0, 1)
 		if index&255 == 0 {
 			if err := ctx.Err(); err != nil {

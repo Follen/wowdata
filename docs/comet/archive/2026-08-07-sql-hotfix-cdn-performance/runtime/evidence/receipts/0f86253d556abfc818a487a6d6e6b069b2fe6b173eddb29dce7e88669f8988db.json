@@ -1,0 +1,65 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "failed",
+  "bindings": {
+    "change": "sql-hotfix-cdn-performance",
+    "sourceRevision": 5,
+    "contractHash": "5d4f8eabb427935d8aab490526d4fa979819fb830f78d123daf91b3b8e6326db",
+    "scopeHash": "ed49fde7aeec9694ef30fc24751f7df0dff7cab68294777ab5761ca26ec2f97d",
+    "snapshotHash": "5a4cdb8c87752dd6d9fc767682f38041e188f0e99b7050bd710820ae3b8d4e38",
+    "artifactHash": "2f9cfb6a241ad68791730fabce2d8163154ae0cdf83dcaff5c8cf6eaa222e482"
+  },
+  "acceptanceIds": [
+    "acceptance-09508656219f2f76c7e680d07f50fca62cd5ff0e2e8ede4587f8cfc6639873ec",
+    "acceptance-0f96b4df6f61d02f922404d58690c47e69885791aa91adb8bbd6cb98c82a6499",
+    "acceptance-27aff872f6d89fa54357e9a14a56a338cb0a1b851468badd2211ca5517b17d9a",
+    "acceptance-39e740e2186579402d2fb48b2db9727a6ca55459ea11d19b07edd971a79651b1",
+    "acceptance-41eee0890acbf601d0b4786d056b4861764d54f2861d42408cda9247ce0d6854",
+    "acceptance-4eb40bccd1806fc7be694a9e22703822eec2b7b0bfd56fac995936e25305b38e",
+    "acceptance-631f0afbe93905c714e71e87887afc8e2c9859e5580b0523c6957d3a78f4eee6",
+    "acceptance-837f43e25377c0b160e24ee1aff7eecf466cc0061d4e8fe4e71400aff9d6da3f",
+    "acceptance-8f409e6f00eb5ba112d9db54ce2e0f63306ae4fac0c120d1a28fdd4efd3931c2",
+    "acceptance-a7fc88ecf2bbfbb9ddfc3d221e1df51b19c3637cc453e251c211957487686814",
+    "acceptance-c4e05f45d8f3e40bb5e99a31118900c480ba38e100df4dee9b6d4b6fc8b698ac",
+    "acceptance-dc4552154990df3e306825078ac1399723745a215c2a08d3e9060fece8eba81d",
+    "acceptance-de9cdc580ae90849b15f6c4fff2d4bb9a75154989c643cac87428fa93c9008bc",
+    "acceptance-f1f2f99405ca1870e0130130b7822e0221f62e3ae8fd911610b2b0bfa73952bc"
+  ],
+  "actor": "native-runtime:command:powershell.exe",
+  "issuedAt": "2026-08-07T07:30:21.272Z",
+  "evidence": {
+    "executable": "powershell.exe",
+    "args": [
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "analyze/sql-hotfix-cdn-performance/candidate/verify-core.ps1"
+    ],
+    "cwd": ".",
+    "exitCode": 1,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 1800000,
+    "startedAt": "2026-08-07T07:29:49.390Z",
+    "endedAt": "2026-08-07T07:30:21.272Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "aa0fd3c293560effcf37338444f54169904c5311",
+      "afterCommit": "aa0fd3c293560effcf37338444f54169904c5311"
+    },
+    "afterFence": {
+      "snapshotHash": "5a4cdb8c87752dd6d9fc767682f38041e188f0e99b7050bd710820ae3b8d4e38",
+      "scopeHash": "ed49fde7aeec9694ef30fc24751f7df0dff7cab68294777ab5761ca26ec2f97d",
+      "matched": true
+    },
+    "outputHash": "886a3962935f0d5d29eb5a2706983316edf195b418635afc32829016a5286d2d",
+    "outputSummary": "git : warning: in the working copy of 'internal/app/hotfix_handler.go', LF will be replaced by CRLF the next time Git t\r\nouches it\r\n����λ�� D:\\Code\\wow\\wowdata\\.worktrees\\sql-hotfix-cdn-performance\\analyze\\sql-hotfix-cdn-performance\\candidate\\verify-\r\ncore.ps1:18 �ַ�: 25\r\n+ Run-Step \"diff-check\" { git diff --check }\r\n+                         ~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : NotSpecified: (warning: in the... Git touches it:String) [], RemoteException\r\n    + FullyQualifiedErrorId : NativeCommandError",
+    "outputTruncated": false
+  },
+  "receiptHash": "0f86253d556abfc818a487a6d6e6b069b2fe6b173eddb29dce7e88669f8988db"
+}

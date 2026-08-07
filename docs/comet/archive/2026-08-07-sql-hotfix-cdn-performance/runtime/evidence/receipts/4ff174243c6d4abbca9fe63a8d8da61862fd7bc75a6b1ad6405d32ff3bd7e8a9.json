@@ -1,0 +1,65 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-hotfix-cdn-performance",
+    "sourceRevision": 7,
+    "contractHash": "980590caf3546077a0b817fa77e80bcb494f07999596d8ebb84a7a8d81e19e56",
+    "scopeHash": "91bba1ef3d7f76bad518fce5ac08bb1bab69c63e518e7c02f0201a9bb42ba833",
+    "snapshotHash": "edeadb1abf03d0a6660d02484247ce3381d74d878ab05a9391d4d670f2604599",
+    "artifactHash": "2f9cfb6a241ad68791730fabce2d8163154ae0cdf83dcaff5c8cf6eaa222e482"
+  },
+  "acceptanceIds": [
+    "acceptance-09508656219f2f76c7e680d07f50fca62cd5ff0e2e8ede4587f8cfc6639873ec",
+    "acceptance-0f96b4df6f61d02f922404d58690c47e69885791aa91adb8bbd6cb98c82a6499",
+    "acceptance-27aff872f6d89fa54357e9a14a56a338cb0a1b851468badd2211ca5517b17d9a",
+    "acceptance-39e740e2186579402d2fb48b2db9727a6ca55459ea11d19b07edd971a79651b1",
+    "acceptance-41eee0890acbf601d0b4786d056b4861764d54f2861d42408cda9247ce0d6854",
+    "acceptance-4eb40bccd1806fc7be694a9e22703822eec2b7b0bfd56fac995936e25305b38e",
+    "acceptance-631f0afbe93905c714e71e87887afc8e2c9859e5580b0523c6957d3a78f4eee6",
+    "acceptance-707f6ba59a26320ee841eb32bd580feecafceae83491d1b53f7cd0eda7a9f879",
+    "acceptance-8f409e6f00eb5ba112d9db54ce2e0f63306ae4fac0c120d1a28fdd4efd3931c2",
+    "acceptance-9d9d37cb0fb9a28f8d1af11acd1dcbe63536ae0ea5c96286bf0247103da1b3bc",
+    "acceptance-a7fc88ecf2bbfbb9ddfc3d221e1df51b19c3637cc453e251c211957487686814",
+    "acceptance-dc4552154990df3e306825078ac1399723745a215c2a08d3e9060fece8eba81d",
+    "acceptance-de9cdc580ae90849b15f6c4fff2d4bb9a75154989c643cac87428fa93c9008bc",
+    "acceptance-f1f2f99405ca1870e0130130b7822e0221f62e3ae8fd911610b2b0bfa73952bc"
+  ],
+  "actor": "native-runtime:command:powershell.exe",
+  "issuedAt": "2026-08-07T09:04:08.916Z",
+  "evidence": {
+    "executable": "powershell.exe",
+    "args": [
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "analyze/sql-hotfix-cdn-performance/candidate/verify-core-pass.ps1"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 1800000,
+    "startedAt": "2026-08-07T09:03:41.867Z",
+    "endedAt": "2026-08-07T09:04:08.916Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "aa0fd3c293560effcf37338444f54169904c5311",
+      "afterCommit": "aa0fd3c293560effcf37338444f54169904c5311"
+    },
+    "afterFence": {
+      "snapshotHash": "edeadb1abf03d0a6660d02484247ce3381d74d878ab05a9391d4d670f2604599",
+      "scopeHash": "91bba1ef3d7f76bad518fce5ac08bb1bab69c63e518e7c02f0201a9bb42ba833",
+      "matched": true
+    },
+    "outputHash": "4d0a57bc44743679fe6ee9185a10886757db4edc936aeeb78dbf5ba6377a294b",
+    "outputSummary": "PASS: go test ./..., go test -race ./..., go vet ./..., WDC/DBC fuzz 5s; full log=analyze/sql-hotfix-cdn-performance/candidate/verify-core-pass.log",
+    "outputTruncated": false
+  },
+  "receiptHash": "4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9"
+}

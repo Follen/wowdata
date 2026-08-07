@@ -21,6 +21,24 @@ type streamingEngineReader struct {
 	engineTestReader
 }
 
+type batchRelationshipEngineReader struct {
+	engineTestReader
+	batchCalls int
+}
+
+func (r *batchRelationshipEngineReader) GetRelationshipRowsBatchContext(ctx context.Context, values []uint32, fields []string) (map[uint32][]map[string]interface{}, error) {
+	r.batchCalls++
+	out := make(map[uint32][]map[string]interface{}, len(values))
+	for _, value := range values {
+		for _, row := range r.rows {
+			if rowForeignValue(row["ParentID"]) == value {
+				out[value] = append(out[value], projectFields(row, fields))
+			}
+		}
+	}
+	return out, ctx.Err()
+}
+
 func (r *streamingEngineReader) StreamRowsContext(ctx context.Context, fields []string, filterFn func(map[string]interface{}) bool, limit int, yield func(map[string]interface{}) error) error {
 	emitted := 0
 	for id := uint32(1); id <= uint32(len(r.rows)); id++ {
@@ -144,5 +162,24 @@ func TestEngineStreamIsBoundedAndPropagatesYieldErrors(t *testing.T) {
 	_, _, err = snapshot.Execute(context.Background(), QueryPlan{Table: "T", Mode: PlanStream, Yield: func(map[string]interface{}) error { return wantErr }})
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("yield error = %v, want %v", err, wantErr)
+	}
+}
+
+func TestEngineBatchRelationshipUsesOneReaderCall(t *testing.T) {
+	reader := &batchRelationshipEngineReader{engineTestReader: engineTestReader{rows: map[uint32]map[string]interface{}{
+		1: {"ID": uint32(1), "ParentID": uint32(7)},
+		2: {"ID": uint32(2), "ParentID": uint32(8)},
+		3: {"ID": uint32(3), "ParentID": uint32(7)},
+	}}}
+	engine := NewEngine()
+	if err := engine.Register("T", nil, reader); err != nil {
+		t.Fatal(err)
+	}
+	result, stats, err := engine.Execute(context.Background(), QueryPlan{Table: "T", Mode: PlanForeignKey, ForeignField: "ParentID", ForeignValues: []uint32{7, 8}, Fields: []string{"ID", "ParentID"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reader.batchCalls != 1 || len(result.Rows) != 3 || stats.Physical != "relationship" {
+		t.Fatalf("batchCalls=%d rows=%v stats=%+v", reader.batchCalls, result.Rows, stats)
 	}
 }

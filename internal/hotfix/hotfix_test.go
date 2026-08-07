@@ -76,6 +76,118 @@ func TestDBCacheReaderAndSidecar(t *testing.T) {
 		t.Fatalf("sidecar=%#v err=%v", got, err)
 	}
 }
+
+func TestLazyDBCacheOpenAndSidecarRecovery(t *testing.T) {
+	p := makeCache(t, FileMagic, 9, []byte{1, 2, 3})
+	r, err := OpenDBCacheLazy(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Count != 0 {
+		t.Fatalf("lazy open scanned entries: count=%d", r.Count)
+	}
+	sp := p + ".sidecar"
+	s, err := OpenOrBuildSidecar(sp, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !s.matches(r) {
+		t.Fatal("sidecar identity mismatch")
+	}
+	_ = s.Close()
+	_ = r.Close()
+
+	if err := os.WriteFile(sp, []byte("corrupt"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	r, err = OpenDBCacheLazy(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err = OpenOrBuildSidecar(sp, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = s.Close()
+	_ = r.Close()
+
+	body, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binary.LittleEndian.PutUint32(body[8:12], 69138)
+	if err = os.WriteFile(p, body, 0644); err != nil {
+		t.Fatal(err)
+	}
+	r, err = OpenDBCacheLazy(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	s, err = OpenOrBuildSidecar(sp, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if !s.matches(r) || s.sourceBuild != 69138 {
+		t.Fatalf("stale sidecar was not rebuilt: build=%d", s.sourceBuild)
+	}
+}
+
+type payloadCountingReaderAt struct {
+	data         []byte
+	payloadReads int
+}
+
+func (r *payloadCountingReaderAt) ReadAt(p []byte, off int64) (int, error) {
+	if len(p) == 4 && off >= FileHeaderSize+RecordHeaderSize {
+		r.payloadReads++
+	}
+	if off >= int64(len(r.data)) {
+		return 0, io.EOF
+	}
+	n := copy(p, r.data[off:])
+	if n < len(p) {
+		return n, io.EOF
+	}
+	return n, nil
+}
+
+func TestDBCacheLimitReadsOnlySelectedPayload(t *testing.T) {
+	const count = 100
+	b := make([]byte, FileHeaderSize+count*(RecordHeaderSize+4))
+	binary.LittleEndian.PutUint32(b[0:4], FileMagic)
+	binary.LittleEndian.PutUint32(b[4:8], 9)
+	binary.LittleEndian.PutUint32(b[8:12], 69137)
+	off := FileHeaderSize
+	for i := 0; i < count; i++ {
+		h := b[off : off+RecordHeaderSize]
+		binary.LittleEndian.PutUint32(h[0:4], FileMagic)
+		binary.LittleEndian.PutUint32(h[4:8], 196)
+		binary.LittleEndian.PutUint32(h[8:12], uint32(count-i))
+		binary.LittleEndian.PutUint32(h[16:20], 99)
+		binary.LittleEndian.PutUint32(h[20:24], uint32(i+1))
+		binary.LittleEndian.PutUint32(h[24:28], 4)
+		h[28] = 1
+		copy(b[off+RecordHeaderSize:], []byte{1, 2, 3, 4})
+		off += RecordHeaderSize + 4
+	}
+	ra := &payloadCountingReaderAt{data: b}
+	r, err := openDBCacheReader(ra, int64(len(b)), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := r.QueryEntries(Query{Product: "wow", Build: "69137", Region: 196, Locale: "zhCN", TableHash: u32(99), Limit: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Records) != 1 || res.Records[0].PushID != 1 {
+		t.Fatalf("records=%#v", res.Records)
+	}
+	if ra.payloadReads != 1 {
+		t.Fatalf("payload reads=%d want=1", ra.payloadReads)
+	}
+}
 func TestDBCacheRejectsMagicVersionAndTruncation(t *testing.T) {
 	for name, p := range map[string]string{"magic": makeCache(t, 0, 9, nil), "version": makeCache(t, FileMagic, 10, nil)} {
 		if _, err := OpenDBCache(p); err == nil {

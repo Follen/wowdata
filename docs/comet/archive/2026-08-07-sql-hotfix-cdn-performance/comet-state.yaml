@@ -1,0 +1,23 @@
+schema: comet.native.v3
+minimum_runtime_version: 3
+revision: 9
+verification_protocol: legacy-v1
+name: sql-hotfix-cdn-performance
+language: zh-CN
+phase: archive
+brief: brief.md
+approval: confirmed
+approved_contract_hash: 980590caf3546077a0b817fa77e80bcb494f07999596d8ebb84a7a8d81e19e56
+spec_changes:
+  - capability: wowdata-query-performance-and-skill
+    operation: create
+    source: specs/wowdata-query-performance-and-skill/spec.md
+    base_hash: null
+verification_result: pass
+verification_report: verification.md
+implementation_scope: runtime/evidence/scopes/91bba1ef3d7f76bad518fce5ac08bb1bab69c63e518e7c02f0201a9bb42ba833.json
+verification_evidence: runtime/evidence/verifications/93481c8c23ac3ca9a62f38302b1e108fce0d296be120884811a31c38d9460099.json
+partial_allowance: null
+archived: true
+created_at: 2026-08-07
+run_id: f8dfc764-ceaf-4026-87fc-80c07cb290ef

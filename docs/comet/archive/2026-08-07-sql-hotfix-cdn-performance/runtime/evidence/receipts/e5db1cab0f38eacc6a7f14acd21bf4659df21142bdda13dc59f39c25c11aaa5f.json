@@ -1,0 +1,55 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "failed",
+  "bindings": {
+    "change": "sql-hotfix-cdn-performance",
+    "sourceRevision": 5,
+    "contractHash": "5d4f8eabb427935d8aab490526d4fa979819fb830f78d123daf91b3b8e6326db",
+    "scopeHash": "ed49fde7aeec9694ef30fc24751f7df0dff7cab68294777ab5761ca26ec2f97d",
+    "snapshotHash": "5a4cdb8c87752dd6d9fc767682f38041e188f0e99b7050bd710820ae3b8d4e38",
+    "artifactHash": "2f9cfb6a241ad68791730fabce2d8163154ae0cdf83dcaff5c8cf6eaa222e482"
+  },
+  "acceptanceIds": [
+    "acceptance-1e7859fce96203d6c4bec2c1d8dc22f0782775bbaa061d0e1c7081e78df1857a",
+    "acceptance-2b03f85096b7c4379b12e21205654547c16faac34b0566b7e8673f2a2ae98533",
+    "acceptance-70c21d23162e501d81cd687c1d5911e38693d25d85c6cdd51b6bb8eda999ef2f",
+    "acceptance-b72849e0e84ecb3fbe199ceff4087bdaa838244316995a1722d6dfb43a7bed02"
+  ],
+  "actor": "native-runtime:command:powershell.exe",
+  "issuedAt": "2026-08-07T07:33:04.065Z",
+  "evidence": {
+    "executable": "powershell.exe",
+    "args": [
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "analyze/sql-hotfix-cdn-performance/candidate/verify-skill.ps1"
+    ],
+    "cwd": ".",
+    "exitCode": 1,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 600000,
+    "startedAt": "2026-08-07T07:33:02.554Z",
+    "endedAt": "2026-08-07T07:33:04.065Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "aa0fd3c293560effcf37338444f54169904c5311",
+      "afterCommit": "aa0fd3c293560effcf37338444f54169904c5311"
+    },
+    "afterFence": {
+      "snapshotHash": "5a4cdb8c87752dd6d9fc767682f38041e188f0e99b7050bd710820ae3b8d4e38",
+      "scopeHash": "ed49fde7aeec9694ef30fc24751f7df0dff7cab68294777ab5761ca26ec2f97d",
+      "matched": true
+    },
+    "outputHash": "4238b5bbbe1700eb109e49131afb12e42ab40cabf128ee1d4721f8db5454c124",
+    "outputSummary": "node.exe : npm notice\r\n����λ�� ��:1 �ַ�: 1\r\n+ & \"D:\\opt\\NodeJs/node.exe\" \"C:\\Users\\follen\\AppData\\Roaming\\npm/node_ ...\r\n+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : NotSpecified: (npm notice:String) [], RemoteException\r\n    + FullyQualifiedErrorId : NativeCommandError",
+    "outputTruncated": false
+  },
+  "receiptHash": "e5db1cab0f38eacc6a7f14acd21bf4659df21142bdda13dc59f39c25c11aaa5f"
+}

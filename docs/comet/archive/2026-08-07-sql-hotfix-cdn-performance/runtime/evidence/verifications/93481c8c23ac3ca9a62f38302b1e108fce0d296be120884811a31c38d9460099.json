@@ -1,0 +1,323 @@
+{
+  "schema": "comet.native.verification-evidence.v2",
+  "change": "sql-hotfix-cdn-performance",
+  "sourceRevision": 7,
+  "result": "pass",
+  "freshness": "complete",
+  "contractHash": "980590caf3546077a0b817fa77e80bcb494f07999596d8ebb84a7a8d81e19e56",
+  "acceptanceCriteriaHash": "15783e83174fbbf8b5007b1bf8223e65b303f51d718e77d9b753aad5ce0f80c0",
+  "implementationScopeRef": "runtime/evidence/scopes/91bba1ef3d7f76bad518fce5ac08bb1bab69c63e518e7c02f0201a9bb42ba833.json",
+  "implementationScopeHash": "91bba1ef3d7f76bad518fce5ac08bb1bab69c63e518e7c02f0201a9bb42ba833",
+  "reportRef": "verification.md",
+  "reportHash": "a901485f695514c398db5c7d637b322bc255939788be63b5a0ea98a143d10bae",
+  "acceptanceTrace": {
+    "schema": "comet.native.acceptance-trace.v2",
+    "nativeRootRef": "docs/comet",
+    "criteriaHash": "15783e83174fbbf8b5007b1bf8223e65b303f51d718e77d9b753aad5ce0f80c0",
+    "total": 27,
+    "evidenced": 27,
+    "skipped": 0,
+    "entries": [
+      {
+        "acceptanceId": "acceptance-09508656219f2f76c7e680d07f50fca62cd5ff0e2e8ede4587f8cfc6639873ec",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-0aafaa972ee9fd4a61c3da3ee0a19e861621910df9c5d52c9edb58d2242cc7c3",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/abab5b103b0863a1b51670514fef73c483d9fbe8340295e48773c36384558b5b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-0f96b4df6f61d02f922404d58690c47e69885791aa91adb8bbd6cb98c82a6499",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json",
+          "runtime/evidence/receipts/96852656ee1ae1515fa271ce181ade899193cd1a94804e327d060964b0edb58f.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-1e7859fce96203d6c4bec2c1d8dc22f0782775bbaa061d0e1c7081e78df1857a",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/772551524930309f49befb18e782058bce9014544e343a8255c992430601f979.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-2772ba131b7876a6ad34e3f4b251a8c55aab82bfd53770867bf80456a8768b1a",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/abab5b103b0863a1b51670514fef73c483d9fbe8340295e48773c36384558b5b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-27aff872f6d89fa54357e9a14a56a338cb0a1b851468badd2211ca5517b17d9a",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json",
+          "runtime/evidence/receipts/abab5b103b0863a1b51670514fef73c483d9fbe8340295e48773c36384558b5b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-2b03f85096b7c4379b12e21205654547c16faac34b0566b7e8673f2a2ae98533",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/772551524930309f49befb18e782058bce9014544e343a8255c992430601f979.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-30e3bc8263186530b33ec48c4e02d71a1b51cfde2e3c220c9bda62f6a687a967",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/d6f0cf17c289c4003d950563d11017e9d3b605c1c8934b05c772bce12931da69.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-39e740e2186579402d2fb48b2db9727a6ca55459ea11d19b07edd971a79651b1",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json",
+          "runtime/evidence/receipts/96852656ee1ae1515fa271ce181ade899193cd1a94804e327d060964b0edb58f.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-41eee0890acbf601d0b4786d056b4861764d54f2861d42408cda9247ce0d6854",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json",
+          "runtime/evidence/receipts/d6f0cf17c289c4003d950563d11017e9d3b605c1c8934b05c772bce12931da69.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-4eb40bccd1806fc7be694a9e22703822eec2b7b0bfd56fac995936e25305b38e",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-62c1826ee248a6910cac5568725bad6f1c18dc2f175f01d2ffaa33ee088c7a80",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/7f7a47cfdbe26ccb02fc4292ef63ebe1b6f8d3a78f0b84831e1e0d4547777160.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-631f0afbe93905c714e71e87887afc8e2c9859e5580b0523c6957d3a78f4eee6",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json",
+          "runtime/evidence/receipts/96852656ee1ae1515fa271ce181ade899193cd1a94804e327d060964b0edb58f.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-707f6ba59a26320ee841eb32bd580feecafceae83491d1b53f7cd0eda7a9f879",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json",
+          "runtime/evidence/receipts/96852656ee1ae1515fa271ce181ade899193cd1a94804e327d060964b0edb58f.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-70c21d23162e501d81cd687c1d5911e38693d25d85c6cdd51b6bb8eda999ef2f",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/772551524930309f49befb18e782058bce9014544e343a8255c992430601f979.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-8f409e6f00eb5ba112d9db54ce2e0f63306ae4fac0c120d1a28fdd4efd3931c2",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json",
+          "runtime/evidence/receipts/d6f0cf17c289c4003d950563d11017e9d3b605c1c8934b05c772bce12931da69.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-981223c76fd91bd6c77c9f41ca6ebef02276644d6b22b602c1c226cade8d24d6",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/96852656ee1ae1515fa271ce181ade899193cd1a94804e327d060964b0edb58f.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-9904a768cd3c1031e77dd96b2e6a4a4bfd80d01d8b99bca2fb0be26662e8a85d",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/d6f0cf17c289c4003d950563d11017e9d3b605c1c8934b05c772bce12931da69.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-9b5261ab4df5c61a8bd83804da8ce3816f3c38290a62bf3a516ec62738659b6a",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/7f7a47cfdbe26ccb02fc4292ef63ebe1b6f8d3a78f0b84831e1e0d4547777160.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-9d9d37cb0fb9a28f8d1af11acd1dcbe63536ae0ea5c96286bf0247103da1b3bc",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json",
+          "runtime/evidence/receipts/96852656ee1ae1515fa271ce181ade899193cd1a94804e327d060964b0edb58f.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-a7fc88ecf2bbfbb9ddfc3d221e1df51b19c3637cc453e251c211957487686814",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json",
+          "runtime/evidence/receipts/abab5b103b0863a1b51670514fef73c483d9fbe8340295e48773c36384558b5b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-b72849e0e84ecb3fbe199ceff4087bdaa838244316995a1722d6dfb43a7bed02",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/3f20e8db45c57994335db888ac10eb097dfe33e4298988830c11223a2f114e36.json",
+          "runtime/evidence/receipts/772551524930309f49befb18e782058bce9014544e343a8255c992430601f979.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-caad24d1a3baf19cd6341c49b34f3954e3cb0f8199f882a17537ef9797d0e835",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/d6f0cf17c289c4003d950563d11017e9d3b605c1c8934b05c772bce12931da69.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-dc4552154990df3e306825078ac1399723745a215c2a08d3e9060fece8eba81d",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json",
+          "runtime/evidence/receipts/d6f0cf17c289c4003d950563d11017e9d3b605c1c8934b05c772bce12931da69.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-de9cdc580ae90849b15f6c4fff2d4bb9a75154989c643cac87428fa93c9008bc",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json",
+          "runtime/evidence/receipts/d6f0cf17c289c4003d950563d11017e9d3b605c1c8934b05c772bce12931da69.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-f1f2f99405ca1870e0130130b7822e0221f62e3ae8fd911610b2b0bfa73952bc",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json",
+          "runtime/evidence/receipts/d6f0cf17c289c4003d950563d11017e9d3b605c1c8934b05c772bce12931da69.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-f49188410396637abdf55a6019a080a1643a155a78f6bebb26d2f68afb2a576a",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/3f20e8db45c57994335db888ac10eb097dfe33e4298988830c11223a2f114e36.json"
+        ],
+        "skippedReason": null
+      }
+    ],
+    "traceHash": "20c3e7e8a747081dcdfd4677a2c12098d145d799dd2eb5ef8c21d4d0a3f41984"
+  },
+  "partialAllowanceRef": null,
+  "partialAllowanceHash": null,
+  "requiredReceiptRefs": [
+    "runtime/evidence/receipts/a0624a0aafb857050a1d132cbf3db5acaa66708a25442c87650a34b71f52a7b1.json"
+  ],
+  "receiptRefs": [
+    "runtime/evidence/receipts/3f20e8db45c57994335db888ac10eb097dfe33e4298988830c11223a2f114e36.json",
+    "runtime/evidence/receipts/4ff174243c6d4abbca9fe63a8d8da61862fd7bc75a6b1ad6405d32ff3bd7e8a9.json",
+    "runtime/evidence/receipts/772551524930309f49befb18e782058bce9014544e343a8255c992430601f979.json",
+    "runtime/evidence/receipts/7f7a47cfdbe26ccb02fc4292ef63ebe1b6f8d3a78f0b84831e1e0d4547777160.json",
+    "runtime/evidence/receipts/96852656ee1ae1515fa271ce181ade899193cd1a94804e327d060964b0edb58f.json",
+    "runtime/evidence/receipts/abab5b103b0863a1b51670514fef73c483d9fbe8340295e48773c36384558b5b.json",
+    "runtime/evidence/receipts/d6f0cf17c289c4003d950563d11017e9d3b605c1c8934b05c772bce12931da69.json"
+  ],
+  "createdAt": "2026-08-07T09:06:35.305Z",
+  "envelopeHash": "93481c8c23ac3ca9a62f38302b1e108fce0d296be120884811a31c38d9460099"
+}

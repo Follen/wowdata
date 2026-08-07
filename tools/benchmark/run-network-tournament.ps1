@@ -2,13 +2,21 @@ param(
   [ValidateSet("metadata", "large-range", "chunk", "tail", "root-batch", "coalesce")]
   [string]$Mode = "metadata",
   [int[]]$Candidates = @(24, 36, 44),
-  [int]$SuccessesPerCandidate = 10,
-  [int]$MaxFailuresPerCandidate = 3,
+  [int]$SuccessesPerCandidate = 2,
+  [int]$MaxFailuresPerCandidate = 1,
+  [ValidateRange(1, 300)]
+  [int]$TotalDeadlineSeconds = 300,
+  [ValidateRange(1, 10000)]
+  [int]$MaxRequests = 128,
+  [ValidateRange(1, 4096)]
+  [int]$MaxResponseMiB = 512,
   [string]$Binary = "analyze/benchmark/wowdata-current.exe",
   [string]$EvidenceRoot = "analyze/benchmark/network-tournament",
   [int]$MetadataWorkers = 36,
   [int]$LargeRangeWorkers = 4,
   [int]$ChunkMiB = 1,
+  [ValidateRange(1, 4096)]
+  [int]$ChunkMaxObjectMiB = 16,
   [string]$Build = "12.0.7.68974",
   [string]$LargeRangeTable = "ItemSparse",
   [string]$LargeRangeRecordID = "25",
@@ -17,6 +25,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$suiteWatch = [Diagnostics.Stopwatch]::StartNew()
+$totalRequests = 0L
+$totalResponseBytes = 0L
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 Set-Location $repo
 $binaryPath = (Resolve-Path $Binary).Path
@@ -116,6 +127,9 @@ function Write-Report {
     protocol = [ordered]@{
       mode = $Mode; candidates = $Candidates; successesPerCandidate = $SuccessesPerCandidate
       maxFailuresPerCandidate = $MaxFailuresPerCandidate
+      totalDeadlineSeconds = $TotalDeadlineSeconds
+      maxRequests = $MaxRequests
+      maxResponseBytes = [int64]$MaxResponseMiB * 1MB
       metadataWorkers = $(if ($Mode -eq "metadata") { $Candidates } else { $MetadataWorkers })
       largeRangeWorkers = $(if ($Mode -eq "large-range") { $Candidates } else { $LargeRangeWorkers })
       chunkMiB = $(if ($Mode -eq "chunk") { $Candidates } else { $ChunkMiB })
@@ -184,6 +198,13 @@ while (@($Candidates | Where-Object { $successfulByCandidate[$_] -lt $SuccessesP
     if ($failedByCandidate[$candidate] -gt $MaxFailuresPerCandidate) {
       throw "candidate $candidate exceeded failure budget"
     }
+    $remaining = [TimeSpan]::FromSeconds($TotalDeadlineSeconds) - $suiteWatch.Elapsed
+    if ($remaining -le [TimeSpan]::Zero) {
+      throw "live CDN suite exceeded hard deadline of $TotalDeadlineSeconds seconds"
+    }
+    if ($totalRequests -ge $MaxRequests -or $totalResponseBytes -ge ([int64]$MaxResponseMiB * 1MB)) {
+      throw "live CDN suite exhausted request/byte budget before starting another sample"
+    }
     $attempt++
     $sampleDir = Join-Path $evidencePath ("attempt-{0:D3}-{1}-{2}" -f $attempt, $Mode, $candidate)
     $homePath = Join-Path $sampleDir "home"
@@ -211,6 +232,7 @@ while (@($Candidates | Where-Object { $successfulByCandidate[$_] -lt $SuccessesP
         "-sha256", $ChunkSHA256,
         "-workers", "$LargeRangeWorkers",
         "-chunk-mib", "$candidate",
+        "-max-mib", "$ChunkMaxObjectMiB",
         "-workdir", (Join-Path $homePath "resume"),
         "-output", (Join-Path $homePath "published/payload")
       )
@@ -224,9 +246,16 @@ while (@($Candidates | Where-Object { $successfulByCandidate[$_] -lt $SuccessesP
     $stdoutRead = $process.StandardOutput.ReadToEndAsync()
     $stderrRead = $process.StandardError.ReadToEndAsync()
     $peakWorkingSet = 0L
+    $timedOut = $false
     while (-not $process.WaitForExit(10)) {
       $process.Refresh()
       if ($process.WorkingSet64 -gt $peakWorkingSet) { $peakWorkingSet = $process.WorkingSet64 }
+      if ($suiteWatch.Elapsed.TotalSeconds -ge $TotalDeadlineSeconds) {
+        $timedOut = $true
+        $process.Kill($true)
+        $process.WaitForExit()
+        break
+      }
     }
     $process.Refresh()
     if ($process.WorkingSet64 -gt $peakWorkingSet) { $peakWorkingSet = $process.WorkingSet64 }
@@ -240,17 +269,25 @@ while (@($Candidates | Where-Object { $successfulByCandidate[$_] -lt $SuccessesP
       largeRangeWorkers = $(if ($Mode -eq "large-range") { $candidate } else { $LargeRangeWorkers })
       chunkMiB = $(if ($Mode -eq "chunk") { $candidate } else { $ChunkMiB })
       wallMs = $watch.Elapsed.TotalMilliseconds; cpuMs = $process.TotalProcessorTime.TotalMilliseconds
-      peakWorkingSetBytes = [int64]$peakWorkingSet; exitCode = $process.ExitCode
+      peakWorkingSetBytes = [int64]$peakWorkingSet; exitCode = $(if ($timedOut) { 124 } else { $process.ExitCode })
+      timedOut = $timedOut
       archiveMs = $parsed.archiveMs; rootMs = $parsed.rootMs; network = $parsed.network
       stdoutSha256 = (Get-FileHash -LiteralPath $stdoutPath -Algorithm SHA256).Hash.ToLowerInvariant()
       normalizedStdoutSha256 = Get-TextSHA256 (Normalize-SampleStdout $stdoutRead.Result $homePath)
       stdout = Get-RepoRelativePath $stdoutPath; stderr = Get-RepoRelativePath $stderrPath
     }
     $sample | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $sampleDir "sample.json") -Encoding utf8
-    if ($process.ExitCode -eq 0) { $successfulByCandidate[$candidate]++ } else { $failedByCandidate[$candidate]++ }
+    if ($null -ne $parsed.network) {
+      $totalRequests += [int64]$parsed.network.requests
+      $totalResponseBytes += [int64]$parsed.network.responseBytes
+    }
+    if ($sample.exitCode -eq 0) { $successfulByCandidate[$candidate]++ } else { $failedByCandidate[$candidate]++ }
     Remove-Item -LiteralPath $homePath -Recurse -Force -ErrorAction SilentlyContinue
     $report = Write-Report
-    Write-Host ("candidate={0} exit={1} wallMs={2:N1} successes={3}/{4} failures={5}" -f $candidate, $process.ExitCode, $watch.Elapsed.TotalMilliseconds, $successfulByCandidate[$candidate], $SuccessesPerCandidate, $failedByCandidate[$candidate])
+    Write-Host ("candidate={0} exit={1} wallMs={2:N1} successes={3}/{4} failures={5} requests={6}/{7} bytes={8}/{9}" -f $candidate, $sample.exitCode, $watch.Elapsed.TotalMilliseconds, $successfulByCandidate[$candidate], $SuccessesPerCandidate, $failedByCandidate[$candidate], $totalRequests, $MaxRequests, $totalResponseBytes, ([int64]$MaxResponseMiB * 1MB))
+    if ($timedOut) { throw "live CDN suite exceeded hard deadline of $TotalDeadlineSeconds seconds" }
+    if ($totalRequests -gt $MaxRequests) { throw "live CDN suite exceeded request budget: $totalRequests > $MaxRequests" }
+    if ($totalResponseBytes -gt ([int64]$MaxResponseMiB * 1MB)) { throw "live CDN suite exceeded byte budget: $totalResponseBytes > $([int64]$MaxResponseMiB * 1MB)" }
   }
 }
 

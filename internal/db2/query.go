@@ -129,11 +129,7 @@ func SearchRows(reader RowReader, field string, query string, caseSensitive bool
 			if !exists {
 				return false
 			}
-			value := fmt.Sprint(val)
-			if !caseSensitive {
-				value = strings.ToLower(value)
-			}
-			return strings.Contains(value, searchQuery)
+			return containsSearchValue(val, searchQuery, caseSensitive)
 		}, limit)
 	}
 	allRows := reader.GetAllRows()
@@ -146,13 +142,7 @@ func SearchRows(reader RowReader, field string, query string, caseSensitive bool
 		if !ok {
 			continue
 		}
-		strVal := fmt.Sprint(val)
-		matches := false
-		if caseSensitive {
-			matches = strings.Contains(strVal, query)
-		} else {
-			matches = strings.Contains(strings.ToLower(strVal), strings.ToLower(query))
-		}
+		matches := containsSearchValue(val, searchQuery, caseSensitive)
 		if matches {
 			results = append(results, row)
 			if limit > 0 && len(results) >= limit {
@@ -162,6 +152,58 @@ func SearchRows(reader RowReader, field string, query string, caseSensitive bool
 	}
 
 	return results
+}
+
+func containsSearchValue(value interface{}, query string, caseSensitive bool) bool {
+	text, ok := value.(string)
+	if !ok {
+		text = fmt.Sprint(value)
+	}
+	if caseSensitive {
+		return strings.Contains(text, query)
+	}
+	if isASCII(text) && isASCII(query) {
+		return containsFoldASCII(text, query)
+	}
+	return strings.Contains(strings.ToLower(text), query)
+}
+
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
+}
+
+func containsFoldASCII(text, query string) bool {
+	if query == "" {
+		return true
+	}
+	if len(query) > len(text) {
+		return false
+	}
+	for start := 0; start+len(query) <= len(text); start++ {
+		matched := true
+		for i := 0; i < len(query); i++ {
+			a, b := text[start+i], query[i]
+			if a >= 'A' && a <= 'Z' {
+				a += 'a' - 'A'
+			}
+			if b >= 'A' && b <= 'Z' {
+				b += 'a' - 'A'
+			}
+			if a != b {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return true
+		}
+	}
+	return false
 }
 
 func GetForeignRows(reader RowReader, table string, fkField string, fkValue uint32) ([]map[string]interface{}, bool) {

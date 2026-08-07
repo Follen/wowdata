@@ -1,0 +1,14 @@
+{
+  "schema": "comet.native.workspace.v3",
+  "capturedAt": "2026-08-07T04:57:15.211Z",
+  "capturedRevision": 1,
+  "nativeRootRef": "docs/comet",
+  "projectRootId": "ab95efb71f7ac7cc56ff374c913fa49e6d829559d7cb586b8e0e7bac4145748c",
+  "nativeRootId": "baf821aa2c948f5a123f38d7501755da88a631121cc0285b7e525170e1746c5e",
+  "projectRootPathId": "938218aa6da05f5d2a0f15512598c22ee27113687a629de71e14dc8960388421",
+  "nativeRootPathId": "dc7b2caf313a440a1b8cb95e79dcd7146d06355bbe71ddb45863ec683ff691bf",
+  "isolation": "worktree",
+  "changeBranch": "comet/sql-hotfix-cdn-performance",
+  "targetBranch": "main",
+  "finish": "merge"
+}

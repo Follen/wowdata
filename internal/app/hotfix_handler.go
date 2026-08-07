@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -41,19 +42,12 @@ func (s *HotfixService) handle(cmd *cobra.Command, args []string) error {
 		if path == "" {
 			return writeJSON(cmd.OutOrStdout(), NewErrorResponse("hotfix query", "hotfix_invalid_query", "--dbcache is required for source=dbcache"))
 		}
-		r, e := hotfix.OpenDBCache(path)
+		r, e := hotfix.OpenDBCacheLazy(path)
 		if e != nil {
 			return writeHotfixError(cmd, e)
 		}
 		closers = append(closers, r)
-		sidecarPath := path + ".sidecar"
-		if _, e = os.Stat(sidecarPath); os.IsNotExist(e) {
-			e = hotfix.WriteSidecar(sidecarPath, r)
-		}
-		if e != nil {
-			return writeHotfixError(cmd, e)
-		}
-		sidecar, e := hotfix.OpenSidecar(sidecarPath)
+		sidecar, e := hotfix.OpenOrBuildSidecar(path+".sidecar", r)
 		if e != nil {
 			return writeHotfixError(cmd, e)
 		}
@@ -147,9 +141,13 @@ func decodeHotfixRecords(res *hotfix.Result, q hotfix.Query, dbdPath string) err
 			needDefinition = true
 			break
 		}
-		if _, ok := record.Data.([]any); ok {
+		switch data := record.Data.(type) {
+		case []any:
 			needDefinition = true
-			break
+		case json.RawMessage:
+			if len(data) > 0 && string(data) != "null" {
+				needDefinition = true
+			}
 		}
 	}
 	if !needDefinition {
@@ -178,6 +176,11 @@ func decodeHotfixRecords(res *hotfix.Result, q hotfix.Query, dbdPath string) err
 	for i := range res.Records {
 		if len(res.Records[i].RawData) > 0 {
 			res.Records[i].Data, err = hotfix.DecodePayload(res.Records[i].RawData, entry)
+		} else if raw, ok := res.Records[i].Data.(json.RawMessage); ok {
+			var positional []any
+			if err = json.Unmarshal(raw, &positional); err == nil {
+				res.Records[i].Data, err = hotfix.DecodePositionalData(positional, entry)
+			}
 		} else {
 			res.Records[i].Data, err = hotfix.DecodePositionalData(res.Records[i].Data, entry)
 		}

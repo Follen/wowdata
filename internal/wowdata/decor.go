@@ -1,5 +1,7 @@
 package wowdata
 
+import "sort"
+
 type DecorItem struct {
 	ID                  uint32 `json:"id"`
 	Name                string `json:"name,omitempty"`
@@ -68,6 +70,15 @@ func (s *DecorService) ListAll() []DecorItem {
 	for _, item := range s.items {
 		result = append(result, item)
 	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].ID != result[j].ID {
+			return result[i].ID < result[j].ID
+		}
+		if result[i].ItemID != result[j].ItemID {
+			return result[i].ItemID < result[j].ItemID
+		}
+		return result[i].ModelFileDataID < result[j].ModelFileDataID
+	})
 	return result
 }
 

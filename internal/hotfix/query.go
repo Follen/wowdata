@@ -153,6 +153,10 @@ func Filter(records []Record, q Query) ([]Record, error) {
 		}
 		out = append(out, r)
 	}
+	return orderRecords(out, q), nil
+}
+
+func orderRecords(out []Record, q Query) []Record {
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].PushID != out[j].PushID {
 			return out[i].PushID < out[j].PushID
@@ -176,7 +180,7 @@ func Filter(records []Record, q Query) ([]Record, error) {
 	if q.Page > 0 && q.Limit > 0 {
 		from := q.Page * q.Limit
 		if from >= len(out) {
-			return []Record{}, nil
+			return []Record{}
 		}
 		to := from + q.Limit
 		if to > len(out) {
@@ -186,7 +190,7 @@ func Filter(records []Record, q Query) ([]Record, error) {
 	} else if q.Limit > 0 && len(out) > q.Limit {
 		out = out[:q.Limit]
 	}
-	return out, nil
+	return out
 }
 
 func buildMatches(query, record string) bool {

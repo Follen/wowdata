@@ -1,0 +1,246 @@
+{
+  "schema": "comet.native.verification-evidence.v2",
+  "change": "sql-hotfix-cdn-performance",
+  "sourceRevision": 3,
+  "result": "fail",
+  "freshness": "complete",
+  "contractHash": "e4af983145f0fad71730bcb0ee97f8a7f999f19b1b918cfd51e292c6148352fa",
+  "acceptanceCriteriaHash": "a1d78b0fb35617dcbbdc24e2a7cdf4ea1360147d4d490a61fcd071eb1204a632",
+  "implementationScopeRef": "runtime/evidence/scopes/cfdd8446149fd746d71d9f20d132f72b0ddcb7fde2265ec2a1fb3f6dd6da9e93.json",
+  "implementationScopeHash": "cfdd8446149fd746d71d9f20d132f72b0ddcb7fde2265ec2a1fb3f6dd6da9e93",
+  "reportRef": "verification.md",
+  "reportHash": "da6d3d27e5294aaab565fba86054a5f1a5f2b982644b068050abfcba4bda0b92",
+  "acceptanceTrace": {
+    "schema": "comet.native.acceptance-trace.v2",
+    "nativeRootRef": "docs/comet",
+    "criteriaHash": "a1d78b0fb35617dcbbdc24e2a7cdf4ea1360147d4d490a61fcd071eb1204a632",
+    "total": 27,
+    "evidenced": 0,
+    "skipped": 27,
+    "entries": [
+      {
+        "acceptanceId": "acceptance-09508656219f2f76c7e680d07f50fca62cd5ff0e2e8ede4587f8cfc6639873ec",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-09b3d8fc69031b8f9fa2c9e8ac6291741e3e868754fad10726847705dc254a16",
+        "status": "failed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [],
+        "skippedReason": "本次唯一 CDN live 样本实际下载 184,690,499 bytes、178 requests，超出小对象/有界 range 协议；candidate 5.734s 对 baseline 5.625s，未达到 50% 门禁。"
+      },
+      {
+        "acceptanceId": "acceptance-0bc079665771bfc4e8209702c652872ae24de7bb17b2e3afe38b692f38ea2221",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-0f96b4df6f61d02f922404d58690c47e69885791aa91adb8bbd6cb98c82a6499",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-1e7859fce96203d6c4bec2c1d8dc22f0782775bbaa061d0e1c7081e78df1857a",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-27aff872f6d89fa54357e9a14a56a338cb0a1b851468badd2211ca5517b17d9a",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-2b03f85096b7c4379b12e21205654547c16faac34b0566b7e8673f2a2ae98533",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-30e3bc8263186530b33ec48c4e02d71a1b51cfde2e3c220c9bda62f6a687a967",
+        "status": "failed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-3592c6b3e56b90349f51cf8b8e2044c8815eb2d1e766b65b8d5c64708c1c4755",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-39e740e2186579402d2fb48b2db9727a6ca55459ea11d19b07edd971a79651b1",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-41eee0890acbf601d0b4786d056b4861764d54f2861d42408cda9247ce0d6854",
+        "status": "failed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-4eb40bccd1806fc7be694a9e22703822eec2b7b0bfd56fac995936e25305b38e",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-5ce28e8e1f94e5f2c5436d42ad9b340a656855c303c5a42501949b77cd58a148",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "本次唯一 CDN live 样本实际下载 184,690,499 bytes、178 requests，超出小对象/有界 range 协议；candidate 5.734s 对 baseline 5.625s，未达到 50% 门禁。"
+      },
+      {
+        "acceptanceId": "acceptance-631f0afbe93905c714e71e87887afc8e2c9859e5580b0523c6957d3a78f4eee6",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-6f7658a555ab3235b25dc7602cf3beb0baa11d640b54a0a0b3c6e8f4df48151a",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "本次唯一 CDN live 样本实际下载 184,690,499 bytes、178 requests，超出小对象/有界 range 协议；candidate 5.734s 对 baseline 5.625s，未达到 50% 门禁。"
+      },
+      {
+        "acceptanceId": "acceptance-70c21d23162e501d81cd687c1d5911e38693d25d85c6cdd51b6bb8eda999ef2f",
+        "status": "failed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-83ff0a2edaa8d9f90af264b20e31b32a1cee5ecdc9611523625cbc40651f0844",
+        "status": "failed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-8f409e6f00eb5ba112d9db54ce2e0f63306ae4fac0c120d1a28fdd4efd3931c2",
+        "status": "failed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-9904a768cd3c1031e77dd96b2e6a4a4bfd80d01d8b99bca2fb0be26662e8a85d",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-a7f10729e90c0e2cfa941d91e3dec2473a5f9e6cb14cf1c9bf2968a338b2d246",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-a7fc88ecf2bbfbb9ddfc3d221e1df51b19c3637cc453e251c211957487686814",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-b72849e0e84ecb3fbe199ceff4087bdaa838244316995a1722d6dfb43a7bed02",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-caad24d1a3baf19cd6341c49b34f3954e3cb0f8199f882a17537ef9797d0e835",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-dc4552154990df3e306825078ac1399723745a215c2a08d3e9060fece8eba81d",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-de9cdc580ae90849b15f6c4fff2d4bb9a75154989c643cac87428fa93c9008bc",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-f1f2f99405ca1870e0130130b7822e0221f62e3ae8fd911610b2b0bfa73952bc",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      },
+      {
+        "acceptanceId": "acceptance-f49188410396637abdf55a6019a080a1643a155a78f6bebb26d2f68afb2a576a",
+        "status": "failed",
+        "kind": "spec-must",
+        "source": "specs/wowdata-query-performance-and-skill/spec.md",
+        "evidenceRefs": [],
+        "skippedReason": "CDN live 协议修正会改变 contract/revision；其他已通过检查将在新 revision 下重新生成绑定证据。"
+      }
+    ],
+    "traceHash": "5661e822684f4ffa8c0a4afad927f2b14d9e7a2a22e17fa1b5693601e4184dad"
+  },
+  "partialAllowanceRef": null,
+  "partialAllowanceHash": null,
+  "requiredReceiptRefs": [],
+  "receiptRefs": [],
+  "createdAt": "2026-08-07T07:17:01.986Z",
+  "envelopeHash": "a1a38788f482c953097f3a0d7c94049bdd83d6f95d71502f6c24cd61674439b6"
+}

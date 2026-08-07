@@ -30,6 +30,7 @@ type QueryPlan struct {
 	CaseSensitive bool
 	ForeignField  string
 	ForeignValue  uint32
+	ForeignValues []uint32
 	Limit         int
 	Yield         func(map[string]interface{}) error
 }
@@ -101,6 +102,24 @@ func (e *Engine) Snapshot() *Snapshot {
 	return &Snapshot{catalog: e.catalog, tables: tables}
 }
 
+// Execute runs a plan against the current catalog without copying the whole
+// catalog into a short-lived snapshot. Registered readers and schemas are
+// immutable after publication, so retaining the selected table entry is safe.
+func (e *Engine) Execute(ctx context.Context, plan QueryPlan) (QueryResult, QueryStats, error) {
+	started := time.Now()
+	stats := QueryStats{Table: plan.Table, Mode: modeName(plan.Mode), Physical: "fallback"}
+	if e == nil || e.catalog == nil {
+		return QueryResult{}, stats, fmt.Errorf("db2 engine is nil")
+	}
+	e.catalog.mu.RLock()
+	table, ok := e.catalog.tables[plan.Table]
+	e.catalog.mu.RUnlock()
+	if !ok || table.reader == nil {
+		return QueryResult{}, stats, fmt.Errorf("table not loaded: %s", plan.Table)
+	}
+	return executeTable(ctx, table, plan, started, stats)
+}
+
 func (s *Snapshot) Close() {
 	if s == nil {
 		return
@@ -130,6 +149,16 @@ func (s *Snapshot) Execute(ctx context.Context, plan QueryPlan) (QueryResult, Qu
 	if !ok || table.reader == nil {
 		return QueryResult{}, stats, fmt.Errorf("table not loaded: %s", plan.Table)
 	}
+	return executeTable(ctx, table, plan, started, stats)
+}
+
+func executeTable(ctx context.Context, table tableEntry, plan QueryPlan, started time.Time, stats QueryStats) (QueryResult, QueryStats, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return QueryResult{}, stats, err
+	}
 	result := QueryResult{Schema: append([]SchemaField(nil), table.schema...)}
 	if sized, ok := table.reader.(SizedReader); ok {
 		stats.InputRows = sized.Size()
@@ -154,7 +183,7 @@ func (s *Snapshot) Execute(ctx context.Context, plan QueryPlan) (QueryResult, Qu
 	case PlanSearch:
 		stats.Physical = "projected-scan"
 		var err error
-		result.Rows, err = searchRowsContext(ctx, table.reader, plan.SearchField, plan.SearchQuery, plan.CaseSensitive, plan.Limit)
+		result.Rows, err = searchRowsContext(ctx, table.reader, plan.SearchField, plan.SearchQuery, plan.CaseSensitive, plan.Fields, plan.Limit)
 		if err != nil {
 			return QueryResult{}, stats, err
 		}
@@ -164,7 +193,16 @@ func (s *Snapshot) Execute(ctx context.Context, plan QueryPlan) (QueryResult, Qu
 		stats.Physical = "relationship-or-scan"
 		var relationship bool
 		var err error
-		result.Rows, relationship, err = getForeignRowsContext(ctx, table.reader, plan.Table, plan.ForeignField, plan.ForeignValue)
+		if len(plan.ForeignValues) == 0 {
+			result.Rows, relationship, err = getForeignRowsContext(ctx, table.reader, plan.Table, plan.ForeignField, plan.ForeignValue)
+			if len(plan.Fields) > 0 {
+				for i, row := range result.Rows {
+					result.Rows[i] = projectFields(row, plan.Fields)
+				}
+			}
+		} else {
+			result.Rows, relationship, err = getForeignRowsBatchContext(ctx, table.reader, plan.Table, plan.ForeignField, plan.ForeignValues, plan.Fields)
+		}
 		if err != nil {
 			return QueryResult{}, stats, err
 		}

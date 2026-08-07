@@ -1,0 +1,771 @@
+{
+  "schema": "comet.native.implementation-scope.v2",
+  "contractHash": "980590caf3546077a0b817fa77e80bcb494f07999596d8ebb84a7a8d81e19e56",
+  "baselineProjectionRef": "runtime/evidence/snapshots/b884ffeda7233ebc23873f6c80cb8bb7ed10271cf0c451c967f50adafef897d0.json",
+  "baselineProjectionHash": "b884ffeda7233ebc23873f6c80cb8bb7ed10271cf0c451c967f50adafef897d0",
+  "currentProjectionRef": "runtime/evidence/snapshots/edeadb1abf03d0a6660d02484247ce3381d74d878ab05a9391d4d670f2604599.json",
+  "currentProjectionHash": "edeadb1abf03d0a6660d02484247ce3381d74d878ab05a9391d4d670f2604599",
+  "complete": true,
+  "declaredArtifacts": [
+    {
+      "path": ".gitattributes",
+      "kind": "file"
+    },
+    {
+      "path": "internal",
+      "kind": "directory"
+    },
+    {
+      "path": "skill/wowdata",
+      "kind": "directory"
+    },
+    {
+      "path": "tools/benchmark",
+      "kind": "directory"
+    }
+  ],
+  "changes": [
+    {
+      "path": ".gitattributes",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "76b19cc6027369a4a3bafe5d2e9350ff1b61ae3affc7b641d6e5bc58e9e4c3fc",
+        "size": 58
+      },
+      "attributedTo": [
+        {
+          "path": ".gitattributes",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "internal/app/hotfix_handler.go",
+      "kind": "modified",
+      "before": {
+        "hash": "b86fcd8db3948efa50620bb103ed6fe83e9339a858a0ad3fe56cdc3c97e4dde3",
+        "size": 8574
+      },
+      "after": {
+        "hash": "79383ef93c63bbf0db5d94b521fa25905b50bb64a1e82e9bb60cc4004c5a2e72",
+        "size": 8483
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/casc/remote_file_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "828a83f0bfc577123815e152404ee557eea6e005eec98205e3d36ee4830973b2",
+        "size": 28347
+      },
+      "after": {
+        "hash": "93933f4f0741cf74b6e66875508da4aef0851005f505e365c6408e54254546af",
+        "size": 33439
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/casc/remotesource.go",
+      "kind": "modified",
+      "before": {
+        "hash": "297b01d758ce4f90aa5210ef95f0672f5ec322ff657858eb9ee1e43707f625d9",
+        "size": 48352
+      },
+      "after": {
+        "hash": "91dbd72df9115b53da279e4f2cce51d67db591ab74fc0db1c6942707540fb6e5",
+        "size": 48665
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/casc/resumable.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1fad39011fa13d851a740ce8190ac7d767d38c0eb49095aa6d5a20ee17b8e97a",
+        "size": 14549
+      },
+      "after": {
+        "hash": "542790c7cedcc7fcba7876e8785e41bde6da84ab504196716dfa56e264b6265b",
+        "size": 15729
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/db2/engine.go",
+      "kind": "modified",
+      "before": {
+        "hash": "27725fbeb1e63ca6ecb969e062811d8cf00c796b7328fc17d55ff4f75b501741",
+        "size": 6589
+      },
+      "after": {
+        "hash": "1f2b5f6bf49d9622746b7d78a434e9e6e58891dca308e741a3af01b75498532c",
+        "size": 7844
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/db2/engine_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "b78491e2c165cc9e13cafb56504ef6014be1bc569012f130fe5754e72ee4bd95",
+        "size": 4924
+      },
+      "after": {
+        "hash": "3e445b323661bc5b403489835fef68d54e06cca33a297ee9de1591413e6032f9",
+        "size": 6169
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/db2/query.go",
+      "kind": "modified",
+      "before": {
+        "hash": "d923a5b5939ae9d0e28edf03a95481eab020549f7c9ee0aded09de7a1a757dc3",
+        "size": 6780
+      },
+      "after": {
+        "hash": "4f44e916d0fbb13175655456f82b4a3b2730cf4417d97687b4e6700b8636f3eb",
+        "size": 7274
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/db2/query_context.go",
+      "kind": "modified",
+      "before": {
+        "hash": "f4579d7a4a05a078b074b308e99d3e6ee91c50eb38db3e6b5a7090a720d50754",
+        "size": 4130
+      },
+      "after": {
+        "hash": "75dc6093e2efa87ccb4b53630f22de8ee888cd312eb4c552a8f408e08fede29a",
+        "size": 5784
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/db2/reader_fastpath.go",
+      "kind": "modified",
+      "before": {
+        "hash": "16b9ab2e08ec56f6c3724d1829c61c725ec868813ec78787bcce174db76968ab",
+        "size": 13039
+      },
+      "after": {
+        "hash": "5b7d4174b44396647aa20a050e06ced79cecd1da9f7d289ae26c5206cc74e6c2",
+        "size": 12769
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/corpus_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "00414f6fd05704effcd3c7f20609a5759f1f5a2283bd2e4727ad104f2f546098",
+        "size": 1360
+      },
+      "after": {
+        "hash": "88362766c61e37de7545fb2dc196efd8631f952891b2d8398ecdc0448273dba4",
+        "size": 1309
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/dbcache.go",
+      "kind": "modified",
+      "before": {
+        "hash": "c8089fa5ff64e21f9e7e2112e4384a7753554651f7cae387bf9fc2fbc118e1e6",
+        "size": 10280
+      },
+      "after": {
+        "hash": "326b15b2f231f309608bcd789b88c739770ebe6e1149e81d28392e1a9a614b33",
+        "size": 12400
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/decoder.go",
+      "kind": "modified",
+      "before": {
+        "hash": "4bda8c4c0ec6e7249a04bbf2e898b784515a0ea6e703eafe3e9b10f8db0898ca",
+        "size": 4849
+      },
+      "after": {
+        "hash": "3b56e08c3f65b0b2a6f820e222d455d7dec420a46c7c2b0a0baf1a02c693294e",
+        "size": 4666
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/dependency_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "66f399d1b6ec978675f2de68b44da572ba997f94863188e871c062f788c9f491",
+        "size": 541
+      },
+      "after": {
+        "hash": "ad9ec20d3f9a2372adc00408133d35b8c65fcc8962efeed8d84b3420fbd9a9bd",
+        "size": 515
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/fallback.go",
+      "kind": "modified",
+      "before": {
+        "hash": "7b9e9d41f03094edbe60e90f607bcb21193357a13af590b379fe2185fb488224",
+        "size": 2123
+      },
+      "after": {
+        "hash": "3249456a0b1f0154ae7891d01d91eb8abbe19030f1a09a97b24b1ae9118dc23e",
+        "size": 2052
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/hotfix_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "258abaf4e5e91d540892d1894b35f536dce61c07ccaeab99cb995234589d986b",
+        "size": 8945
+      },
+      "after": {
+        "hash": "999823330dff60bc4516d0a124a8cbab07a8bd0b79935f9bcca0e23fb558d596",
+        "size": 11498
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/performance_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "85726ed7db163e599dad906cfb784f1179b95c4cb1040efa9969afed04c2811c",
+        "size": 1278
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/query.go",
+      "kind": "modified",
+      "before": {
+        "hash": "199b939347cff456db015b6a31839c8edf94592162955f9783a2348bf00e68b1",
+        "size": 6052
+      },
+      "after": {
+        "hash": "bf7883de74c5428db15ff1d25d79cf188022da3f8042b79da3cb6d74accb1c7b",
+        "size": 5912
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/sidecar.go",
+      "kind": "modified",
+      "before": {
+        "hash": "80f5f1bc0ded5ad5a8a7a1b4eb79b83fe4a75bae0a2ba73c1df2c349cdfb25aa",
+        "size": 8483
+      },
+      "after": {
+        "hash": "6ecf494d9e3e9c86710e61a952b27e8952bb8be665fe01ce4801286995347391",
+        "size": 11492
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/testdata/wago-hotfix-offline/manifest.json",
+      "kind": "modified",
+      "before": {
+        "hash": "d30ed460fccb4ddc2a24ffd9148825bbdd5e56a51f0c6ce23a87951245a1cbb9",
+        "size": 2486
+      },
+      "after": {
+        "hash": "78aed7e4e196a7f6d5b3df60e2e2f6309be7daa6111a4de47113418f488e9139",
+        "size": 2482
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/testdata/wago-hotfix-offline/response-page-1.html",
+      "kind": "modified",
+      "before": {
+        "hash": "8c2276dfb6d076871826f0aa0a1972e5b797f921a797f0e7b2497126098a3027",
+        "size": 52140
+      },
+      "after": {
+        "hash": "cdd1124fae509bc845df8ffdff190559e01c31648e4305eeb1b42a6c1e1812df",
+        "size": 52107
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/testdata/wago-hotfix-offline/response-page-2-real.html",
+      "kind": "modified",
+      "before": {
+        "hash": "f628f577fe92a5de2c89c6bec473866a722a6df924b493cc11e194c81949bfcb",
+        "size": 49328
+      },
+      "after": {
+        "hash": "de2574ba958be267e3ca634405b9b40ff05ac474e34502dd9eb086486aa723bb",
+        "size": 49297
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/testdata/wago-hotfix-offline/response-page-2.html",
+      "kind": "modified",
+      "before": {
+        "hash": "3399a59ee0a514e08fc7ca4a13adc69d90652c6bc17302fd644df77196567a37",
+        "size": 52626
+      },
+      "after": {
+        "hash": "b33b441d8cd7b5c274fc6c57519b065481b1ad60ccc1ad5a4b9417e261d32bad",
+        "size": 52593
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/wago.go",
+      "kind": "modified",
+      "before": {
+        "hash": "a03246361eb214fc01f2f1bf96b8622b61393dca2cd37ac28cd22eb26c0709d9",
+        "size": 16435
+      },
+      "after": {
+        "hash": "9966f1482ca7974a57b2531e8de1f3e3e34ee78483644adbbeada787b7fe4ea5",
+        "size": 16925
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/hotfix/wago_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "44ea27368ee60b6d5d01bf37c0214c332ddf1edd20c3f971e5c1337bc0af0a9d",
+        "size": 4720
+      },
+      "after": {
+        "hash": "6106f557f5bb556c6e2ea6151ffa6170a98005cbc914cf647230c0925d7ec662",
+        "size": 4608
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/runtime/db2_store.go",
+      "kind": "modified",
+      "before": {
+        "hash": "af35ededab81ce771c3fab48d8bca170f9d25a2d8515a1f23e84519dbbb55e62",
+        "size": 11655
+      },
+      "after": {
+        "hash": "9a300b336ecffb8a262a04dc45fd12a53636ad33064d50df018522a9a3165892",
+        "size": 11769
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/runtime/db2_store_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "bbe817715e3f0a5522ce4d1dc8d5b2d5a420c7721701bae57f725b465a4e7139",
+        "size": 2818
+      },
+      "after": {
+        "hash": "ce6628a8c52fd902ae11471e473116d1f55eb4307b454a1dc51941e19f68154d",
+        "size": 7875
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/runtime/listfile_source_bench_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "c233eb61edf307ab24169d82308412a4e8df1d6a457871d6279b2209d55668fc",
+        "size": 1126
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/runtime/listfile_source_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "90302ac575700ccbec1049aa226e524ea993c8d39e25191a5cb678f060827b15",
+        "size": 9487
+      },
+      "after": {
+        "hash": "c4515de3e2571bfcae791cacb0863ae7b19086bcbc943fe4a98e6d597cb741cc",
+        "size": 9260
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/sqlquery/engine.go",
+      "kind": "modified",
+      "before": {
+        "hash": "d457f715dab8b3b700925acd3c9c7277bf06783c5cb4ce3380291cc7e786ba29",
+        "size": 52024
+      },
+      "after": {
+        "hash": "038c55249f963ef0fef95323fe54d76be3ed0dd5a2e3af28e714b96b1f62c964",
+        "size": 58326
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/sqlquery/sqlquery_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "f7ea5c502aa95906b9c5e97b0fc639f47c0fcd430aa9cd96ed32c4281701f7a1",
+        "size": 12554
+      },
+      "after": {
+        "hash": "9cb233c7b799c981b562a743d457771ffff0ad166f4a322cef6403404295ef82",
+        "size": 15987
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/wowdata/decor.go",
+      "kind": "modified",
+      "before": {
+        "hash": "88e525b860150081b0a5657cc81fd998f9d6b0b8c5b020850a4bd0deb706919a",
+        "size": 2538
+      },
+      "after": {
+        "hash": "5375cca1f788cb78c897d31462896810c9458ec8c524fcbedf810d1456e33fd3",
+        "size": 2735
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "internal/wowdata/decor_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "888399dd42203c5d89a591cf67b5cff4fa6aaeb05e891f1cef993f2a11549cdd",
+        "size": 1844
+      },
+      "after": {
+        "hash": "098c1209085da1b1d4b075e341049dcee7f6987a3bc45346332e148cce55b39d",
+        "size": 2078
+      },
+      "attributedTo": [
+        {
+          "path": "internal",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "skill/wowdata/SKILL.md",
+      "kind": "modified",
+      "before": {
+        "hash": "ff0c19e24ae473f269637135c23ec14ba584952876868efe96e6ef141038a421",
+        "size": 4582
+      },
+      "after": {
+        "hash": "1402b279f49a0bc2e64a17177c4322bcd832ad5b9543bc32e7e5e98132719152",
+        "size": 3599
+      },
+      "attributedTo": [
+        {
+          "path": "skill/wowdata",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "skill/wowdata/agents/openai.yaml",
+      "kind": "modified",
+      "before": {
+        "hash": "257e36c5b5453b12028280de291cce4ced96bb93a0893b3adde6eb5a4da01671",
+        "size": 234
+      },
+      "after": {
+        "hash": "0676eeea3f6b83bdfbed41df3072d3850e272fe25ad15aa646ebf8a5743ba22b",
+        "size": 214
+      },
+      "attributedTo": [
+        {
+          "path": "skill/wowdata",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "skill/wowdata/references/errors.md",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "d73bccc2184f5f2750100d1615d3b2dc475541378ebe24af7b8c6e076671d26f",
+        "size": 816
+      },
+      "attributedTo": [
+        {
+          "path": "skill/wowdata",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "skill/wowdata/references/hotfix.md",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "962c6e5020461314494ee2abe5c927374d9c0d8b10331e17062f6f4f90dc308d",
+        "size": 1418
+      },
+      "attributedTo": [
+        {
+          "path": "skill/wowdata",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "skill/wowdata/references/sql.md",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "7a013578d77cfe4c1018a186fc8c6ef7947e67a7055bd913a5834785accb757a",
+        "size": 1742
+      },
+      "attributedTo": [
+        {
+          "path": "skill/wowdata",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "tools/benchmark/networkcalibrate/main.go",
+      "kind": "modified",
+      "before": {
+        "hash": "38d1a65cd6318fad9fe29b6337235957948b69e7f596326a7b3c6a41f03ca51f",
+        "size": 21038
+      },
+      "after": {
+        "hash": "4e36916f22de6d455411aece0bd24596c5132d8f2d1ceb71babfa2822d0f37da",
+        "size": 22397
+      },
+      "attributedTo": [
+        {
+          "path": "tools/benchmark",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "tools/benchmark/networkcalibrate/main_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "ed9a3d1eb51305565cd6308fda64bc948a859118fe438122b50566626ec464b5",
+        "size": 4361
+      },
+      "after": {
+        "hash": "f0d4cf7b7cd84b105b3c567f02a3b19b05829d9a5ae3826778970a43e8d0b522",
+        "size": 4336
+      },
+      "attributedTo": [
+        {
+          "path": "tools/benchmark",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "tools/benchmark/rangedownload/main.go",
+      "kind": "modified",
+      "before": {
+        "hash": "846b5519bfdf3aa753d7d68fab3e8aca8b26ab6f8aa90fc4b1e1f518b23a1227",
+        "size": 2967
+      },
+      "after": {
+        "hash": "2208a7e216c06705f8d463a809bbe206c3347182d96ea7a64fc4ea279fac1b34",
+        "size": 4022
+      },
+      "attributedTo": [
+        {
+          "path": "tools/benchmark",
+          "kind": "directory"
+        }
+      ]
+    },
+    {
+      "path": "tools/benchmark/run-network-tournament.ps1",
+      "kind": "modified",
+      "before": {
+        "hash": "938142991c8afa05b0987b54e6b68db4c7b4da5eda60911e962840809af86dba",
+        "size": 14771
+      },
+      "after": {
+        "hash": "ca49203c9c1f1e79af385159695441ce939f2cf1fa3283742c3918f39494422c",
+        "size": 16614
+      },
+      "attributedTo": [
+        {
+          "path": "tools/benchmark",
+          "kind": "directory"
+        }
+      ]
+    }
+  ],
+  "unattributed": [],
+  "unresolvedScopes": [],
+  "noCodeReason": null,
+  "scopeHash": "91bba1ef3d7f76bad518fce5ac08bb1bab69c63e518e7c02f0201a9bb42ba833"
+}

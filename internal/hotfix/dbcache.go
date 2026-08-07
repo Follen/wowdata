@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"time"
 )
 
 const (
@@ -41,6 +42,17 @@ type Reader struct {
 }
 
 func OpenDBCache(path string) (*Reader, error) {
+	return openDBCache(path, true)
+}
+
+// OpenDBCacheLazy validates the file header without scanning every record.
+// Query paths backed by a reusable sidecar do not need to pay a full-file scan
+// merely to populate Reader.Count.
+func OpenDBCacheLazy(path string) (*Reader, error) {
+	return openDBCache(path, false)
+}
+
+func openDBCache(path string, scan bool) (*Reader, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -50,7 +62,7 @@ func OpenDBCache(path string) (*Reader, error) {
 		f.Close()
 		return nil, err
 	}
-	r, err := OpenDBCacheReader(f, st.Size())
+	r, err := openDBCacheReader(f, st.Size(), scan)
 	if err != nil {
 		f.Close()
 		return nil, err
@@ -60,6 +72,10 @@ func OpenDBCache(path string) (*Reader, error) {
 }
 
 func OpenDBCacheReader(ra io.ReaderAt, size int64) (*Reader, error) {
+	return openDBCacheReader(ra, size, true)
+}
+
+func openDBCacheReader(ra io.ReaderAt, size int64, scan bool) (*Reader, error) {
 	if size < 12 {
 		return nil, errf("hotfix_corrupt_cache", "header", "file is shorter than 12 bytes")
 	}
@@ -86,8 +102,10 @@ func OpenDBCacheReader(ra io.ReaderAt, size int64) (*Reader, error) {
 		recordVersion = detectV8RecordVersion(ra, size, headerSize)
 	}
 	r := &Reader{ra: ra, size: size, Header: h, headerSize: headerSize, recordVersion: recordVersion}
-	if err := r.scan(); err != nil {
-		return nil, err
+	if scan {
+		if err := r.scan(); err != nil {
+			return nil, err
+		}
 	}
 	return r, nil
 }
@@ -249,28 +267,31 @@ func (r *Reader) QueryEntries(q Query) (Result, error) {
 	if err := q.Validate(); err != nil {
 		return Result{}, err
 	}
-	rows := make([]Record, 0)
+	if !r.queryCanMatch(q) {
+		return r.emptyResult(q), nil
+	}
+	entries := make([]Entry, 0, 128)
 	err := r.ForEachEntry(func(e Entry) error {
 		if q.Region != 0 && e.Region != q.Region || q.TableHash != nil && e.TableHash != *q.TableHash || q.RecordID != nil && e.RecordID != *q.RecordID || q.PushID != nil && e.PushID != *q.PushID || q.Status != nil && e.Status != *q.Status {
 			return nil
 		}
-		row, err := r.ReadEntry(e)
-		if err != nil {
-			return err
-		}
-		row.Product = q.Product
-		row.Locale = q.Locale
-		rows = append(rows, row)
+		entries = append(entries, e)
 		return nil
 	})
 	if err != nil {
 		return Result{}, err
 	}
-	filtered, err := Filter(rows, q)
-	if err != nil {
-		return Result{}, err
+	entries = windowEntries(entries, q)
+	rows := make([]Record, 0, len(entries))
+	for _, e := range entries {
+		row, readErr := r.ReadEntry(e)
+		if readErr != nil {
+			return Result{}, readErr
+		}
+		row.Product, row.Locale = q.Product, q.Locale
+		rows = append(rows, row)
 	}
-	return Result{Query: q, Source: "dbcache", Coverage: Coverage{Source: "dbcache", Build: q.Build, Region: q.Region, Locale: q.Locale, Complete: true}, Records: filtered, Total: int64(len(filtered))}, nil
+	return Result{Query: q, Source: "dbcache", Coverage: Coverage{Source: "dbcache", Build: q.Build, Region: q.Region, Locale: q.Locale, Complete: true}, Records: rows, Total: int64(len(rows))}, nil
 }
 
 func (r *Reader) QuerySidecar(s *Sidecar, q Query) (Result, error) {
@@ -280,15 +301,23 @@ func (r *Reader) QuerySidecar(s *Sidecar, q Query) (Result, error) {
 	if err := q.Validate(); err != nil {
 		return Result{}, err
 	}
+	if !r.queryCanMatch(q) {
+		return r.emptyResult(q), nil
+	}
 	entries, err := s.Find(*q.TableHash, *q.RecordID)
 	if err != nil {
 		return Result{}, err
 	}
-	rows := make([]Record, 0, len(entries))
+	matched := entries[:0]
 	for _, item := range entries {
 		if q.Region != 0 && item.Region != q.Region || q.PushID != nil && item.PushID != *q.PushID || q.Status != nil && item.Status != *q.Status {
 			continue
 		}
+		matched = append(matched, item)
+	}
+	matched = windowSidecarEntries(matched, q)
+	rows := make([]Record, 0, len(matched))
+	for _, item := range matched {
 		row, err := r.ReadEntry(Entry{Region: item.Region, PushID: item.PushID, TableHash: item.TableHash, RecordID: item.RecordID, Status: item.Status, PayloadOffset: int64(item.PayloadOffset), PayloadLength: int(item.PayloadLength)})
 		if err != nil {
 			return Result{}, err
@@ -296,11 +325,68 @@ func (r *Reader) QuerySidecar(s *Sidecar, q Query) (Result, error) {
 		row.Product, row.Locale = q.Product, q.Locale
 		rows = append(rows, row)
 	}
-	filtered, err := Filter(rows, q)
-	if err != nil {
-		return Result{}, err
+	return Result{Query: q, Source: "dbcache", Coverage: Coverage{Source: "dbcache", Build: q.Build, Region: q.Region, Locale: q.Locale, Complete: true}, Records: rows, Total: int64(len(rows))}, nil
+}
+
+func (r *Reader) queryCanMatch(q Query) bool {
+	if !buildMatches(q.Build, fmt.Sprint(r.Header.Build)) || q.Table != "" {
+		return false
 	}
-	return Result{Query: q, Source: "dbcache", Coverage: Coverage{Source: "dbcache", Build: q.Build, Region: q.Region, Locale: q.Locale, Complete: true}, Records: filtered, Total: int64(len(filtered))}, nil
+	zero := time.Time{}
+	return (q.From == nil || !zero.Before(*q.From)) && (q.To == nil || !zero.After(*q.To))
+}
+
+func (r *Reader) emptyResult(q Query) Result {
+	return Result{Query: q, Source: "dbcache", Coverage: Coverage{Source: "dbcache", Build: q.Build, Region: q.Region, Locale: q.Locale, Complete: true}, Records: []Record{}}
+}
+
+func windowEntries(entries []Entry, q Query) []Entry {
+	sort.SliceStable(entries, func(i, j int) bool {
+		if entries[i].PushID != entries[j].PushID {
+			return entries[i].PushID < entries[j].PushID
+		}
+		return entries[i].RecordID < entries[j].RecordID
+	})
+	if q.Latest && len(entries) > 0 {
+		max := entries[len(entries)-1].PushID
+		start := len(entries) - 1
+		for start > 0 && entries[start-1].PushID == max {
+			start--
+		}
+		entries = entries[start:]
+	}
+	return pageEntries(entries, q.Page, q.Limit)
+}
+
+func windowSidecarEntries(entries []SidecarEntry, q Query) []SidecarEntry {
+	// Find returns a single table/record range ordered by PushID.
+	if q.Latest && len(entries) > 0 {
+		max := entries[len(entries)-1].PushID
+		start := len(entries) - 1
+		for start > 0 && entries[start-1].PushID == max {
+			start--
+		}
+		entries = entries[start:]
+	}
+	return pageEntries(entries, q.Page, q.Limit)
+}
+
+func pageEntries[T any](entries []T, page, limit int) []T {
+	if limit <= 0 {
+		return entries
+	}
+	from := 0
+	if page > 0 {
+		from = page * limit
+	}
+	if from >= len(entries) {
+		return entries[:0]
+	}
+	to := from + limit
+	if to > len(entries) {
+		to = len(entries)
+	}
+	return entries[from:to]
 }
 
 type SidecarEntry struct {

@@ -1,0 +1,30 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-hotfix-cdn-performance",
+    "sourceRevision": 5,
+    "contractHash": "5d4f8eabb427935d8aab490526d4fa979819fb830f78d123daf91b3b8e6326db",
+    "scopeHash": "ed49fde7aeec9694ef30fc24751f7df0dff7cab68294777ab5761ca26ec2f97d",
+    "snapshotHash": "5a4cdb8c87752dd6d9fc767682f38041e188f0e99b7050bd710820ae3b8d4e38",
+    "artifactHash": "2f9cfb6a241ad68791730fabce2d8163154ae0cdf83dcaff5c8cf6eaa222e482"
+  },
+  "acceptanceIds": [
+    "acceptance-2772ba131b7876a6ad34e3f4b251a8c55aab82bfd53770867bf80456a8768b1a",
+    "acceptance-27aff872f6d89fa54357e9a14a56a338cb0a1b851468badd2211ca5517b17d9a",
+    "acceptance-a7fc88ecf2bbfbb9ddfc3d221e1df51b19c3637cc453e251c211957487686814"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-07T07:36:41.960Z",
+  "evidence": {
+    "steps": [
+      "审阅 Hotfix DBCache/sidecar/Wago offline 与唯一 live 兼容性报告"
+    ],
+    "observations": [
+      "DBCache cold 238.591→104.933ms、warm 97.612→51.557ms，结果 SHA 一致；sidecar v2 绑定身份、损坏/过期重建、小索引二分/大索引磁盘模式均有测试。Wago adapter 使用 HTML tokenizer、保留 raw/response SHA/coverage、精确 post-filter 与分页连续性；唯一 live warm cache 0.611ms 且新增缓存字节为 0。性能总门禁另行判定，未在本 receipt 中宣称达标。"
+    ]
+  },
+  "receiptHash": "c6d005ecc5aff1a318e7d4b1723ff8a98168d5881219343e7efbd6ef75d38ee9"
+}
