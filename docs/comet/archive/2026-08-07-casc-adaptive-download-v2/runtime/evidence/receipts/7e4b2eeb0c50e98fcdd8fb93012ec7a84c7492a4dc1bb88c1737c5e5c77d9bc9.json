@@ -1,0 +1,53 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "casc-adaptive-download-v2",
+    "sourceRevision": 3,
+    "contractHash": "c221d5ce18bf343b0bbe30610ad304e7246689f82c974f69155fbe20591c059f",
+    "scopeHash": "fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29",
+    "snapshotHash": "c7215be28ce044f3d6a9d48dc237b20a442388497628c375ea5110bad9014e59",
+    "artifactHash": "6dd506dad6948df4e0a966221eaeb0ad4c91d901164a123bf1573eb7a902184f"
+  },
+  "acceptanceIds": [
+    "acceptance-64232b52625deaed888e33332a8f163db882b46a8397f851fb55c22cbe5b1f0a",
+    "acceptance-9ae820d9671997627fc709da0444d4aefc2082f08d836be8164c944fdcdd7304"
+  ],
+  "actor": "native-runtime:command:go",
+  "issuedAt": "2026-08-07T11:46:12.995Z",
+  "evidence": {
+    "executable": "go",
+    "args": [
+      "test",
+      "-race",
+      "./internal/casc",
+      "./internal/runtime",
+      "./internal/db2",
+      "./internal/wowdata"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 180000,
+    "startedAt": "2026-08-07T11:46:04.227Z",
+    "endedAt": "2026-08-07T11:46:12.995Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "2f9bce25656863ccb914c29c7f08415229d86253",
+      "afterCommit": "2f9bce25656863ccb914c29c7f08415229d86253"
+    },
+    "afterFence": {
+      "snapshotHash": "c7215be28ce044f3d6a9d48dc237b20a442388497628c375ea5110bad9014e59",
+      "scopeHash": "fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29",
+      "matched": true
+    },
+    "outputHash": "85f2bd2a77797dc7be8d84264766f14acf28f3a83d8504611804ae5d974dbaf0",
+    "outputSummary": "ok  \twowdata/internal/casc\t6.740s\nok  \twowdata/internal/runtime\t(cached)\nok  \twowdata/internal/db2\t(cached)\nok  \twowdata/internal/wowdata\t(cached)",
+    "outputTruncated": false
+  },
+  "receiptHash": "7e4b2eeb0c50e98fcdd8fb93012ec7a84c7492a4dc1bb88c1737c5e5c77d9bc9"
+}

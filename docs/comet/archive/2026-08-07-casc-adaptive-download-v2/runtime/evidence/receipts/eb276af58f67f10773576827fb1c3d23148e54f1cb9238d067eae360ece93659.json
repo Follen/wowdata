@@ -1,0 +1,29 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "static-inspection",
+  "role": "required-check",
+  "status": "passed",
+  "bindings": {
+    "change": "casc-adaptive-download-v2",
+    "sourceRevision": 3,
+    "contractHash": "c221d5ce18bf343b0bbe30610ad304e7246689f82c974f69155fbe20591c059f",
+    "scopeHash": "fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29",
+    "snapshotHash": "c7215be28ce044f3d6a9d48dc237b20a442388497628c375ea5110bad9014e59",
+    "artifactHash": "6dd506dad6948df4e0a966221eaeb0ad4c91d901164a123bf1573eb7a902184f"
+  },
+  "acceptanceIds": [],
+  "actor": "native-runtime:scoped-text-safety",
+  "issuedAt": "2026-08-07T11:50:11.559Z",
+  "evidence": {
+    "subjects": [
+      "internal/casc/adaptive_download_test.go",
+      "internal/casc/remotesource.go",
+      "internal/casc/resumable.go"
+    ],
+    "rule": "scoped-text-safety",
+    "resultSummary": "The built-in scoped inspection passed without skipped or blocking input.",
+    "checkReceiptRef": "runtime/evidence/check-receipts/6f8ccb91c05a2a70969418446f2eb9101238b62d5a88ec1e5cca15bacc619908.json",
+    "checkReceiptHash": "6f8ccb91c05a2a70969418446f2eb9101238b62d5a88ec1e5cca15bacc619908"
+  },
+  "receiptHash": "eb276af58f67f10773576827fb1c3d23148e54f1cb9238d067eae360ece93659"
+}

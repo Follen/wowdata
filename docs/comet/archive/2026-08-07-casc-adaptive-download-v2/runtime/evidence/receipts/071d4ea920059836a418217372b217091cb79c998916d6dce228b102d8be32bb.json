@@ -1,0 +1,49 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "casc-adaptive-download-v2",
+    "sourceRevision": 3,
+    "contractHash": "c221d5ce18bf343b0bbe30610ad304e7246689f82c974f69155fbe20591c059f",
+    "scopeHash": "fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29",
+    "snapshotHash": "c7215be28ce044f3d6a9d48dc237b20a442388497628c375ea5110bad9014e59",
+    "artifactHash": "6dd506dad6948df4e0a966221eaeb0ad4c91d901164a123bf1573eb7a902184f"
+  },
+  "acceptanceIds": [
+    "acceptance-f74939c08fcfb637e6678fe5765694e714d86165539083ee98b56780dbce9a57"
+  ],
+  "actor": "native-runtime:command:go",
+  "issuedAt": "2026-08-07T11:51:23.215Z",
+  "evidence": {
+    "executable": "go",
+    "args": [
+      "test",
+      "./internal/casc",
+      "-count=1"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 120000,
+    "startedAt": "2026-08-07T11:51:19.468Z",
+    "endedAt": "2026-08-07T11:51:23.215Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "2f9bce25656863ccb914c29c7f08415229d86253",
+      "afterCommit": "2f9bce25656863ccb914c29c7f08415229d86253"
+    },
+    "afterFence": {
+      "snapshotHash": "c7215be28ce044f3d6a9d48dc237b20a442388497628c375ea5110bad9014e59",
+      "scopeHash": "fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29",
+      "matched": true
+    },
+    "outputHash": "8402dac38cf92c24bc9d8b4dac823a26afe0f807018b1ef4b858b335d8db323c",
+    "outputSummary": "ok  \twowdata/internal/casc\t3.234s",
+    "outputTruncated": false
+  },
+  "receiptHash": "071d4ea920059836a418217372b217091cb79c998916d6dce228b102d8be32bb"
+}

@@ -1,0 +1,52 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "casc-adaptive-download-v2",
+    "sourceRevision": 3,
+    "contractHash": "c221d5ce18bf343b0bbe30610ad304e7246689f82c974f69155fbe20591c059f",
+    "scopeHash": "fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29",
+    "snapshotHash": "c7215be28ce044f3d6a9d48dc237b20a442388497628c375ea5110bad9014e59",
+    "artifactHash": "6dd506dad6948df4e0a966221eaeb0ad4c91d901164a123bf1573eb7a902184f"
+  },
+  "acceptanceIds": [
+    "acceptance-364a1d7079590c82bbd6dfddc16fac900ad41f81f73a3a459b9b4d42bf64c9fd",
+    "acceptance-5cef29e868301936e61f5af91060504d33fc6ed30da630cb489b31f6149dabb1",
+    "acceptance-cca8996690ef52d48b5d7488afdeb751ff8b509848a109dc22398b3992d40545",
+    "acceptance-f0866df4688238e443b8f932af890c9b82d4fa5bf5d091b91dd83871701da3ba"
+  ],
+  "actor": "native-runtime:command:go",
+  "issuedAt": "2026-08-07T11:45:39.362Z",
+  "evidence": {
+    "executable": "go",
+    "args": [
+      "test",
+      "./...",
+      "-count=1"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 180000,
+    "startedAt": "2026-08-07T11:45:34.902Z",
+    "endedAt": "2026-08-07T11:45:39.362Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "2f9bce25656863ccb914c29c7f08415229d86253",
+      "afterCommit": "2f9bce25656863ccb914c29c7f08415229d86253"
+    },
+    "afterFence": {
+      "snapshotHash": "c7215be28ce044f3d6a9d48dc237b20a442388497628c375ea5110bad9014e59",
+      "scopeHash": "fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29",
+      "matched": true
+    },
+    "outputHash": "7f2517f9e973c7a4cde3b47ff7139a374ead34bf810dc53f148de2565fbdb4cc",
+    "outputSummary": "ok  \twowdata/cmd/wowdata\t1.377s\nok  \twowdata/internal/app\t2.213s\nok  \twowdata/internal/blp\t0.097s\nok  \twowdata/internal/blte\t0.098s\nok  \twowdata/internal/casc\t3.052s\nok  \twowdata/internal/crypto\t0.042s\nok  \twowdata/internal/db2\t0.100s\nok  \twowdata/internal/dbd\t0.042s\nok  \twowdata/internal/diagnostics\t0.059s\nok  \twowdata/internal/export\t0.137s\nok  \twowdata/internal/golden\t0.074s\nok  \twowdata/internal/hotfix\t0.363s\nok  \twowdata/internal/listfile\t0.075s\nok  \twowdata/internal/resource\t0.117s\nok  \twowdata/internal/runtime\t1.188s\nok  \twowdata/internal/sqlquery\t0.085s\nok  \twowdata/internal/storage\t0.926s\nok  \twowdata/internal/tact\t0.106s\nok  \twowdata/internal/video\t0.102s\nok  \twowdata/internal/wowdata\t0.104s\nok  \twowdata/tools/benchmark/calibrate\t0.974s\n?   \twowdata/tools/benchmark/coverage\t[no test files]\nok  \twowdata/tools/benchmark/floor\t0.100s\nok  \twowdata/tools/benchmark/integration\t0.142s\n?   \twowdata/tools/benchmark/manifest\t[no test files]\nok  \twowdata/tools/benchmark/matrix\t0.094s\nok  \twowdata/tools/benchmark/networkcalibrate\t0.146s\nok  \twowdata/tools/benchmark/processprobe\t0.073s\n?   \twowdata/tools/benchmark/rangedownload\t[no test files]\nok  \twowdata/tools/benchmark/report\t0.109s\nok  \twowdata/tools/corpus\t0.083s\nok  \twowdata/tools/golden/runner\t0.060s\n?   \twowdata/tools/sqlhotfixbench\t[no test files]",
+    "outputTruncated": false
+  },
+  "receiptHash": "35e72bb05219bdcf531fc7b078af3f75d1031d3f560ac83a229b728aafbf03e4"
+}

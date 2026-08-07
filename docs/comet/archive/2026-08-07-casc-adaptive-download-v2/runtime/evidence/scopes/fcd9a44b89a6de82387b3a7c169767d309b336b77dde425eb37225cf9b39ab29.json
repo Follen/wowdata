@@ -1,0 +1,80 @@
+{
+  "schema": "comet.native.implementation-scope.v2",
+  "contractHash": "c221d5ce18bf343b0bbe30610ad304e7246689f82c974f69155fbe20591c059f",
+  "baselineProjectionRef": "runtime/evidence/snapshots/83abad840eee81240cebca1c713495bc31fac16aadeb6346a1ec47f9ed7bec88.json",
+  "baselineProjectionHash": "83abad840eee81240cebca1c713495bc31fac16aadeb6346a1ec47f9ed7bec88",
+  "currentProjectionRef": "runtime/evidence/snapshots/c7215be28ce044f3d6a9d48dc237b20a442388497628c375ea5110bad9014e59.json",
+  "currentProjectionHash": "c7215be28ce044f3d6a9d48dc237b20a442388497628c375ea5110bad9014e59",
+  "complete": true,
+  "declaredArtifacts": [
+    {
+      "path": "internal/casc/adaptive_download_test.go",
+      "kind": "file"
+    },
+    {
+      "path": "internal/casc/remotesource.go",
+      "kind": "file"
+    },
+    {
+      "path": "internal/casc/resumable.go",
+      "kind": "file"
+    }
+  ],
+  "changes": [
+    {
+      "path": "internal/casc/adaptive_download_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "d4577ef3028ed932b6712c34d67a8b24388a41c5983104a26074c1e5dba296dd",
+        "size": 1187
+      },
+      "attributedTo": [
+        {
+          "path": "internal/casc/adaptive_download_test.go",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "internal/casc/remotesource.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1e1aab9dcf9484e9210db354f0b7495c0099594920f78ee332b2180124f7c569",
+        "size": 50122
+      },
+      "after": {
+        "hash": "e75dfa2fe07156de528643a51edef9e048db6bd18df2144d5b2843453c3896e6",
+        "size": 48788
+      },
+      "attributedTo": [
+        {
+          "path": "internal/casc/remotesource.go",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "internal/casc/resumable.go",
+      "kind": "modified",
+      "before": {
+        "hash": "779e8ec4c4d85233bccfb274ddd2325d3deabe5c25410ba85be7e70735e037ef",
+        "size": 16293
+      },
+      "after": {
+        "hash": "ece81f7f251cfb4ab83b88e84925a95a31f181649ded2fe12f421e4e3b812aa9",
+        "size": 18876
+      },
+      "attributedTo": [
+        {
+          "path": "internal/casc/resumable.go",
+          "kind": "file"
+        }
+      ]
+    }
+  ],
+  "unattributed": [],
+  "unresolvedScopes": [],
+  "noCodeReason": null,
+  "scopeHash": "fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29"
+}

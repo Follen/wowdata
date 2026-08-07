@@ -1,0 +1,210 @@
+{
+  "schema": "comet.native.verification-evidence.v2",
+  "change": "casc-adaptive-download-v2",
+  "sourceRevision": 3,
+  "result": "pass",
+  "freshness": "complete",
+  "contractHash": "c221d5ce18bf343b0bbe30610ad304e7246689f82c974f69155fbe20591c059f",
+  "acceptanceCriteriaHash": "9dee7bbb624db4f187322788c84c7afae3e68aeebc244bba09b5139a0762e603",
+  "implementationScopeRef": "runtime/evidence/scopes/fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29.json",
+  "implementationScopeHash": "fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29",
+  "reportRef": "verification.md",
+  "reportHash": "b2ed298fcee1612484fbf7166590d3a73e594300b177f5652a961e09b07052e1",
+  "acceptanceTrace": {
+    "schema": "comet.native.acceptance-trace.v2",
+    "nativeRootRef": "docs/comet",
+    "criteriaHash": "9dee7bbb624db4f187322788c84c7afae3e68aeebc244bba09b5139a0762e603",
+    "total": 17,
+    "evidenced": 17,
+    "skipped": 0,
+    "entries": [
+      {
+        "acceptanceId": "acceptance-1cec43550965ea60295b8cd75c9210f64c23a81bc5a2596467a2ef6c20653714",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/8c18a336731e501089a8fc27beb647aa894029478c53db2c3ed8fc70d5179d1f.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-31d4be6ae1353f3d78388813d8389ee9654c70736071a0cbcd33fde9770edfe3",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/8c18a336731e501089a8fc27beb647aa894029478c53db2c3ed8fc70d5179d1f.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-323ed061a0e181b0048bed0b8139f8c57bc71b44bbceffd2d383ed91ddb8cc0f",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/c1c5ee6c83ad862179b6efa81021b3f427975d643d94d1138fc5fbcef4c4536b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-364a1d7079590c82bbd6dfddc16fac900ad41f81f73a3a459b9b4d42bf64c9fd",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/35e72bb05219bdcf531fc7b078af3f75d1031d3f560ac83a229b728aafbf03e4.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-5cef29e868301936e61f5af91060504d33fc6ed30da630cb489b31f6149dabb1",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/35e72bb05219bdcf531fc7b078af3f75d1031d3f560ac83a229b728aafbf03e4.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-64232b52625deaed888e33332a8f163db882b46a8397f851fb55c22cbe5b1f0a",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/7e4b2eeb0c50e98fcdd8fb93012ec7a84c7492a4dc1bb88c1737c5e5c77d9bc9.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-8bbe9325b98a420e0507380d4b1314d3dfc2c3af2370d74d426b8cc373875c2c",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/c1c5ee6c83ad862179b6efa81021b3f427975d643d94d1138fc5fbcef4c4536b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-9ae820d9671997627fc709da0444d4aefc2082f08d836be8164c944fdcdd7304",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/7e4b2eeb0c50e98fcdd8fb93012ec7a84c7492a4dc1bb88c1737c5e5c77d9bc9.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-c52e1185db5d4dcedb419bd7ddf1c6457d2460218fb029d62ad4023940ac3f33",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/c1c5ee6c83ad862179b6efa81021b3f427975d643d94d1138fc5fbcef4c4536b.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-c8e36ecd8fd27359e09cb1b24319a001439db327b535ce8058ddf9bdbad45517",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/04ec49d640fe002a5bfc4e2546715651cf9b68a62ae2b4200b7ee81977e0a46d.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-cca8996690ef52d48b5d7488afdeb751ff8b509848a109dc22398b3992d40545",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/35e72bb05219bdcf531fc7b078af3f75d1031d3f560ac83a229b728aafbf03e4.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-d3e7d2c21048d645baf52c96b5543fa50c26a3c13cafb7705142f0c7cba0394f",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/43d59430ce606fd5e45990e7a78a42fd451eb68bb44fd8e67ca32c89d0da5a12.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-f0866df4688238e443b8f932af890c9b82d4fa5bf5d091b91dd83871701da3ba",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/35e72bb05219bdcf531fc7b078af3f75d1031d3f560ac83a229b728aafbf03e4.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-f171dc182fbea48bc3672239de4ebade3db40a9449bd9fcc2989e9e9460b9486",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/43d59430ce606fd5e45990e7a78a42fd451eb68bb44fd8e67ca32c89d0da5a12.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-f1789bd0b016cee12ae39839833353e16dd5b10c4ae9741edd52bf2364f50b4f",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/43d59430ce606fd5e45990e7a78a42fd451eb68bb44fd8e67ca32c89d0da5a12.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-f3cfdc53e7435b1b822b84f1bc93f746e5b71183a2ac72b65770d3708f72d08d",
+        "status": "passed",
+        "kind": "spec-must",
+        "source": "specs/casc-download/spec.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/04ec49d640fe002a5bfc4e2546715651cf9b68a62ae2b4200b7ee81977e0a46d.json"
+        ],
+        "skippedReason": null
+      },
+      {
+        "acceptanceId": "acceptance-f74939c08fcfb637e6678fe5765694e714d86165539083ee98b56780dbce9a57",
+        "status": "passed",
+        "kind": "brief-example",
+        "source": "brief.md",
+        "evidenceRefs": [
+          "runtime/evidence/receipts/071d4ea920059836a418217372b217091cb79c998916d6dce228b102d8be32bb.json"
+        ],
+        "skippedReason": null
+      }
+    ],
+    "traceHash": "b297d146e99bff044342ab13b6ebf902bab3ac019e28223c6ae1f2864e708be4"
+  },
+  "partialAllowanceRef": null,
+  "partialAllowanceHash": null,
+  "requiredReceiptRefs": [
+    "runtime/evidence/receipts/eb276af58f67f10773576827fb1c3d23148e54f1cb9238d067eae360ece93659.json"
+  ],
+  "receiptRefs": [
+    "runtime/evidence/receipts/04ec49d640fe002a5bfc4e2546715651cf9b68a62ae2b4200b7ee81977e0a46d.json",
+    "runtime/evidence/receipts/071d4ea920059836a418217372b217091cb79c998916d6dce228b102d8be32bb.json",
+    "runtime/evidence/receipts/35e72bb05219bdcf531fc7b078af3f75d1031d3f560ac83a229b728aafbf03e4.json",
+    "runtime/evidence/receipts/43d59430ce606fd5e45990e7a78a42fd451eb68bb44fd8e67ca32c89d0da5a12.json",
+    "runtime/evidence/receipts/7e4b2eeb0c50e98fcdd8fb93012ec7a84c7492a4dc1bb88c1737c5e5c77d9bc9.json",
+    "runtime/evidence/receipts/8c18a336731e501089a8fc27beb647aa894029478c53db2c3ed8fc70d5179d1f.json",
+    "runtime/evidence/receipts/c1c5ee6c83ad862179b6efa81021b3f427975d643d94d1138fc5fbcef4c4536b.json"
+  ],
+  "createdAt": "2026-08-07T11:54:56.736Z",
+  "envelopeHash": "ee503b8e205623535dfa426c947ceb014a4a3d1a151d72c6909daceffa41cb1d"
+}
