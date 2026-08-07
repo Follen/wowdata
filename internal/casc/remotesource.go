@@ -2,7 +2,6 @@ package casc
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -293,10 +292,14 @@ func (r *CASCRemote) GetDataFile(cdnFile string) ([]byte, error) {
 	url := r.Host + "data/" + cdnFile
 	if r.Cache != nil {
 		partPath, statePath := ResumeObjectPaths(r.Cache.ResumeRoot(), url)
+		chunkSize := r.RangeChunkSize
+		if chunkSize == defaultRangeChunkSize {
+			chunkSize = 0
+		}
 		if data, err := DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath, ResumeOptions{
 			Workers: r.ResourcePlan().LargeRangeWorkers, CacheRoot: r.CacheRoot, MaxBytes: r.CacheMaxBytes, TTL: DefaultResumeTTL, Budget: r.cacheBudget,
 			Scheduler: r.ResourceScheduler(),
-			ChunkSize: r.RangeChunkSize, Adaptive: true, MergeRanges: false, AssumeImmutable: true,
+			ChunkSize: chunkSize, Adaptive: true, MergeRanges: true,
 		}); err == nil {
 			return data, nil
 		} else if IsCacheQuotaError(err) {
@@ -1177,7 +1180,6 @@ func buildID(build VersionEntry) string {
 }
 
 var httpClient = &http.Client{Timeout: 120 * time.Second, Transport: instrumentedTransport{base: newHTTPTransport()}}
-var adaptiveRangeHTTPClient = &http.Client{Timeout: 120 * time.Second, Transport: instrumentedTransport{base: newAdaptiveRangeHTTPTransport()}}
 
 func newHTTPTransport() *http.Transport {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -1185,13 +1187,6 @@ func newHTTPTransport() *http.Transport {
 	transport.MaxIdleConnsPerHost = 256
 	transport.MaxConnsPerHost = 256
 	transport.ForceAttemptHTTP2 = true
-	return transport
-}
-
-func newAdaptiveRangeHTTPTransport() *http.Transport {
-	transport := newHTTPTransport()
-	transport.ForceAttemptHTTP2 = false
-	transport.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}
 	return transport
 }
 

@@ -110,7 +110,7 @@ func main() {
 		_, err = casc.DownloadHTTPConcurrentResumableWithOptions(url, partPath, statePath, casc.ResumeOptions{
 			Workers: workers, TTL: casc.DefaultResumeTTL, Scheduler: scheduler,
 			ChunkSize: int64(chunkMiB) * resource.MiB, ObjectMaxBytes: int64(maxMiB) * resource.MiB, Context: ctx, KeepPart: true,
-			Adaptive: adaptive, MergeRanges: adaptive && merge, AssumeImmutable: adaptive,
+			Adaptive: adaptive, MergeRanges: adaptive && merge,
 			RangeURLs: rangeURLs,
 		})
 	}

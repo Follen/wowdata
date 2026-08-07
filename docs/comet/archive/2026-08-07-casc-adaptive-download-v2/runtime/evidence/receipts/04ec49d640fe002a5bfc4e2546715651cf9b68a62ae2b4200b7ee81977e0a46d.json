@@ -1,0 +1,29 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "casc-adaptive-download-v2",
+    "sourceRevision": 3,
+    "contractHash": "c221d5ce18bf343b0bbe30610ad304e7246689f82c974f69155fbe20591c059f",
+    "scopeHash": "fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29",
+    "snapshotHash": "c7215be28ce044f3d6a9d48dc237b20a442388497628c375ea5110bad9014e59",
+    "artifactHash": "6dd506dad6948df4e0a966221eaeb0ad4c91d901164a123bf1573eb7a902184f"
+  },
+  "acceptanceIds": [
+    "acceptance-c8e36ecd8fd27359e09cb1b24319a001439db327b535ce8058ddf9bdbad45517",
+    "acceptance-f3cfdc53e7435b1b822b84f1bc93f746e5b71183a2ac72b65770d3708f72d08d"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-07T11:49:08.077Z",
+  "evidence": {
+    "steps": [
+      "Run identical 32 MiB local httptest fixture for 20 baseline and 20 optimized downloads with 4 workers."
+    ],
+    "observations": [
+      "Baseline P50 124.9921 ms and P95 154.4273 ms with 33 requests/run; optimized P50 54.8062 ms and P95 138.6823 ms with 9 requests/run; both had 0/20 failures and identical SHA-256 05f052c8f6da8ee5228ec291820b559c4be183773b9e97a6b82e30dacff85dd3. P50 improvement 56.15%; P95 improvement 10.21%."
+    ]
+  },
+  "receiptHash": "04ec49d640fe002a5bfc4e2546715651cf9b68a62ae2b4200b7ee81977e0a46d"
+}

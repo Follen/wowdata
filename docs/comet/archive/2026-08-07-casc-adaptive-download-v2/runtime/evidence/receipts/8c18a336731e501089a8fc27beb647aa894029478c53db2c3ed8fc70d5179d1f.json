@@ -1,0 +1,49 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "casc-adaptive-download-v2",
+    "sourceRevision": 3,
+    "contractHash": "c221d5ce18bf343b0bbe30610ad304e7246689f82c974f69155fbe20591c059f",
+    "scopeHash": "fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29",
+    "snapshotHash": "c7215be28ce044f3d6a9d48dc237b20a442388497628c375ea5110bad9014e59",
+    "artifactHash": "6dd506dad6948df4e0a966221eaeb0ad4c91d901164a123bf1573eb7a902184f"
+  },
+  "acceptanceIds": [
+    "acceptance-1cec43550965ea60295b8cd75c9210f64c23a81bc5a2596467a2ef6c20653714",
+    "acceptance-31d4be6ae1353f3d78388813d8389ee9654c70736071a0cbcd33fde9770edfe3"
+  ],
+  "actor": "native-runtime:command:go",
+  "issuedAt": "2026-08-07T11:46:15.177Z",
+  "evidence": {
+    "executable": "go",
+    "args": [
+      "vet",
+      "./..."
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 180000,
+    "startedAt": "2026-08-07T11:46:14.645Z",
+    "endedAt": "2026-08-07T11:46:15.177Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "2f9bce25656863ccb914c29c7f08415229d86253",
+      "afterCommit": "2f9bce25656863ccb914c29c7f08415229d86253"
+    },
+    "afterFence": {
+      "snapshotHash": "c7215be28ce044f3d6a9d48dc237b20a442388497628c375ea5110bad9014e59",
+      "scopeHash": "fcd9a44b89a6de82387b3a7c169767d309b336b77dde425eb37225cf9b39ab29",
+      "matched": true
+    },
+    "outputHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "outputSummary": "(exit 0)",
+    "outputTruncated": false
+  },
+  "receiptHash": "8c18a336731e501089a8fc27beb647aa894029478c53db2c3ed8fc70d5179d1f"
+}

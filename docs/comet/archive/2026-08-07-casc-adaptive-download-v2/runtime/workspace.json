@@ -1,0 +1,14 @@
+{
+  "schema": "comet.native.workspace.v3",
+  "capturedAt": "2026-08-07T11:06:09.408Z",
+  "capturedRevision": 1,
+  "nativeRootRef": "docs/comet",
+  "projectRootId": "46bb8f05b359ed6ce1196aae3c9f0f6348f9d90c80f7087bb075f64d96dd010d",
+  "nativeRootId": "083b4aad538cf99dce3c16efe58f915d616dbbcb7a58a862787b95dea0266fc0",
+  "projectRootPathId": "05b5743ace551c34f7f8412a48eb044ff96fa1ecfabefd490ca3d9399e898555",
+  "nativeRootPathId": "f39d1d5ec91ad5ff51e1c675037cf8605382ac7bfd7bc4b398bd18a4980adb35",
+  "isolation": "worktree",
+  "changeBranch": "comet/casc-adaptive-download-v2",
+  "targetBranch": "main",
+  "finish": "pull-request"
+}
