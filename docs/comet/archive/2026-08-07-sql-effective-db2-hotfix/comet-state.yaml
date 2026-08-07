@@ -1,0 +1,23 @@
+schema: comet.native.v3
+minimum_runtime_version: 3
+revision: 8
+verification_protocol: legacy-v1
+name: sql-effective-db2-hotfix
+language: zh-CN
+phase: archive
+brief: brief.md
+approval: confirmed
+approved_contract_hash: 57d5607304a202cf427249097ad27467357305e743ab49ef8e976770f7372c6c
+spec_changes:
+  - capability: sql-effective-db2-hotfix
+    operation: create
+    source: specs/sql-effective-db2-hotfix/spec.md
+    base_hash: null
+verification_result: pass
+verification_report: verification.md
+implementation_scope: runtime/evidence/scopes/1f0da628d5f5a365ad927a0c19144ed13d644269d35ddb87570a73d2bf34921c.json
+verification_evidence: runtime/evidence/verifications/20eb2fcd8a7016942305a082d159a5a5d73bb7413569c1351dc90cca09ff73bc.json
+partial_allowance: null
+archived: true
+created_at: 2026-08-06
+run_id: 7dbd1917-84a2-4b08-a3d7-356fb48ee2b8

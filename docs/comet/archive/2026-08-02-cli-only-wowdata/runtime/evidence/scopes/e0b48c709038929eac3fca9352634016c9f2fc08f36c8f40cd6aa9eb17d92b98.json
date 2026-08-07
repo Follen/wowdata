@@ -1,0 +1,2012 @@
+{
+  "schema": "comet.native.implementation-scope.v2",
+  "contractHash": "fd24d3eed314af4c582edfcee8962ee56aacc42c2df36efcdba5a3096640f687",
+  "baselineProjectionRef": "runtime/evidence/snapshots/072f601febf646d0abb2c225df895e9645d00124f10603ae959f67883e492eeb.json",
+  "baselineProjectionHash": "072f601febf646d0abb2c225df895e9645d00124f10603ae959f67883e492eeb",
+  "currentProjectionRef": "runtime/evidence/snapshots/f4b4e76a8a2e15b501bc3c27f64f26788c1c7d8e987cd0c48384920457b1d7bb.json",
+  "currentProjectionHash": "f4b4e76a8a2e15b501bc3c27f64f26788c1c7d8e987cd0c48384920457b1d7bb",
+  "complete": false,
+  "declaredArtifacts": [
+    {
+      "path": "package.json",
+      "kind": "file"
+    }
+  ],
+  "changes": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "kind": "modified",
+      "before": {
+        "hash": "799a5221029781330bd0fbbcb471bd4c0dd967566e519ae96d93c6a5c10613f6",
+        "size": 1823
+      },
+      "after": {
+        "hash": "e32acf957ca737dae2b3142a65bdba79c8c4b6416325e3b7876829236782b571",
+        "size": 2119
+      },
+      "attributedTo": []
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "a79aba70c450efd7ae2d05f1b445ae0eb7533224c2ce971189f2b0436575ea04",
+        "size": 2953
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "README.md",
+      "kind": "modified",
+      "before": {
+        "hash": "342ba8ef4c5efee549d8558723d8a79225bd73a8fa4182ffe33c403dfb98dda0",
+        "size": 10834
+      },
+      "after": {
+        "hash": "5032130849f80c5a4825146f85a0503b582cd64009a2df71e3f6f0a1d57d85bd",
+        "size": 4704
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/main.go",
+      "kind": "modified",
+      "before": {
+        "hash": "8ae6eafab750e4ec4e382f84d86bcae1b51e4ed9dab7ddc33ecf2b0890aea3c2",
+        "size": 22699
+      },
+      "after": {
+        "hash": "9c7fb217b19934d55501a8102ecf84969debb0903c3bef4bfb701e536656e038",
+        "size": 26409
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/main_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "c6089fe3235f0de723b04de031eb7839d0f96a018563ee68cd5d92fe04d4a736",
+        "size": 4958
+      },
+      "after": {
+        "hash": "398e342d05a4d52edf95d6660cfa8bc87c0812dc20fd4a48106bf15bbe67c82a",
+        "size": 4073
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/management.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "aabd8b6eec743ecedab3ddc16523b8f85cbe0cf81a648ccf3209dc0eb037ef02",
+        "size": 12346
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/management_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "9de6998f8770aa541ab876e263e3b80982a5e976e7b7994dd8212461e130111e",
+        "size": 421
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/mcp.go",
+      "kind": "removed",
+      "before": {
+        "hash": "bb38061a73c3f3f77183c99236450ff40ab804405aa7adf081afbac8a3eab58b",
+        "size": 14633
+      },
+      "after": null,
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/mcp_test.go",
+      "kind": "removed",
+      "before": {
+        "hash": "530e9cefa3b6601af6be23162e507b271e98ebe31acd3bd8fe56e92a8874784f",
+        "size": 6498
+      },
+      "after": null,
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/target.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "bb437af04c710dbbd5356cdb2aca4998c2a8c8dba603c06873984194d75a451e",
+        "size": 6945
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/target_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "e5a6476f8877e4fad1c4eaa1216f0b8200f97f2ff1665b4599b6198721f565dc",
+        "size": 2444
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "fixtures/golden/go/icon/export-134400-png-classic-era.json",
+      "kind": "modified",
+      "before": {
+        "hash": "6e0f3ca9cb9817774b31b5c4422f136d4078629d1131793bc5c657020e2e536f",
+        "size": 922
+      },
+      "after": {
+        "hash": "3f1c78ef1d9cb0a1a790061bb33bbbf30f3820a2c9553fb18c98bbf1ea686ed2",
+        "size": 922
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "fixtures/golden/go/icon/export-134400-webp-classic-era.json",
+      "kind": "modified",
+      "before": {
+        "hash": "6a21d74120855f27e059127aea31045f79d99703e492f0123eb6b40112ef7e43",
+        "size": 927
+      },
+      "after": {
+        "hash": "bd9ea000f238fdf272db8f5adaf27604257a18e279344ba996787383ac1dc312",
+        "size": 927
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "fixtures/golden/go/icon/extract-134400-classic-era.json",
+      "kind": "modified",
+      "before": {
+        "hash": "9cd97d62a29e1db7c66b79c931232d13312830f5e1f23eff7e68bba422f152da",
+        "size": 838
+      },
+      "after": {
+        "hash": "0fc57db910035c0ebcd129756391f444eb254bc7cef687b7312020ff93e45aa2",
+        "size": 838
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/commands.go",
+      "kind": "modified",
+      "before": {
+        "hash": "ce8eea5f1d3b1bf583019905549c2fe853e138fa00be973736346e547c1f3d68",
+        "size": 15648
+      },
+      "after": {
+        "hash": "e4f086eb20d59330c7aaad0b84699128496863ebbaf95356a19c0bccc1badbd9",
+        "size": 18415
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/creature_handler.go",
+      "kind": "modified",
+      "before": {
+        "hash": "4c3d194ffd7f57c8001013468553aa7a266709c687bddce82cbc61676a011895",
+        "size": 2703
+      },
+      "after": {
+        "hash": "593b785e60b6b8c86415237613433a2c48e5e301cb881623b85dea56ba539927",
+        "size": 2649
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/decor_handler.go",
+      "kind": "modified",
+      "before": {
+        "hash": "8a8c78214f34a42bbbd043a87f90f837687e78e38a44a1c0ab1181d33635de75",
+        "size": 2054
+      },
+      "after": {
+        "hash": "f04645df5716f468a0cd5d4afed7f1c651e4180245bbd0c35d4313645406925d",
+        "size": 2001
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/encounter_handler.go",
+      "kind": "modified",
+      "before": {
+        "hash": "66eb4e01dd2cf02acfb3f15b4e62c94d4a9d4838ed3d4e94afc3cde332ad27d4",
+        "size": 822
+      },
+      "after": {
+        "hash": "dd76f7e9d8bb38a523be718ed3f158cc8d12b060756efb538980a147e06b80eb",
+        "size": 793
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/file_handler.go",
+      "kind": "modified",
+      "before": {
+        "hash": "4254804114a9bd54969711f9f2dc8fb861dd2f5bca8a65ab123d80c6bde09622",
+        "size": 7127
+      },
+      "after": {
+        "hash": "61911e9e65cd7c19d211ba4fd21a4a999db241c47d29d8c57c9b1537e5fe0c3f",
+        "size": 6934
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/item_handler.go",
+      "kind": "modified",
+      "before": {
+        "hash": "d6e892de637fe5cdfe7568219f3324480ad6cb23829f8653a3d239adc4ece46e",
+        "size": 4727
+      },
+      "after": {
+        "hash": "27c638190cf5be88f969c78319bd1be3f72c9ac58634a1fc972d4e50cfc5daa5",
+        "size": 4626
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/root.go",
+      "kind": "modified",
+      "before": {
+        "hash": "3a704a826aaf9f69a9378495fcc987e3941152295950aea3d5f811b0e6456c6f",
+        "size": 2562
+      },
+      "after": {
+        "hash": "4a433465c98f6a5c0865185ec1870c79fbd54f291b55b5c516dfec0f5ed07e36",
+        "size": 2830
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/root_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "ee3ce02205dc345568a6aef5bf794c64594dc139f890d816eeab72f72618f8d8",
+        "size": 6381
+      },
+      "after": {
+        "hash": "20c5b2164b7649c0db1dd7038403bfd23a98787595231adcf28c30fc51d55d4b",
+        "size": 6448
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/spell_handler.go",
+      "kind": "modified",
+      "before": {
+        "hash": "8264304634ce563844c4331e3891024bbb66d880b8f5fae1b01fc3f8cd2059a3",
+        "size": 2758
+      },
+      "after": {
+        "hash": "1be6b1c8bcdd2ed99fefbac9e229b04e156073d301d9fbeabb5a3d54a94c050b",
+        "size": 2693
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/truthful_handlers_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "d6b52b46b52e46458e29b8472c8b74c0d3aec4d0c4a06d2feecdc1d16d16829d",
+        "size": 3302
+      },
+      "after": {
+        "hash": "618ee39a6635b40d5766f40ce32e9c04771cfdd331549984d456546be57da3ac",
+        "size": 3240
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/datacache.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1eff280c05ab5478cd5c34311ea85ba4c5c18883a23c4bde7404f21f03d363f1",
+        "size": 3148
+      },
+      "after": {
+        "hash": "953e6ec8508152d63dbbc69a8a0db76b59dbcef174b882622f7d0f4e71684bbd",
+        "size": 3401
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/localeflags.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1334531b62a6a02dfd0d3cfc7d60058e6087c92d7853e8798d7fb130332c9779",
+        "size": 1191
+      },
+      "after": {
+        "hash": "88ffd87afcb15982ab351cbf8c92d46f0d102acbc61d1a4196f24ddc7549c1c3",
+        "size": 1339
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/localsource.go",
+      "kind": "modified",
+      "before": {
+        "hash": "b5de89493b2aa6d29a34f09f859756b209554f5783c118fc30f610b6e50a1d77",
+        "size": 6970
+      },
+      "after": {
+        "hash": "5ae01ceec919d13c71a62cbab41d1f4d77f91b35ddfcc2f497e38061d5a3630a",
+        "size": 7256
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/localsource_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "824de07ffda64270ce22f0db5bfe707e1e02411c3b7ec23068dffababcf2e72b",
+        "size": 3081
+      },
+      "after": {
+        "hash": "354e71bf35fdc6d5832d00ed3d6f0c0113261f0efef030d605c92aadfadd3fe0",
+        "size": 3143
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/remote_file_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "8aa9a294ba3f67ce988c0cbfb0b65f00f65e4dff38c126fb0c68584536d24c01",
+        "size": 6749
+      },
+      "after": {
+        "hash": "3deb5003337a41290861304fba07c4d0b67f3f1404e28e3e4a5a86bb64b0abad",
+        "size": 7524
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/remotesource.go",
+      "kind": "modified",
+      "before": {
+        "hash": "25aa09b7d965a42b28d3bae62a2f430a1bc563b7edf3ee2e8b3cdc2c0a377b4f",
+        "size": 15773
+      },
+      "after": {
+        "hash": "470ed63c29c984b295c3fdfa1805a2cc592ea11191730bd0be2479f9b930a160",
+        "size": 18926
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/types.go",
+      "kind": "modified",
+      "before": {
+        "hash": "67470c06f0bcc7a15a3d5b7d955131fc991114f2b129063b187345f2d45c254e",
+        "size": 624
+      },
+      "after": {
+        "hash": "22dd776e6efd7a585a13d3aa9aeb39103ed2c43707b7cef73dbb643d658918d4",
+        "size": 1026
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/diagnostics/diagnostics.go",
+      "kind": "modified",
+      "before": {
+        "hash": "2ab4ad5f3b2cc0c21c72f598d5eaf16d889d7bf44ce8ea240747f2e4427dedd5",
+        "size": 3854
+      },
+      "after": {
+        "hash": "cb73d0ffaab807406c8d7210f639dea5c0bd660671bc7d9def44506a8a586e09",
+        "size": 4184
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/golden/golden.go",
+      "kind": "modified",
+      "before": {
+        "hash": "42adec1c15af3518a9e5e06c5082dc8f5bcdbf408ef8de2a00cbe0fa95506ccf",
+        "size": 12573
+      },
+      "after": {
+        "hash": "ad7b01e7212a6fa492a1391e4894998e1d47ff3e31c8cd2ad22195ca6a8f32e2",
+        "size": 11156
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/golden/golden_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "f95c616d59b2db1c35d82204311f0d1144d8d8d87c4ac8ec0cf267546d460c08",
+        "size": 8777
+      },
+      "after": {
+        "hash": "481462e35a1abaeb6b082c6e25ec032915c88f655d1ec8e22b063c6745244e32",
+        "size": 6515
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/mcpserver/server.go",
+      "kind": "removed",
+      "before": {
+        "hash": "1c859f315660d500a65189863c25152a0f59097a3f6f5e9f879530c3398bf721",
+        "size": 9182
+      },
+      "after": null,
+      "attributedTo": []
+    },
+    {
+      "path": "internal/mcpserver/server_test.go",
+      "kind": "removed",
+      "before": {
+        "hash": "372feb1cf85c26fb76017fbd8b58ac28b9e05214c84165cf58403b85c38970e9",
+        "size": 7016
+      },
+      "after": null,
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/dbd_manifest_source.go",
+      "kind": "modified",
+      "before": {
+        "hash": "eb01a35a1fa2e3c14e3ec57c5abd815546fefe8f655384e10b421ecb8b58f9e3",
+        "size": 1415
+      },
+      "after": {
+        "hash": "5252c0d03d61cdd9ce463dfba7d071907c47bc2ea87fc3810ecbdca739d395f7",
+        "size": 1455
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/dbd_revision.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "afc8b573db0508f873ba7e5e1bca23e10ae31362d6230036469ef7ca2601818b",
+        "size": 2347
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/dbd_revision_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "e75206115be004122e3766ffb4342667f578f2a225596760611d441d2d6217fd",
+        "size": 790
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/dbd_source.go",
+      "kind": "modified",
+      "before": {
+        "hash": "b93283f553c9498f96747da7a3dead54e26161106517b8f1d7ed349a74ba08ab",
+        "size": 1225
+      },
+      "after": {
+        "hash": "1105f4b58a78dc9e759d1a868516423d8c732974f7c03796f7754f6da21b474c",
+        "size": 1266
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/listfile_source.go",
+      "kind": "modified",
+      "before": {
+        "hash": "c1b0073c81aa39ad6299e421f05d20d32d9b2bbace2dd669c78ffa4e6cb4ee85",
+        "size": 4589
+      },
+      "after": {
+        "hash": "66f70c70f2a510cfd607cd3c860ff85b7b3e8176f382f9c4d1e1e0b8e26ea4db",
+        "size": 4950
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/listfile_source_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "912a49c205f507523d6b36c94dc3c79fbc276849a130bcbac0b5a64eff1364fe",
+        "size": 7461
+      },
+      "after": {
+        "hash": "dfffe767aa1997d04eccc1417983b21a2341755fd1794262e007302ad66c0b4b",
+        "size": 8334
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/cache.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "96d646b7dc555790a5bd2535aaf5f62444397055bdcc80608f3e0cd487dc12af",
+        "size": 5169
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/cache_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "bd3e39483abc72793b86a952edced9b934ef90f913fc8c0963c55c5fdf6799be",
+        "size": 1042
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/layout.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "a122de19f8e8639137a1128d951703025adc229a68da09c6843676e8c88feb05",
+        "size": 9152
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/layout_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "5e64af0d65796de9d41dcb3b3c8e982d30570533298d5681e18b876963a1712e",
+        "size": 1701
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/lock.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "0e24867b334a445fb2889043ed20ef6702c89bb0832083b203f196030da494f0",
+        "size": 1230
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/lock_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "ea3867bea77651fe6c976157d7c602f77a05f99b0242cf9b47e2a7c5de5d3dab",
+        "size": 531
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/replace_unix.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "909a44a94dd665ebab381dcb79499fe5d678901237fb9dbd2cb7ee34a7090fc2",
+        "size": 135
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/replace_windows.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "4d7f7a37fc0a59b2eabd453372fbfa57fc33bcee4698678f9efbf56d253f81d5",
+        "size": 362
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/tact/keys.go",
+      "kind": "modified",
+      "before": {
+        "hash": "ce5123c557ecdb3f2cdf436af0ce619beb597721b5a4fff91a942c94a79bc4df",
+        "size": 2629
+      },
+      "after": {
+        "hash": "f2c6079107c761d62a7821e9f795b1ae81e6eebe21aa207b253c5bb3366df9a2",
+        "size": 2552
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/bin/wowdata.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "b4ec5b2d72818e676221099e06c7e6369c0819f297aa2274a5258fd5dcfe0264",
+        "size": 2848
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/lib/fs.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "06ba329848e8cd0fb7a61254fb4550f0a5e815c7d76326d4d210941a2f64a132",
+        "size": 788
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/lib/paths.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "f983d11af6cbf17546d19990f56b8c3f83d96a878827d44e09e168a1d0e8059d",
+        "size": 972
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/scripts/install.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "c039a946a0a78567cec7858c7f670e945c712911b1881672966939caf7027cbe",
+        "size": 3395
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/scripts/uninstall.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "f55a73c774cf2243566bd86c832c1688c3562773fa74a3f0e83ea9d1b402786e",
+        "size": 1622
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/test/install.test.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "e599501b9bab0a51b26aef1a7ca8f73cce386b01892abf7c5d4dc52423663a2a",
+        "size": 1669
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/test/launcher.test.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "22625fc7f1985c6bf7c13fc28a0c8920ba92eb4868204ae4ad7958791c5742a5",
+        "size": 884
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "package-lock.json",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "40db64927b60cd364d6fdb6c576d583bd6cc50afdb86790b8930d96eca08eeaf",
+        "size": 402
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "package.json",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "bc4d39faaebec1bb21f898f12bda4568a2632232e11cb14c0b997f0a092ecab2",
+        "size": 875
+      },
+      "attributedTo": [
+        {
+          "path": "package.json",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "path": "skill/wowdata/SKILL.md",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "f9a1a3d901f6d4e31e0d426a1f7f3e2ca9de646c02ab83f15715eafebc02e5b5",
+        "size": 2506
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "skill/wowdata/VERSION",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "f886b218dee2adb61d4e0800b474bac78bc2fa9294961754c3225ea3765fd951",
+        "size": 18
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "skill/wowdata/agents/openai.yaml",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "12da94afdf8a8b45f31525f3196c07e4626018e41989a5fd9dc6d2de6355b834",
+        "size": 304
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "skill/wowdata/references/clients.yaml",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "efda1603bf64adf98b5b5ffd5e61ff63ac84a5393826ecc8dba34c05d1ff63fc",
+        "size": 326
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "skill/wowdata/references/commands.md",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "df2306ab43bc64989cd3df798d6959934e9d409e3f9f828a3202396b34f24bf0",
+        "size": 1179
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "skill/wowdata/references/locales.yaml",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "e23bc130be92b8c764d758ef31f52fc66d5ff83f851ab818baf266885d3a1275",
+        "size": 413
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "skill/wowdata/references/tables.yaml",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "22c3a596945e9cd9a9bd29be3ff4da9a187efc04d27e0d490c486056e3a0d577",
+        "size": 461
+      },
+      "attributedTo": []
+    }
+  ],
+  "unattributed": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "kind": "modified",
+      "before": {
+        "hash": "799a5221029781330bd0fbbcb471bd4c0dd967566e519ae96d93c6a5c10613f6",
+        "size": 1823
+      },
+      "after": {
+        "hash": "e32acf957ca737dae2b3142a65bdba79c8c4b6416325e3b7876829236782b571",
+        "size": 2119
+      },
+      "attributedTo": []
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "a79aba70c450efd7ae2d05f1b445ae0eb7533224c2ce971189f2b0436575ea04",
+        "size": 2953
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "README.md",
+      "kind": "modified",
+      "before": {
+        "hash": "342ba8ef4c5efee549d8558723d8a79225bd73a8fa4182ffe33c403dfb98dda0",
+        "size": 10834
+      },
+      "after": {
+        "hash": "5032130849f80c5a4825146f85a0503b582cd64009a2df71e3f6f0a1d57d85bd",
+        "size": 4704
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/main.go",
+      "kind": "modified",
+      "before": {
+        "hash": "8ae6eafab750e4ec4e382f84d86bcae1b51e4ed9dab7ddc33ecf2b0890aea3c2",
+        "size": 22699
+      },
+      "after": {
+        "hash": "9c7fb217b19934d55501a8102ecf84969debb0903c3bef4bfb701e536656e038",
+        "size": 26409
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/main_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "c6089fe3235f0de723b04de031eb7839d0f96a018563ee68cd5d92fe04d4a736",
+        "size": 4958
+      },
+      "after": {
+        "hash": "398e342d05a4d52edf95d6660cfa8bc87c0812dc20fd4a48106bf15bbe67c82a",
+        "size": 4073
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/management.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "aabd8b6eec743ecedab3ddc16523b8f85cbe0cf81a648ccf3209dc0eb037ef02",
+        "size": 12346
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/management_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "9de6998f8770aa541ab876e263e3b80982a5e976e7b7994dd8212461e130111e",
+        "size": 421
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/mcp.go",
+      "kind": "removed",
+      "before": {
+        "hash": "bb38061a73c3f3f77183c99236450ff40ab804405aa7adf081afbac8a3eab58b",
+        "size": 14633
+      },
+      "after": null,
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/mcp_test.go",
+      "kind": "removed",
+      "before": {
+        "hash": "530e9cefa3b6601af6be23162e507b271e98ebe31acd3bd8fe56e92a8874784f",
+        "size": 6498
+      },
+      "after": null,
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/target.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "bb437af04c710dbbd5356cdb2aca4998c2a8c8dba603c06873984194d75a451e",
+        "size": 6945
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "cmd/wowdata/target_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "e5a6476f8877e4fad1c4eaa1216f0b8200f97f2ff1665b4599b6198721f565dc",
+        "size": 2444
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "fixtures/golden/go/icon/export-134400-png-classic-era.json",
+      "kind": "modified",
+      "before": {
+        "hash": "6e0f3ca9cb9817774b31b5c4422f136d4078629d1131793bc5c657020e2e536f",
+        "size": 922
+      },
+      "after": {
+        "hash": "3f1c78ef1d9cb0a1a790061bb33bbbf30f3820a2c9553fb18c98bbf1ea686ed2",
+        "size": 922
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "fixtures/golden/go/icon/export-134400-webp-classic-era.json",
+      "kind": "modified",
+      "before": {
+        "hash": "6a21d74120855f27e059127aea31045f79d99703e492f0123eb6b40112ef7e43",
+        "size": 927
+      },
+      "after": {
+        "hash": "bd9ea000f238fdf272db8f5adaf27604257a18e279344ba996787383ac1dc312",
+        "size": 927
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "fixtures/golden/go/icon/extract-134400-classic-era.json",
+      "kind": "modified",
+      "before": {
+        "hash": "9cd97d62a29e1db7c66b79c931232d13312830f5e1f23eff7e68bba422f152da",
+        "size": 838
+      },
+      "after": {
+        "hash": "0fc57db910035c0ebcd129756391f444eb254bc7cef687b7312020ff93e45aa2",
+        "size": 838
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/commands.go",
+      "kind": "modified",
+      "before": {
+        "hash": "ce8eea5f1d3b1bf583019905549c2fe853e138fa00be973736346e547c1f3d68",
+        "size": 15648
+      },
+      "after": {
+        "hash": "e4f086eb20d59330c7aaad0b84699128496863ebbaf95356a19c0bccc1badbd9",
+        "size": 18415
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/creature_handler.go",
+      "kind": "modified",
+      "before": {
+        "hash": "4c3d194ffd7f57c8001013468553aa7a266709c687bddce82cbc61676a011895",
+        "size": 2703
+      },
+      "after": {
+        "hash": "593b785e60b6b8c86415237613433a2c48e5e301cb881623b85dea56ba539927",
+        "size": 2649
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/decor_handler.go",
+      "kind": "modified",
+      "before": {
+        "hash": "8a8c78214f34a42bbbd043a87f90f837687e78e38a44a1c0ab1181d33635de75",
+        "size": 2054
+      },
+      "after": {
+        "hash": "f04645df5716f468a0cd5d4afed7f1c651e4180245bbd0c35d4313645406925d",
+        "size": 2001
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/encounter_handler.go",
+      "kind": "modified",
+      "before": {
+        "hash": "66eb4e01dd2cf02acfb3f15b4e62c94d4a9d4838ed3d4e94afc3cde332ad27d4",
+        "size": 822
+      },
+      "after": {
+        "hash": "dd76f7e9d8bb38a523be718ed3f158cc8d12b060756efb538980a147e06b80eb",
+        "size": 793
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/file_handler.go",
+      "kind": "modified",
+      "before": {
+        "hash": "4254804114a9bd54969711f9f2dc8fb861dd2f5bca8a65ab123d80c6bde09622",
+        "size": 7127
+      },
+      "after": {
+        "hash": "61911e9e65cd7c19d211ba4fd21a4a999db241c47d29d8c57c9b1537e5fe0c3f",
+        "size": 6934
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/item_handler.go",
+      "kind": "modified",
+      "before": {
+        "hash": "d6e892de637fe5cdfe7568219f3324480ad6cb23829f8653a3d239adc4ece46e",
+        "size": 4727
+      },
+      "after": {
+        "hash": "27c638190cf5be88f969c78319bd1be3f72c9ac58634a1fc972d4e50cfc5daa5",
+        "size": 4626
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/root.go",
+      "kind": "modified",
+      "before": {
+        "hash": "3a704a826aaf9f69a9378495fcc987e3941152295950aea3d5f811b0e6456c6f",
+        "size": 2562
+      },
+      "after": {
+        "hash": "4a433465c98f6a5c0865185ec1870c79fbd54f291b55b5c516dfec0f5ed07e36",
+        "size": 2830
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/root_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "ee3ce02205dc345568a6aef5bf794c64594dc139f890d816eeab72f72618f8d8",
+        "size": 6381
+      },
+      "after": {
+        "hash": "20c5b2164b7649c0db1dd7038403bfd23a98787595231adcf28c30fc51d55d4b",
+        "size": 6448
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/spell_handler.go",
+      "kind": "modified",
+      "before": {
+        "hash": "8264304634ce563844c4331e3891024bbb66d880b8f5fae1b01fc3f8cd2059a3",
+        "size": 2758
+      },
+      "after": {
+        "hash": "1be6b1c8bcdd2ed99fefbac9e229b04e156073d301d9fbeabb5a3d54a94c050b",
+        "size": 2693
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/app/truthful_handlers_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "d6b52b46b52e46458e29b8472c8b74c0d3aec4d0c4a06d2feecdc1d16d16829d",
+        "size": 3302
+      },
+      "after": {
+        "hash": "618ee39a6635b40d5766f40ce32e9c04771cfdd331549984d456546be57da3ac",
+        "size": 3240
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/datacache.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1eff280c05ab5478cd5c34311ea85ba4c5c18883a23c4bde7404f21f03d363f1",
+        "size": 3148
+      },
+      "after": {
+        "hash": "953e6ec8508152d63dbbc69a8a0db76b59dbcef174b882622f7d0f4e71684bbd",
+        "size": 3401
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/localeflags.go",
+      "kind": "modified",
+      "before": {
+        "hash": "1334531b62a6a02dfd0d3cfc7d60058e6087c92d7853e8798d7fb130332c9779",
+        "size": 1191
+      },
+      "after": {
+        "hash": "88ffd87afcb15982ab351cbf8c92d46f0d102acbc61d1a4196f24ddc7549c1c3",
+        "size": 1339
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/localsource.go",
+      "kind": "modified",
+      "before": {
+        "hash": "b5de89493b2aa6d29a34f09f859756b209554f5783c118fc30f610b6e50a1d77",
+        "size": 6970
+      },
+      "after": {
+        "hash": "5ae01ceec919d13c71a62cbab41d1f4d77f91b35ddfcc2f497e38061d5a3630a",
+        "size": 7256
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/localsource_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "824de07ffda64270ce22f0db5bfe707e1e02411c3b7ec23068dffababcf2e72b",
+        "size": 3081
+      },
+      "after": {
+        "hash": "354e71bf35fdc6d5832d00ed3d6f0c0113261f0efef030d605c92aadfadd3fe0",
+        "size": 3143
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/remote_file_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "8aa9a294ba3f67ce988c0cbfb0b65f00f65e4dff38c126fb0c68584536d24c01",
+        "size": 6749
+      },
+      "after": {
+        "hash": "3deb5003337a41290861304fba07c4d0b67f3f1404e28e3e4a5a86bb64b0abad",
+        "size": 7524
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/remotesource.go",
+      "kind": "modified",
+      "before": {
+        "hash": "25aa09b7d965a42b28d3bae62a2f430a1bc563b7edf3ee2e8b3cdc2c0a377b4f",
+        "size": 15773
+      },
+      "after": {
+        "hash": "470ed63c29c984b295c3fdfa1805a2cc592ea11191730bd0be2479f9b930a160",
+        "size": 18926
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/casc/types.go",
+      "kind": "modified",
+      "before": {
+        "hash": "67470c06f0bcc7a15a3d5b7d955131fc991114f2b129063b187345f2d45c254e",
+        "size": 624
+      },
+      "after": {
+        "hash": "22dd776e6efd7a585a13d3aa9aeb39103ed2c43707b7cef73dbb643d658918d4",
+        "size": 1026
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/diagnostics/diagnostics.go",
+      "kind": "modified",
+      "before": {
+        "hash": "2ab4ad5f3b2cc0c21c72f598d5eaf16d889d7bf44ce8ea240747f2e4427dedd5",
+        "size": 3854
+      },
+      "after": {
+        "hash": "cb73d0ffaab807406c8d7210f639dea5c0bd660671bc7d9def44506a8a586e09",
+        "size": 4184
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/golden/golden.go",
+      "kind": "modified",
+      "before": {
+        "hash": "42adec1c15af3518a9e5e06c5082dc8f5bcdbf408ef8de2a00cbe0fa95506ccf",
+        "size": 12573
+      },
+      "after": {
+        "hash": "ad7b01e7212a6fa492a1391e4894998e1d47ff3e31c8cd2ad22195ca6a8f32e2",
+        "size": 11156
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/golden/golden_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "f95c616d59b2db1c35d82204311f0d1144d8d8d87c4ac8ec0cf267546d460c08",
+        "size": 8777
+      },
+      "after": {
+        "hash": "481462e35a1abaeb6b082c6e25ec032915c88f655d1ec8e22b063c6745244e32",
+        "size": 6515
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/mcpserver/server.go",
+      "kind": "removed",
+      "before": {
+        "hash": "1c859f315660d500a65189863c25152a0f59097a3f6f5e9f879530c3398bf721",
+        "size": 9182
+      },
+      "after": null,
+      "attributedTo": []
+    },
+    {
+      "path": "internal/mcpserver/server_test.go",
+      "kind": "removed",
+      "before": {
+        "hash": "372feb1cf85c26fb76017fbd8b58ac28b9e05214c84165cf58403b85c38970e9",
+        "size": 7016
+      },
+      "after": null,
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/dbd_manifest_source.go",
+      "kind": "modified",
+      "before": {
+        "hash": "eb01a35a1fa2e3c14e3ec57c5abd815546fefe8f655384e10b421ecb8b58f9e3",
+        "size": 1415
+      },
+      "after": {
+        "hash": "5252c0d03d61cdd9ce463dfba7d071907c47bc2ea87fc3810ecbdca739d395f7",
+        "size": 1455
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/dbd_revision.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "afc8b573db0508f873ba7e5e1bca23e10ae31362d6230036469ef7ca2601818b",
+        "size": 2347
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/dbd_revision_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "e75206115be004122e3766ffb4342667f578f2a225596760611d441d2d6217fd",
+        "size": 790
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/dbd_source.go",
+      "kind": "modified",
+      "before": {
+        "hash": "b93283f553c9498f96747da7a3dead54e26161106517b8f1d7ed349a74ba08ab",
+        "size": 1225
+      },
+      "after": {
+        "hash": "1105f4b58a78dc9e759d1a868516423d8c732974f7c03796f7754f6da21b474c",
+        "size": 1266
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/listfile_source.go",
+      "kind": "modified",
+      "before": {
+        "hash": "c1b0073c81aa39ad6299e421f05d20d32d9b2bbace2dd669c78ffa4e6cb4ee85",
+        "size": 4589
+      },
+      "after": {
+        "hash": "66f70c70f2a510cfd607cd3c860ff85b7b3e8176f382f9c4d1e1e0b8e26ea4db",
+        "size": 4950
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/runtime/listfile_source_test.go",
+      "kind": "modified",
+      "before": {
+        "hash": "912a49c205f507523d6b36c94dc3c79fbc276849a130bcbac0b5a64eff1364fe",
+        "size": 7461
+      },
+      "after": {
+        "hash": "dfffe767aa1997d04eccc1417983b21a2341755fd1794262e007302ad66c0b4b",
+        "size": 8334
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/cache.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "96d646b7dc555790a5bd2535aaf5f62444397055bdcc80608f3e0cd487dc12af",
+        "size": 5169
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/cache_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "bd3e39483abc72793b86a952edced9b934ef90f913fc8c0963c55c5fdf6799be",
+        "size": 1042
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/layout.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "a122de19f8e8639137a1128d951703025adc229a68da09c6843676e8c88feb05",
+        "size": 9152
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/layout_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "5e64af0d65796de9d41dcb3b3c8e982d30570533298d5681e18b876963a1712e",
+        "size": 1701
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/lock.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "0e24867b334a445fb2889043ed20ef6702c89bb0832083b203f196030da494f0",
+        "size": 1230
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/lock_test.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "ea3867bea77651fe6c976157d7c602f77a05f99b0242cf9b47e2a7c5de5d3dab",
+        "size": 531
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/replace_unix.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "909a44a94dd665ebab381dcb79499fe5d678901237fb9dbd2cb7ee34a7090fc2",
+        "size": 135
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/storage/replace_windows.go",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "4d7f7a37fc0a59b2eabd453372fbfa57fc33bcee4698678f9efbf56d253f81d5",
+        "size": 362
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "internal/tact/keys.go",
+      "kind": "modified",
+      "before": {
+        "hash": "ce5123c557ecdb3f2cdf436af0ce619beb597721b5a4fff91a942c94a79bc4df",
+        "size": 2629
+      },
+      "after": {
+        "hash": "f2c6079107c761d62a7821e9f795b1ae81e6eebe21aa207b253c5bb3366df9a2",
+        "size": 2552
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/bin/wowdata.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "b4ec5b2d72818e676221099e06c7e6369c0819f297aa2274a5258fd5dcfe0264",
+        "size": 2848
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/lib/fs.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "06ba329848e8cd0fb7a61254fb4550f0a5e815c7d76326d4d210941a2f64a132",
+        "size": 788
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/lib/paths.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "f983d11af6cbf17546d19990f56b8c3f83d96a878827d44e09e168a1d0e8059d",
+        "size": 972
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/scripts/install.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "c039a946a0a78567cec7858c7f670e945c712911b1881672966939caf7027cbe",
+        "size": 3395
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/scripts/uninstall.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "f55a73c774cf2243566bd86c832c1688c3562773fa74a3f0e83ea9d1b402786e",
+        "size": 1622
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/test/install.test.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "e599501b9bab0a51b26aef1a7ca8f73cce386b01892abf7c5d4dc52423663a2a",
+        "size": 1669
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "npm/test/launcher.test.js",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "22625fc7f1985c6bf7c13fc28a0c8920ba92eb4868204ae4ad7958791c5742a5",
+        "size": 884
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "package-lock.json",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "40db64927b60cd364d6fdb6c576d583bd6cc50afdb86790b8930d96eca08eeaf",
+        "size": 402
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "skill/wowdata/SKILL.md",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "f9a1a3d901f6d4e31e0d426a1f7f3e2ca9de646c02ab83f15715eafebc02e5b5",
+        "size": 2506
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "skill/wowdata/VERSION",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "f886b218dee2adb61d4e0800b474bac78bc2fa9294961754c3225ea3765fd951",
+        "size": 18
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "skill/wowdata/agents/openai.yaml",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "12da94afdf8a8b45f31525f3196c07e4626018e41989a5fd9dc6d2de6355b834",
+        "size": 304
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "skill/wowdata/references/clients.yaml",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "efda1603bf64adf98b5b5ffd5e61ff63ac84a5393826ecc8dba34c05d1ff63fc",
+        "size": 326
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "skill/wowdata/references/commands.md",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "df2306ab43bc64989cd3df798d6959934e9d409e3f9f828a3202396b34f24bf0",
+        "size": 1179
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "skill/wowdata/references/locales.yaml",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "e23bc130be92b8c764d758ef31f52fc66d5ff83f851ab818baf266885d3a1275",
+        "size": 413
+      },
+      "attributedTo": []
+    },
+    {
+      "path": "skill/wowdata/references/tables.yaml",
+      "kind": "added",
+      "before": null,
+      "after": {
+        "hash": "22c3a596945e9cd9a9bd29be3ff4da9a187efc04d27e0d490c486056e3a0d577",
+        "size": 461
+      },
+      "attributedTo": []
+    }
+  ],
+  "unresolvedScopes": [
+    {
+      "id": "scope:b4854666b2345989e27e858421effc8e9124d53ef6c0d3f0d0ac3f30b62fa2c7",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": ".github/workflows/ci.yml",
+      "reason": "Changed path is not covered by a declared artifact: .github/workflows/ci.yml"
+    },
+    {
+      "id": "scope:0a37df75ba472a3368b023ffce6a86754e7e9f57623f0bf0ed063a91e16a7d7d",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": ".github/workflows/release.yml",
+      "reason": "Changed path is not covered by a declared artifact: .github/workflows/release.yml"
+    },
+    {
+      "id": "scope:166a463052781a60cbc3ba415651217befb8d134e74265e5a79a1ca251dd0d71",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "README.md",
+      "reason": "Changed path is not covered by a declared artifact: README.md"
+    },
+    {
+      "id": "scope:197f68919f4e40d6933e568d9843d0ff2f358b317e0ab486ae209ca26bca6b9c",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "cmd/wowdata/main.go",
+      "reason": "Changed path is not covered by a declared artifact: cmd/wowdata/main.go"
+    },
+    {
+      "id": "scope:767e610f99377843f27ce15df41c7463af75643c0c0eb78ab9e73bad3161966d",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "cmd/wowdata/main_test.go",
+      "reason": "Changed path is not covered by a declared artifact: cmd/wowdata/main_test.go"
+    },
+    {
+      "id": "scope:2d15c258977946957de534f93de141edb6f9ca0269fab597216647c01c1a37cf",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "cmd/wowdata/management.go",
+      "reason": "Changed path is not covered by a declared artifact: cmd/wowdata/management.go"
+    },
+    {
+      "id": "scope:7b4e4e08a376f05c12e62f7a50af8165f789d5d4a4abe0c1fd11d1ee50cae032",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "cmd/wowdata/management_test.go",
+      "reason": "Changed path is not covered by a declared artifact: cmd/wowdata/management_test.go"
+    },
+    {
+      "id": "scope:3ad09f1deac75b13907dcf5d0777b1dde88cbea54f3743d4dec4d38df74993a1",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "cmd/wowdata/mcp.go",
+      "reason": "Changed path is not covered by a declared artifact: cmd/wowdata/mcp.go"
+    },
+    {
+      "id": "scope:15ac9db72a7916ffe92ebe11a8aef288a4686a02b4b41212b55b0364591ee020",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "cmd/wowdata/mcp_test.go",
+      "reason": "Changed path is not covered by a declared artifact: cmd/wowdata/mcp_test.go"
+    },
+    {
+      "id": "scope:ec4c5ddfb2db6ad997e9034958878d77cd6a205efb3e4057a10f5cd7865c5eeb",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "cmd/wowdata/target.go",
+      "reason": "Changed path is not covered by a declared artifact: cmd/wowdata/target.go"
+    },
+    {
+      "id": "scope:9739da13822ca6a8a035cf49017ef51c586bcc9392209a43e73fe938f225f661",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "cmd/wowdata/target_test.go",
+      "reason": "Changed path is not covered by a declared artifact: cmd/wowdata/target_test.go"
+    },
+    {
+      "id": "scope:299c707d510ecc17db3dc934c39279b74c410c10a880983dc33edcd6867940d8",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "fixtures/golden/go/icon/export-134400-png-classic-era.json",
+      "reason": "Changed path is not covered by a declared artifact: fixtures/golden/go/icon/export-134400-png-classic-era.json"
+    },
+    {
+      "id": "scope:33a697cb25aa8d8c19970b5d6c8b898f9f236e2b1d81c9ed667a42d1c396fc39",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "fixtures/golden/go/icon/export-134400-webp-classic-era.json",
+      "reason": "Changed path is not covered by a declared artifact: fixtures/golden/go/icon/export-134400-webp-classic-era.json"
+    },
+    {
+      "id": "scope:2db447be47651b40c47b0157bb047ea25ef85a5d5651658a13ded39fec161026",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "fixtures/golden/go/icon/extract-134400-classic-era.json",
+      "reason": "Changed path is not covered by a declared artifact: fixtures/golden/go/icon/extract-134400-classic-era.json"
+    },
+    {
+      "id": "scope:6e75439dd7c17ec42b18a9f840eadf210b1c09865304a9870f57835dab0324a4",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/app/commands.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/app/commands.go"
+    },
+    {
+      "id": "scope:3748010fd3b768cc9aa1a318cf2236608700efbacb64575b2c329ab2bc200a87",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/app/creature_handler.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/app/creature_handler.go"
+    },
+    {
+      "id": "scope:b49bdd93616f5ea5b639698d4dc969fb2e7bfe7d0dacc3156822ffbcc74b0d95",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/app/decor_handler.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/app/decor_handler.go"
+    },
+    {
+      "id": "scope:be5e5736d2e3f43d3c31f5d84d88a0f7ed55aa6340295b432790d3e49e321934",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/app/encounter_handler.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/app/encounter_handler.go"
+    },
+    {
+      "id": "scope:fa26df7e1ba4655f89bac0280710848214c20c3841c020520481a810b1e6d899",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/app/file_handler.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/app/file_handler.go"
+    },
+    {
+      "id": "scope:23de6b35e21b34a401f666b9aa1a64b1b89c7ac124f6573ab66378da9821b044",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/app/item_handler.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/app/item_handler.go"
+    },
+    {
+      "id": "scope:7622f5d9818905fca203c4a38bb28fd21af2495f8f4b00d8c55e44951af36935",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/app/root.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/app/root.go"
+    },
+    {
+      "id": "scope:629014c6a85d7b06269c83b5fb964cbbaa6d90e077e3924ff1b71dde58c17d1b",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/app/root_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/app/root_test.go"
+    },
+    {
+      "id": "scope:9735321f9d21419afad947141729980e6c5e072b3325ae1fa0453443eb5ca057",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/app/spell_handler.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/app/spell_handler.go"
+    },
+    {
+      "id": "scope:ca66821ad441b11a956524e61c939010bdf4e4add9b858a3e16e9c768d3799bd",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/app/truthful_handlers_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/app/truthful_handlers_test.go"
+    },
+    {
+      "id": "scope:b9242981b6ded6d4b92287bffcd62cd9cfefdbb38584f9909fcb1c69d5ee2480",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/casc/datacache.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/casc/datacache.go"
+    },
+    {
+      "id": "scope:5ba892da55c374e40181aca4976b35b3768a16611b1ff0fd4735e8c965fcb4b9",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/casc/localeflags.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/casc/localeflags.go"
+    },
+    {
+      "id": "scope:e661b9de03a1d41482d682301fd55791e219eef038603f2594465eca2bd66bff",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/casc/localsource.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/casc/localsource.go"
+    },
+    {
+      "id": "scope:5b1d97656673191e16ffec582eaeb5eb9733fcb074045b59f451341ff338f615",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/casc/localsource_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/casc/localsource_test.go"
+    },
+    {
+      "id": "scope:6760fb9e77122c9d51224c3ce51572920750b390220b3ff012089fc3c76081e4",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/casc/remote_file_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/casc/remote_file_test.go"
+    },
+    {
+      "id": "scope:5d392758d739554e2a113b627c0976f24995273530d8535aba6752a79657d31d",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/casc/remotesource.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/casc/remotesource.go"
+    },
+    {
+      "id": "scope:1c0f65dc70fbaeb95884b46258a34fc3eeeceee6e07719b761ffe48eb80af722",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/casc/types.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/casc/types.go"
+    },
+    {
+      "id": "scope:8f2f9b32a165d7ed26f1e105fe04d3c6455cb3f11df6d37e4ec9577bee99e8d7",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/diagnostics/diagnostics.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/diagnostics/diagnostics.go"
+    },
+    {
+      "id": "scope:ba99c81257daba99c57ca96201abb1b0880de3fa3f4787b038d757063114bf44",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/golden/golden.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/golden/golden.go"
+    },
+    {
+      "id": "scope:7c89955da0be5b7990d6718672b19005a5c08481aba51e25cdaffdfcd80ee682",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/golden/golden_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/golden/golden_test.go"
+    },
+    {
+      "id": "scope:e45ab3119b503cd2a664a0b187173ce4bc1741fbb0be30d2cdc9fe8e18b9a628",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/mcpserver/server.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/mcpserver/server.go"
+    },
+    {
+      "id": "scope:57a8de2c63b0caa4d32a9f52eee333276327ce794ff456b58fd0f81ff7dcd91d",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/mcpserver/server_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/mcpserver/server_test.go"
+    },
+    {
+      "id": "scope:444d2dbe417c444025e34d366ad284260e7385bfd1de142cbe81714d3a087b17",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/runtime/dbd_manifest_source.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/runtime/dbd_manifest_source.go"
+    },
+    {
+      "id": "scope:5071168501b2c7a38d6055b646b117e8662ffcb5903bfd0fedef9b0f658a27de",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/runtime/dbd_revision.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/runtime/dbd_revision.go"
+    },
+    {
+      "id": "scope:4c8f57b79b5bc196565b83dc9f8ff4a703c5a974e3a290b82ca373590885a030",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/runtime/dbd_revision_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/runtime/dbd_revision_test.go"
+    },
+    {
+      "id": "scope:9b3f6e22f4c5ca39347b463053501dd53cd486e192a84f729a577b269c405798",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/runtime/dbd_source.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/runtime/dbd_source.go"
+    },
+    {
+      "id": "scope:505f6555ab3da8b112f412bd0cd64bc4cb80c77c8c85593443c57725d7c73b0d",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/runtime/listfile_source.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/runtime/listfile_source.go"
+    },
+    {
+      "id": "scope:c48ad7643d5ed48b0580a04b5095848c2c03bf8718f1c59c681f3c5cebd7f86e",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/runtime/listfile_source_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/runtime/listfile_source_test.go"
+    },
+    {
+      "id": "scope:4fb67a0ec40c3ca10f56a69c4dbc2fc6313eaffb12666533a61007666351ac44",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/storage/cache.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/storage/cache.go"
+    },
+    {
+      "id": "scope:e255dbe13cd9d1a6834477d57e6cbe754fe648097562bf7f2db88d14b71343d8",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/storage/cache_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/storage/cache_test.go"
+    },
+    {
+      "id": "scope:f0639e58c04b2c152c5f35693e72b211d4ea2ad594f080e6b434d12c3ecd6023",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/storage/layout.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/storage/layout.go"
+    },
+    {
+      "id": "scope:69e56c987c6b43972770fef7348671976e3a9c6d39100e502bca390735ead7fa",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/storage/layout_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/storage/layout_test.go"
+    },
+    {
+      "id": "scope:c47db8f0a4063b9fe1ed8fb2019ee3995dc475978d32eb0413422fadf19d8302",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/storage/lock.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/storage/lock.go"
+    },
+    {
+      "id": "scope:e18eaf9488f45b021790cf831aef48353083ffa4d19d021ebf2d8b013c9e5ea2",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/storage/lock_test.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/storage/lock_test.go"
+    },
+    {
+      "id": "scope:180eab8355b700e32df10bcdb61a1b8e9ace77bf9bf876af65afb68db870742f",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/storage/replace_unix.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/storage/replace_unix.go"
+    },
+    {
+      "id": "scope:ce62e8f5ecd9fe58fc1d9228ceaee2be5a369b0bf160c6233f06b326c69b0541",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/storage/replace_windows.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/storage/replace_windows.go"
+    },
+    {
+      "id": "scope:5bfa5577516a4650600bec2715eed7e69790fc8affc419a07468d93a7f5c9b28",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "internal/tact/keys.go",
+      "reason": "Changed path is not covered by a declared artifact: internal/tact/keys.go"
+    },
+    {
+      "id": "scope:dbf05e5ac19a7f05fb80076e61c4535f6f9e07fd2be58b0225d824abd198f3df",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "npm/bin/wowdata.js",
+      "reason": "Changed path is not covered by a declared artifact: npm/bin/wowdata.js"
+    },
+    {
+      "id": "scope:a104b2d2ad03e5e5431c6f7b6654874cfe36d25476c8823c6850c61d8155bcdd",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "npm/lib/fs.js",
+      "reason": "Changed path is not covered by a declared artifact: npm/lib/fs.js"
+    },
+    {
+      "id": "scope:219494737e81eb909d76f9c9170d52911e7541b204bc0d002652c818f65db97b",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "npm/lib/paths.js",
+      "reason": "Changed path is not covered by a declared artifact: npm/lib/paths.js"
+    },
+    {
+      "id": "scope:3f4da12e5751dd868682803b53b170fdc64e23993ebe81a1526ad3a2c5305e39",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "npm/scripts/install.js",
+      "reason": "Changed path is not covered by a declared artifact: npm/scripts/install.js"
+    },
+    {
+      "id": "scope:81362eb639b345d4f5d27be6a2c0b62871bab9792191a99b37bd3637ddc3edf8",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "npm/scripts/uninstall.js",
+      "reason": "Changed path is not covered by a declared artifact: npm/scripts/uninstall.js"
+    },
+    {
+      "id": "scope:fc655b8bc7cbb7d4f89bdaeb0ca756d1342b99294ed31e19e34e80945f6ae029",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "npm/test/install.test.js",
+      "reason": "Changed path is not covered by a declared artifact: npm/test/install.test.js"
+    },
+    {
+      "id": "scope:2bcd84088506212dd7ff2b2dc4775f7378ccb3c6608633f7ad195224019ef25d",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "npm/test/launcher.test.js",
+      "reason": "Changed path is not covered by a declared artifact: npm/test/launcher.test.js"
+    },
+    {
+      "id": "scope:1cecf28c2585391e87ecda44f3eba5b546f9c22e4004fe3eb18adc4370506a5c",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "package-lock.json",
+      "reason": "Changed path is not covered by a declared artifact: package-lock.json"
+    },
+    {
+      "id": "scope:f37f2c5d2f0b8c4ed40e52d108348cbbe1b685859874d84e6f02813f07601c95",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "skill/wowdata/SKILL.md",
+      "reason": "Changed path is not covered by a declared artifact: skill/wowdata/SKILL.md"
+    },
+    {
+      "id": "scope:69e5c839fa16902eb874e89eab533661210fae177bc7f331438b32660e9d2e3b",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "skill/wowdata/VERSION",
+      "reason": "Changed path is not covered by a declared artifact: skill/wowdata/VERSION"
+    },
+    {
+      "id": "scope:f96b4178f112d1f04431872bbbe577539ed1d5a32392641c93bf00f480e47ec6",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "skill/wowdata/agents/openai.yaml",
+      "reason": "Changed path is not covered by a declared artifact: skill/wowdata/agents/openai.yaml"
+    },
+    {
+      "id": "scope:81b98964f1e7af8f6cbaf045171e8b6c232439d344ec814167c0a063aa7cd011",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "skill/wowdata/references/clients.yaml",
+      "reason": "Changed path is not covered by a declared artifact: skill/wowdata/references/clients.yaml"
+    },
+    {
+      "id": "scope:4d107e5aa2d019954c909154eb7058bc9b0dfd87cd4a664cc2e91be1014017c7",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "skill/wowdata/references/commands.md",
+      "reason": "Changed path is not covered by a declared artifact: skill/wowdata/references/commands.md"
+    },
+    {
+      "id": "scope:11418fa9d298eef5303b629e82f887e01fc607eac5bd7b6c9669bf575e60c0f3",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "skill/wowdata/references/locales.yaml",
+      "reason": "Changed path is not covered by a declared artifact: skill/wowdata/references/locales.yaml"
+    },
+    {
+      "id": "scope:6c98c35c0972ad3832fc55cf485c9f8d6dfa2c6ff629c7b168d36db12871774a",
+      "kind": "unattributed-change",
+      "source": "implementation-scope",
+      "path": "skill/wowdata/references/tables.yaml",
+      "reason": "Changed path is not covered by a declared artifact: skill/wowdata/references/tables.yaml"
+    }
+  ],
+  "noCodeReason": null,
+  "scopeHash": "e0b48c709038929eac3fca9352634016c9f2fc08f36c8f40cd6aa9eb17d92b98"
+}

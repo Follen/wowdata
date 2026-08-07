@@ -1,0 +1,37 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "end-to-end-performance",
+  "artifacts": [
+    {
+      "path": "analyze/benchmark/command-matrix-r40/matrix.json/matrix.json",
+      "hash": "8ad524cece58839cbe75ce6a1d5e68f379e5d30ff226d73ca1ac788c68158c75",
+      "size": 114733
+    },
+    {
+      "path": "analyze/benchmark/golden-fix-r39/VERIFICATION.txt",
+      "hash": "89f75e8bf41d2866200084a0cbf5209d7fdc80bfe5cbf6d7423f9fd433b965f8",
+      "size": 1980
+    },
+    {
+      "path": "analyze/benchmark/regression-r40/final-summary.json",
+      "hash": "77d7ad55a161ad1aedb84f6d3ef2c3f04470e26ac271ff0d48591039f4eefba5",
+      "size": 5380
+    },
+    {
+      "path": "analyze/benchmark/regression-r40/report.json",
+      "hash": "d34b1ba8b691a40ec7663109012d3bc97dbff9eb4b66ef262c6226e932842cf4",
+      "size": 6438
+    },
+    {
+      "path": "analyze/benchmark/remote-representative-protocols-10x-r1/summary.json",
+      "hash": "154e12026765dfa707234c4dd658c28aff14a0064dcc15791e21f4f16ad91f81",
+      "size": 3827
+    },
+    {
+      "path": "analyze/golden/report.json",
+      "hash": "352140e08d144cf42e176a30bf3701bf44d31c76310ff71e9752bb987ec37fd0",
+      "size": 15183
+    }
+  ],
+  "totalBytes": 147541
+}

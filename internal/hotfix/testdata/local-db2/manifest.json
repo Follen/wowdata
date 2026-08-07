@@ -1,0 +1,116 @@
+{
+  "schema": "wowdata.local-db2-corpus-manifest.v1",
+  "functional": {
+    "name": "local-db2-functional",
+    "targets": [
+      {
+        "source": "local",
+        "locale": "zhCN",
+        "build": "68887",
+        "tables": [
+          "SpellName",
+          "Spell",
+          "SpellEffect",
+          "JournalEncounterSection",
+          "Item",
+          "CreatureDisplayInfo",
+          "HouseDecor"
+        ],
+        "region": "cn",
+        "product": "wow"
+      }
+    ],
+    "cases": [
+      "schema/table/field presence",
+      "record-id point lookup",
+      "batch ids",
+      "relationship lookup",
+      "projection/filter pushdown",
+      "localized/array/sparse",
+      "join aggregate order-limit",
+      "domain command differential",
+      "malformed schema stable error"
+    ]
+  },
+  "performance": {
+    "name": "local-db2-performance",
+    "baseline": "analyze/benchmark/db2-corpus-r31-final/report.json",
+    "cases": [
+      "point lookup",
+      "batch ids",
+      "relationship",
+      "projection",
+      "selective scan",
+      "bounded full scan",
+      "join",
+      "aggregate",
+      "distinct",
+      "top-k",
+      "streaming"
+    ],
+    "modes": [
+      "independent-cold",
+      "shared-build-cold",
+      "warm",
+      "repeat-warm"
+    ],
+    "gate": "per-case 100% result equivalence; p95/rss/alloc/read/decode/scan no regression"
+  },
+  "refs": [
+    {
+      "path": "analyze/benchmark/db2-corpus-r31-final/run.json",
+      "sha256": "f99af8bea985cc1a90bfd274bbf14dcc55a3db91bb06fc75eeec51af7ea9b124",
+      "bytes": 1489
+    },
+    {
+      "path": "analyze/benchmark/db2-corpus-r31-final/report.json",
+      "sha256": "2b5ba2477a2ee14ed432d1dbd19b8cd7d2f38617b58cbbf884efcf6ffdd68c34",
+      "bytes": 2704590
+    },
+    {
+      "path": "analyze/benchmark/db2-corpus-r31-final/sha256-manifest.json",
+      "sha256": "106065999c72604a31226072f21734897b6ceac1cb3dfeddf6e45954c1c70931",
+      "bytes": 729
+    },
+    {
+      "path": "analyze/benchmark/local-db2-r37/home/builds/0fcf22030198cca211997a998743ba7f-zhCN.json",
+      "sha256": "24faa5af0035ec3c6f320e44dcc0e7da5d3ac33da1003c0673d0f51571f1a261",
+      "bytes": 395
+    },
+    {
+      "path": "analyze/benchmark/local-db2-r37/home/cache/dbd/cee9ae3184911b45a4bef09369e8346b275d4635/dbd-manifest.json",
+      "sha256": "b84ce8581562c27598711b4c9428104127a1d7769e0f030d67ec47a164fe96e0",
+      "bytes": 146976
+    },
+    {
+      "path": "internal/hotfix/testdata/reports/local-db2-functional-report.json",
+      "sha256": "fc3a7c1f4a3463baf2bf61c2385d414791b6d1da51ccde19fa0022b07c764ceb",
+      "bytes": 5717
+    },
+    {
+      "path": "internal/hotfix/testdata/reports/local-db2-performance-report.json",
+      "sha256": "5c12d13513fffe602803287361ecd12089522d99796263b778baf061b5b8718d",
+      "bytes": 134045
+    },
+    {
+      "path": "internal/hotfix/testdata/reports/wago-live-repeat-warm-report.json",
+      "sha256": "ed18af23dfb4d634935cb3cade0dd19d101b1d17d1a1b03730f3f601a41461c2",
+      "bytes": 1241
+    },
+    {
+      "path": "internal/hotfix/testdata/reports/wago-live-report.json",
+      "sha256": "3d5e4e5da3fe17cf93b5ca10153d90f1720da044bff4e2bb894900862b079454",
+      "bytes": 1221
+    },
+    {
+      "path": "internal/hotfix/testdata/reports/wago-offline-report.json",
+      "sha256": "e2b332f91b10dc3a1463e477bcf3645492515d2da84926fb16aaececeade3fa5",
+      "bytes": 883
+    },
+    {
+      "path": "internal/hotfix/testdata/reports/manifest.json",
+      "sha256": "8ebd773a7a699c0ffbbebdd2250e767a5b2e93bd1eff2381c70e92c67391f55f",
+      "bytes": 1325
+    }
+  ]
+}

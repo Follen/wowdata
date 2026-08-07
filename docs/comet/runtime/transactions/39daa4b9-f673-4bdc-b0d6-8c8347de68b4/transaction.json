@@ -1,0 +1,27 @@
+{
+  "schema": "comet.native.transaction.v2",
+  "id": "39daa4b9-f673-4bdc-b0d6-8c8347de68b4",
+  "kind": "archive",
+  "status": "committed",
+  "change": "sql-effective-db2-hotfix",
+  "createdAt": "2026-08-07T04:31:43.172Z",
+  "preflightHash": "54aa49e1ddad6b96bdc3385a775fa6a9f2f2ff623dc1ea9285c9647c550aa912",
+  "operations": [
+    {
+      "id": "spec-1-sql-effective-db2-hotfix",
+      "type": "write",
+      "target": "specs/sql-effective-db2-hotfix/spec.md",
+      "staged": "runtime/transactions/39daa4b9-f673-4bdc-b0d6-8c8347de68b4/staged/specs/sql-effective-db2-hotfix/spec.md",
+      "expectedTargetHash": null,
+      "stagedHash": "097a5cd6e6ce7b70650360e426b9f798b4990fd2701fbc24fe30434177366870"
+    },
+    {
+      "id": "archive-change",
+      "type": "move",
+      "source": "changes/sql-effective-db2-hotfix",
+      "target": "archive/2026-08-07-sql-effective-db2-hotfix",
+      "expectedSourceHash": "3400f8439af8f20fb9bf76ef51471433ad8e519b47daffa399d7bcac27d3f197",
+      "expectedTargetHash": null
+    }
+  ]
+}

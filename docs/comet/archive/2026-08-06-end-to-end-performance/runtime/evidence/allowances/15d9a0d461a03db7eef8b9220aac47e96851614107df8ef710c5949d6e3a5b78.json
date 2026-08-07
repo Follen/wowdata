@@ -1,0 +1,13 @@
+{
+  "schema": "comet.native.partial-allowance.v1",
+  "change": "end-to-end-performance",
+  "scopeHash": "eb25ed2f68c28ac9fadc2541a400dc11b568ede887463d969e5febbdcc6af054",
+  "scopeIds": [
+    "scope:01d7a7edf83261cd025fda26672463dccaa7df716f6bc8cd84c0f2e6a0ff2a58"
+  ],
+  "reason": "现有仓库包含已确认且与本次分层回归无关的历史实现与证据；顶层目录已完整封印，Runtime 仅摘要其余 91 条变更，未归属数为 0。",
+  "confirmedSummary": "按用户确认拆分回归：online-small 只跑 12 个代表性 remote case、每个 1 次覆盖四协议；offline-large 跑 3 个真实 local corpus case、每个 10 次覆盖四协议；formal-seal 保留完整 4480 样本矩阵，仅在前两层无失败后执行一次。runner 新增 SourceMode 按实际 --source 分类并在报告记录 sourceMode。Go matrix 单测与 policy smoke 通过。",
+  "sourceRevision": 18,
+  "confirmedAt": "2026-08-06T13:12:30.891Z",
+  "allowanceHash": "15d9a0d461a03db7eef8b9220aac47e96851614107df8ef710c5949d6e3a5b78"
+}

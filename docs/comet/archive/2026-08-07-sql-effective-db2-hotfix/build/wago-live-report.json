@@ -1,0 +1,53 @@
+{
+  "schema": "wowdata.sql-hotfix-benchmark.v1",
+  "generated_at": "2026-08-07T03:56:48.6504694Z",
+  "mode": "wago-live",
+  "target": {
+    "Home": "",
+    "Path": "",
+    "Region": "",
+    "Product": "",
+    "Build": "",
+    "Locale": ""
+  },
+  "live": {
+    "coverage": {
+      "source": "wago",
+      "build": "3.80.2.69137",
+      "region_id": 196,
+      "locale": "zhCN",
+      "complete": false,
+      "start_page": 1,
+      "end_page": 1,
+      "total": 1509,
+      "last_page": 61,
+      "captured_at": "2026-08-07T03:56:49.7352927Z",
+      "ref": "6bca661bf91f721ee9926a04db66b74c3faec27c009dcfa206ecac7f274cee8c"
+    },
+    "duration_ns": 1095363600,
+    "query": {
+      "Product": "wow_classic_titan",
+      "Build": "3.80.2.69137",
+      "Region": 196,
+      "Locale": "zhCN",
+      "Table": "SpellPowerDifficulty",
+      "TableHash": null,
+      "RecordID": null,
+      "PushID": null,
+      "Status": null,
+      "From": null,
+      "To": null,
+      "Search": "69137",
+      "Source": "",
+      "Raw": false,
+      "Decoded": false,
+      "Latest": false,
+      "Page": 1,
+      "Limit": 25
+    },
+    "records": 0,
+    "warnings": [
+      "wago_search_candidates_did_not_match_exact_filters"
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "schema": "comet.native.transaction.v2",
+  "id": "f0b8b3f5-d7c8-4688-869e-e5b881c90cf1",
+  "kind": "archive",
+  "status": "committed",
+  "change": "end-to-end-performance",
+  "createdAt": "2026-08-06T17:17:18.502Z",
+  "preflightHash": "d5dc700292fbc05b511f40aa5644ef81e851516e9ad08f30e357bc86d223d6b8",
+  "operations": [
+    {
+      "id": "spec-1-wowdata-performance",
+      "type": "write",
+      "target": "specs/wowdata-performance/spec.md",
+      "staged": "runtime/transactions/f0b8b3f5-d7c8-4688-869e-e5b881c90cf1/staged/specs/wowdata-performance/spec.md",
+      "expectedTargetHash": null,
+      "stagedHash": "d81f4054ae806422fee55eb3e816da429be9232bb55e7c2a424776d27c8f42bd"
+    },
+    {
+      "id": "archive-change",
+      "type": "move",
+      "source": "changes/end-to-end-performance",
+      "target": "archive/2026-08-06-end-to-end-performance",
+      "expectedSourceHash": "c83991c60bb3cae99ef8a15cce8e45c954885cdd3c626f4f25321d3b49399e35",
+      "expectedTargetHash": null
+    }
+  ]
+}

@@ -2,12 +2,15 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"wowdata/internal/app"
 	"wowdata/internal/casc"
+	"wowdata/internal/sqlquery"
 	"wowdata/internal/storage"
 
 	"github.com/spf13/cobra"
@@ -137,7 +140,12 @@ func prepareThen(rt *Runtime, handler func(cmd *cobra.Command, args []string) er
 		opts.Profile = resolved.ProfileName
 		opts.AutoSource = resolved.AutoSource
 		opts.CacheRoot = resolveCacheRoot(opts.CacheRoot, nil)
-		mergeCommandDependencies(cmd, args, &opts)
+		if err := mergeCommandDependencies(cmd, args, &opts); err != nil {
+			if sqlErr, ok := err.(*sqlquery.Error); ok {
+				return app.NewResponseWriter(cmd.OutOrStdout()).Error(commandLabel(cmd), sqlErr.Code, sqlErr.Error())
+			}
+			return app.NewResponseWriter(cmd.OutOrStdout()).Error(commandLabel(cmd), "invalid_argument", err.Error())
+		}
 
 		fmt.Fprintf(cmd.ErrOrStderr(), "prepare target=%s/%s/%s/%s build=%s\n", opts.Source, opts.Region, opts.Product, opts.Locale, opts.Build)
 		lock, err := rt.Layout.AcquireLock(fmt.Sprintf("%s|%s|%s|%s|%s|%s", opts.Source, opts.Path, opts.Region, opts.Product, opts.Build, opts.Locale), 2*time.Minute)
@@ -171,6 +179,8 @@ func commandNeedsPreparation(cmd *cobra.Command, args []string) bool {
 	}
 	path := cmd.CommandPath()
 	switch {
+	case strings.HasPrefix(path, "wowdata hotfix"):
+		return false
 	case path == "wowdata warmup", path == "wowdata casc products":
 		return false
 	case strings.HasPrefix(path, "wowdata golden"), strings.HasPrefix(path, "wowdata video"):
@@ -188,7 +198,7 @@ func commandLabel(cmd *cobra.Command) string {
 	return strings.TrimPrefix(cmd.CommandPath(), "wowdata ")
 }
 
-func mergeCommandDependencies(cmd *cobra.Command, args []string, opts *warmupOptions) {
+func mergeCommandDependencies(cmd *cobra.Command, args []string, opts *warmupOptions) error {
 	tables := append([]string{}, opts.Tables...)
 	add := func(values ...string) { tables = append(tables, values...) }
 	path := cmd.CommandPath()
@@ -204,6 +214,16 @@ func mergeCommandDependencies(cmd *cobra.Command, args []string, opts *warmupOpt
 		}
 	}
 	switch {
+	case path == "wowdata sql":
+		query, err := sqlTextForPreparation(cmd, args)
+		if err != nil {
+			return err
+		}
+		tableNames, err := sqlquery.ExtractTableNames(query)
+		if err != nil {
+			return err
+		}
+		add(tableNames...)
 	case strings.HasPrefix(path, "wowdata db2 "):
 		if len(args) > 0 {
 			add(args[0])
@@ -245,6 +265,46 @@ func mergeCommandDependencies(cmd *cobra.Command, args []string, opts *warmupOpt
 	}
 	sort.Strings(unique)
 	opts.Tables = unique
+	return nil
+}
+
+func sqlTextForPreparation(cmd *cobra.Command, args []string) (string, error) {
+	file, _ := cmd.Flags().GetString("file")
+	stdin, _ := cmd.Flags().GetBool("stdin")
+	sources := 0
+	if len(args) > 0 {
+		sources++
+	}
+	if strings.TrimSpace(file) != "" {
+		sources++
+	}
+	if stdin {
+		sources++
+	}
+	if sources != 1 {
+		return "", fmt.Errorf("provide exactly one query source: argument, --file, or --stdin")
+	}
+	var query string
+	if file != "" {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			return "", err
+		}
+		query = string(data)
+	} else if stdin {
+		data, err := io.ReadAll(cmd.InOrStdin())
+		if err != nil {
+			return "", err
+		}
+		query = string(data)
+	} else {
+		query = strings.Join(args, " ")
+	}
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+	cmd.Annotations[app.SQLPreparedQueryAnnotation] = query
+	return query, nil
 }
 
 func buildIndexBySelection(builds []casc.VersionEntry, product, selection string) int {

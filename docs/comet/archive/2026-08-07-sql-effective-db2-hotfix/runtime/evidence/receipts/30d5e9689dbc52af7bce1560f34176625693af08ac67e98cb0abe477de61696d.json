@@ -1,0 +1,58 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-effective-db2-hotfix",
+    "sourceRevision": 6,
+    "contractHash": "57d5607304a202cf427249097ad27467357305e743ab49ef8e976770f7372c6c",
+    "scopeHash": "1f0da628d5f5a365ad927a0c19144ed13d644269d35ddb87570a73d2bf34921c",
+    "snapshotHash": "1b9b36ca94b7ec0c4591aaeb38f001cdab5ed248cb2ae3adc9179e8a8409fcfe",
+    "artifactHash": "1e7d80b4d9cb3467cc2c2809d4ff6d249f07b73e1225e46a78cd1cd5922cc007"
+  },
+  "acceptanceIds": [
+    "acceptance-f81d024c44f5d829b7c5c54f442fcc72a802338357fcf4b0ce05f1ffddcdcae4",
+    "acceptance-f858c33d375c98f382f7cf3637af627a18f308e457250f78e9f899a1604066f8",
+    "acceptance-f87338278648563ade7fa8ef85570e38e35e34a112338ddf1f838eaf26b1fcdd",
+    "acceptance-fa0fb22b6d1f4d6f2d700d211621e5d841319134daa9f8f6411ee196ef86ca17",
+    "acceptance-fa979ddc6f0fdeab09b5ba4163660f6ee29679fca3ad30c23403d997f31b6c66",
+    "acceptance-faca6499226cb9cbb52ba71108d98d2b903c12f23ef7b4ddec37e1959466dc39",
+    "acceptance-fb5df53c32eefa8ec636388e6180e3c8231ef0894e9c04ff69628b14a73d34e7",
+    "acceptance-fd7a47d0962406cd785160f25151e4bafc6088453142a7ce9018b2890735e49d",
+    "acceptance-feca69d7ee1ba25d477debbca9b655d08f5dc4dce9ccd5a53b119e4771466076"
+  ],
+  "actor": "native-runtime:command:go",
+  "issuedAt": "2026-08-07T04:26:58.311Z",
+  "evidence": {
+    "executable": "go",
+    "args": [
+      "test",
+      "./internal/sqlquery",
+      "./internal/runtime",
+      "-count=1"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 180000,
+    "startedAt": "2026-08-07T04:26:55.884Z",
+    "endedAt": "2026-08-07T04:26:58.311Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "9a7176d2e5e0b3f4692686896f25a7dae8ff8aca",
+      "afterCommit": "9a7176d2e5e0b3f4692686896f25a7dae8ff8aca"
+    },
+    "afterFence": {
+      "snapshotHash": "1b9b36ca94b7ec0c4591aaeb38f001cdab5ed248cb2ae3adc9179e8a8409fcfe",
+      "scopeHash": "1f0da628d5f5a365ad927a0c19144ed13d644269d35ddb87570a73d2bf34921c",
+      "matched": true
+    },
+    "outputHash": "d0ed810c915a9a200385faa0993c9e710c4ec53ca319236216077721ee74924c",
+    "outputSummary": "ok  \twowdata/internal/sqlquery\t0.038s\nok  \twowdata/internal/runtime\t1.745s",
+    "outputTruncated": false
+  },
+  "receiptHash": "30d5e9689dbc52af7bce1560f34176625693af08ac67e98cb0abe477de61696d"
+}

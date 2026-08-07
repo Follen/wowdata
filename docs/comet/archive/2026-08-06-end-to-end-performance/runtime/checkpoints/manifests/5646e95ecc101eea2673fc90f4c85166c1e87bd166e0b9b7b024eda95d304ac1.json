@@ -1,0 +1,27 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "end-to-end-performance",
+  "artifacts": [
+    {
+      "path": "analyze/benchmark/encounter-warm-timings.json",
+      "hash": "9f10781891952f1bf3c4e645f780c34ae9f5dae021cede5a0af7593fa1a07656",
+      "size": 766
+    },
+    {
+      "path": "cmd/wowdata/encounter_export.go",
+      "hash": "e76c598fda969ed79f93788d874391dd6be3bde1d81c1c511a72a940c250d699",
+      "size": 10679
+    },
+    {
+      "path": "internal/casc/resumable.go",
+      "hash": "8e89835e9d3f7a430619d4bd75fdeb8b50304705272b15e0dd2d5319b51a1d98",
+      "size": 5362
+    },
+    {
+      "path": "internal/db2/engine.go",
+      "hash": "3e2308589e162020b5a11652254bb360b5eaf1e25a9b3cfc2d25715143e2c9ab",
+      "size": 5099
+    }
+  ],
+  "totalBytes": 21906
+}

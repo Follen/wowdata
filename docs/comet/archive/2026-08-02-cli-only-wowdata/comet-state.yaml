@@ -1,0 +1,23 @@
+schema: comet.native.v3
+minimum_runtime_version: 3
+revision: 7
+verification_protocol: legacy-v1
+name: cli-only-wowdata
+language: zh-CN
+phase: archive
+brief: brief.md
+approval: confirmed
+approved_contract_hash: fd24d3eed314af4c582edfcee8962ee56aacc42c2df36efcdba5a3096640f687
+spec_changes:
+  - capability: wowdata-cli
+    operation: create
+    source: specs/wowdata-cli/spec.md
+    base_hash: null
+verification_result: pass
+verification_report: verification.md
+implementation_scope: runtime/evidence/scopes/bfd05e95f7c5f1450d54e21da81cc455f6aaf58e5c6e4833a34142efc4001ff3.json
+verification_evidence: runtime/evidence/verifications/3c9f6a5de43942a8804ff6d3edee82cd492d6752cc8ff93e4fd42f1904dc4cf8.json
+partial_allowance: null
+archived: true
+created_at: 2026-08-02
+run_id: f7be4ed3-424e-42c2-a456-5265df602e26

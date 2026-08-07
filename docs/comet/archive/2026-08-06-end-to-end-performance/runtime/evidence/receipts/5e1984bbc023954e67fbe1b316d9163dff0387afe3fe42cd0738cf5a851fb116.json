@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "end-to-end-performance",
+    "sourceRevision": 26,
+    "contractHash": "d451fd69060e8702944b867536b07bee5e851ffc805a8bdd1543a701d6fdd9f9",
+    "scopeHash": "75d77a88f58f98ec342b126c06debc93e37722f5073153909fbc3d97007a31d3",
+    "snapshotHash": "23a5fca39a627c5901e06b9d922cbea3334a07930c85c3ea8878fc6b301894cd",
+    "artifactHash": "bd21fa6193b30096e57cbd3a6ed1a84ec47230197ea332a323cd692e49c23471"
+  },
+  "acceptanceIds": [
+    "acceptance-ef86909b0d9cf82b6be724e28396b95d637f099d730dd7ebc9d0b42340c4abc5"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-06T16:30:32.666Z",
+  "evidence": {
+    "steps": [
+      "核对验收项：实现必须保存候选原始结果、样本量、置信/噪声处理、选择阈值和最终 dispatch 规则。dispatch 只依赖可观测文件特征与请求形状；小任务优先低调度开销，未知特征采用正确性优先回退。用未参与选择的 holdout 文件验证规则，防止…"
+    ],
+    "observations": [
+      "2026-08-06 已核对 r44 offline 正式报告（1240/1240 passed）、go test ./...（exit 0）及对应实现测试；命令、哈希、literal summary 与回滚记录见 analyze/comet-verify-offline-fixes/verification.json。"
+    ]
+  },
+  "receiptHash": "5e1984bbc023954e67fbe1b316d9163dff0387afe3fe42cd0738cf5a851fb116"
+}

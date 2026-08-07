@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "end-to-end-performance",
+    "sourceRevision": 26,
+    "contractHash": "d451fd69060e8702944b867536b07bee5e851ffc805a8bdd1543a701d6fdd9f9",
+    "scopeHash": "75d77a88f58f98ec342b126c06debc93e37722f5073153909fbc3d97007a31d3",
+    "snapshotHash": "23a5fca39a627c5901e06b9d922cbea3334a07930c85c3ea8878fc6b301894cd",
+    "artifactHash": "bd21fa6193b30096e57cbd3a6ed1a84ec47230197ea332a323cd692e49c23471"
+  },
+  "acceptanceIds": [
+    "acceptance-69e318f0954d9c53bc381103f392be1d73ff5df401232cfc15f61cd83accd06d"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-06T16:30:16.415Z",
+  "evidence": {
+    "steps": [
+      "核对验收项：仓库必须自动枚举 Cobra 暴露的全部现有命令，并为每个命令覆盖成功路径、主要参数分支、缺失参数、无结果和代表性错误。优化前的已发布版本或冻结基线产物必须与新实现使用相同 Build、locale 和输入运行。"
+    ],
+    "observations": [
+      "2026-08-06 已核对 r44 offline 正式报告（1240/1240 passed）、go test ./...（exit 0）及对应实现测试；命令、哈希、literal summary 与回滚记录见 analyze/comet-verify-offline-fixes/verification.json。"
+    ]
+  },
+  "receiptHash": "f5cb043a14d423a6b10a8b3d20e198881f7c02450da41d724a45c9fa54f604d9"
+}

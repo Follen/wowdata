@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "end-to-end-performance",
+    "sourceRevision": 26,
+    "contractHash": "d451fd69060e8702944b867536b07bee5e851ffc805a8bdd1543a701d6fdd9f9",
+    "scopeHash": "75d77a88f58f98ec342b126c06debc93e37722f5073153909fbc3d97007a31d3",
+    "snapshotHash": "23a5fca39a627c5901e06b9d922cbea3334a07930c85c3ea8878fc6b301894cd",
+    "artifactHash": "bd21fa6193b30096e57cbd3a6ed1a84ec47230197ea332a323cd692e49c23471"
+  },
+  "acceptanceIds": [
+    "acceptance-3f569aa2403de865a40ce91e7b8f52e7f7e5b8f51119fbd8e9a311b2a6ef10a5"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-06T16:30:12.821Z",
+  "evidence": {
+    "steps": [
+      "核对验收项：所有 operator 必须接受 context，并在阻塞 I/O、worker queue、解压、解码和输出边界检查取消。第一个致命错误触发计划取消后，其他节点必须停止并被回收；批量允许的单项错误必须按已确认的 partial-succe…"
+    ],
+    "observations": [
+      "2026-08-06 已核对 r44 offline 正式报告（1240/1240 passed）、go test ./...（exit 0）及对应实现测试；命令、哈希、literal summary 与回滚记录见 analyze/comet-verify-offline-fixes/verification.json。"
+    ]
+  },
+  "receiptHash": "87a22516f29d5e643c975af817e13b6a08b885a4677309b608b6ffb9a8e41ff7"
+}

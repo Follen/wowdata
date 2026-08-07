@@ -1,0 +1,11 @@
+{
+  "schema": "comet.native.archive-cas.v1",
+  "operationId": "spec-1-sql-effective-db2-hotfix",
+  "role": "post",
+  "hash": "097a5cd6e6ce7b70650360e426b9f798b4990fd2701fbc24fe30434177366870",
+  "identity": {
+    "dev": 2421791372,
+    "ino": 2533274790415690,
+    "birthtimeMs": 1786077106707.6301
+  }
+}

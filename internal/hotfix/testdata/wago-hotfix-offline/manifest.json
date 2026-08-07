@@ -1,0 +1,77 @@
+{
+  "schema": "wowdata.hotfix-corpus-manifest.v1",
+  "name": "wago-hotfix-offline",
+  "captured_at": "2026-08-07",
+  "parser": "wago-inertia-v1",
+  "items": [
+    {
+      "path": "internal/hotfix/testdata/wago-hotfix-offline/response-page-1.html",
+      "sha256": "699b34d2f89e48f9318b863714079cb10a7a0681c738ea70ada6b0b46cb80b0f",
+      "bytes": 52108,
+      "kind": "wago-html-inertia",
+      "request": "GET /hotfixes"
+    },
+    {
+      "path": "internal/hotfix/testdata/wago-hotfix-offline/response-page-2.html",
+      "sha256": "09104ca29641d1c4f9137c139fb3eadd446bd3f35382a6f015a656fa6cc13af3",
+      "bytes": 52594,
+      "kind": "wago-html-inertia",
+      "request": "GET /hotfixes?version=12.0.7.68974 (server-rendered page 1)"
+    },
+    {
+      "path": "internal/hotfix/testdata/wago-hotfix-offline/response-page-2-real.html",
+      "sha256": "de2574ba958be267e3ca634405b9b40ff05ac474e34502dd9eb086486aa723bb",
+      "bytes": 49297,
+      "kind": "wago-html-inertia",
+      "request": "GET /hotfixes?page=2",
+      "captured_at": "2026-08-07"
+    },
+    {
+      "path": "analyze/sql-effective-db2-hotfix-bootstrap/dbcache-layout-probe.json",
+      "sha256": "928a800fdf1d008fc8e4732fb39566fa9866caf4c1c8ccbd6d196b4fe728c1f9",
+      "kind": "dbcache-layout-probe"
+    },
+    {
+      "path": "analyze/sql-effective-db2-hotfix-bootstrap/dbcache-sidecar-query-probe.json",
+      "sha256": "2b2dca8b5ee9f69e47ab318d63a0dd136c10c3f0e15c237ecd9f40e24574854e",
+      "kind": "dbcache-sidecar-probe"
+    }
+  ],
+  "cases": [
+    {
+      "expect": {
+        "page": 1,
+        "last_page": 680096,
+        "post_filter_min": 1,
+        "total": 17002386
+      },
+      "query": {
+        "region": 71,
+        "build": "68974",
+        "product": "wow",
+        "table": "SpellEffect",
+        "locale": "enUS",
+        "search": "68974"
+      },
+      "id": "wago-retail-page1-build68974-region71-enUS",
+      "path": "internal/hotfix/testdata/wago-hotfix-offline/response-page-1.html"
+    },
+    {
+      "expect": {
+        "page": 2,
+        "last_page": 680111,
+        "total": 17002775
+      },
+      "query": {
+        "region": 71,
+        "build": "68974",
+        "product": "wow",
+        "locale": "enUS",
+        "page": 2,
+        "search": "68974"
+      },
+      "id": "wago-pagination-page2",
+      "path": "internal/hotfix/testdata/wago-hotfix-offline/response-page-2-real.html"
+    }
+  ]
+}

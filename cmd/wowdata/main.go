@@ -19,6 +19,7 @@ import (
 	"wowdata/internal/casc"
 	"wowdata/internal/dbd"
 	"wowdata/internal/diagnostics"
+	"wowdata/internal/hotfix"
 	"wowdata/internal/listfile"
 	"wowdata/internal/resource"
 	appruntime "wowdata/internal/runtime"
@@ -125,6 +126,8 @@ func newRootCommandForRuntime(rt *Runtime) *cobra.Command {
 	svc := &app.Service{
 		Warmup:    warmupHandler(rt),
 		Casc:      prepare(cascHandler(rt)),
+		SQL:       prepare(app.NewSQLHandler(rt.DB2)),
+		Hotfix:    app.NewHotfixHandler(hotfix.NewWagoSource(nil).WithCache(filepath.Join(rt.CacheRoot, "hotfix", "wago"))),
 		DB2:       prepare(app.NewDB2HandlerWithStore(rt.DB2)),
 		Spell:     prepare(app.NewSpellHandler(wowdata.NewSpellServiceWithDB2(rt.DB2))),
 		Encounter: prepare(newEncounterRuntimeHandler(rt, encounterSvc, spellSvc, fileStore)),

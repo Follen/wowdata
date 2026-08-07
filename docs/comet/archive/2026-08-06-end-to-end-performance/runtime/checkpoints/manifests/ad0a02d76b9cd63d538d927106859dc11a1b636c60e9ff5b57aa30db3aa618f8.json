@@ -1,0 +1,32 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "end-to-end-performance",
+  "artifacts": [
+    {
+      "path": "analyze/benchmark/build-r4-final-evidence-sha256.json",
+      "hash": "cf971b4905a880bf67d7443c5edfdd9294a9ffdfa11a8122809a7af830500eec",
+      "size": 2058
+    },
+    {
+      "path": "analyze/benchmark/build-r4-final-report.json",
+      "hash": "ae3b297968c8ef86bb3b8a1054d23b1c69af42582f0e97fc0e3502023f773cf9",
+      "size": 5285
+    },
+    {
+      "path": "internal/casc/datacache.go",
+      "hash": "1e76ae1fa12d868559d5afe9c7d49c04aa03a4b50ca8a20e4c260f1986bc1c5e",
+      "size": 7977
+    },
+    {
+      "path": "internal/db2/wdc.go",
+      "hash": "d73063f9ce9a5790d32989f5c910c8d34f4350b4c97a06db91a3fede4c18fcfd",
+      "size": 35200
+    },
+    {
+      "path": "tools/corpus/main.go",
+      "hash": "e62bce63274f8fcb52233c6a14fb8da3982a35de119fd3221d242003982408cf",
+      "size": 19023
+    }
+  ],
+  "totalBytes": 69543
+}

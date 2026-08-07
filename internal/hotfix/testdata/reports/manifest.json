@@ -1,0 +1,38 @@
+{
+  "schema": "wowdata.sql-hotfix-build-reports.v1",
+  "generated_at": "2026-08-07",
+  "items": [
+    {
+      "path": "internal/hotfix/testdata/reports/local-db2-functional-report.json",
+      "sha256": "fc3a7c1f4a3463baf2bf61c2385d414791b6d1da51ccde19fa0022b07c764ceb",
+      "bytes": 5717
+    },
+    {
+      "path": "internal/hotfix/testdata/reports/local-db2-performance-report.json",
+      "sha256": "5c12d13513fffe602803287361ecd12089522d99796263b778baf061b5b8718d",
+      "bytes": 134045
+    },
+    {
+      "path": "internal/hotfix/testdata/reports/wago-live-repeat-warm-report.json",
+      "sha256": "ed18af23dfb4d634935cb3cade0dd19d101b1d17d1a1b03730f3f601a41461c2",
+      "bytes": 1241
+    },
+    {
+      "path": "internal/hotfix/testdata/reports/wago-live-report.json",
+      "sha256": "3d5e4e5da3fe17cf93b5ca10153d90f1720da044bff4e2bb894900862b079454",
+      "bytes": 1221
+    },
+    {
+      "path": "internal/hotfix/testdata/reports/wago-offline-report.json",
+      "sha256": "e2b332f91b10dc3a1463e477bcf3645492515d2da84926fb16aaececeade3fa5",
+      "bytes": 883
+    }
+  ],
+  "summary": {
+    "local_functional_cases": 11,
+    "local_performance_cases": 11,
+    "local_performance_samples": 440,
+    "local_failed_cases": 0,
+    "wago_repeat_warm_cache_delta_bytes": 0
+  }
+}

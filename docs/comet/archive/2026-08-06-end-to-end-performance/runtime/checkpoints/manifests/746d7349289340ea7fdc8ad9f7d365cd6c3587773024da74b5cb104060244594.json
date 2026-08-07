@@ -1,0 +1,17 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "end-to-end-performance",
+  "artifacts": [
+    {
+      "path": "analyze/benchmark/command-matrix-r42-offline-formal-10x/launch.json",
+      "hash": "c387180fbdeacd37d0ca6ffe6f80112f93b0b42f646c8ebf4c866c1a914a3155",
+      "size": 990
+    },
+    {
+      "path": "analyze/benchmark/command-matrix-r42-offline-formal-10x/run.ps1",
+      "hash": "2c4cd765e4c3d17d36f1a593832ba11468fbab52d94041d9dd80e15a32b1bd20",
+      "size": 1165
+    }
+  ],
+  "totalBytes": 2155
+}

@@ -9,6 +9,8 @@ import (
 )
 
 var accountingCoverage = map[string][]string{
+	"sql":              db2Work("wdc-row-visit", "wdc-predicate", "wdc-project", "wdc-relationship", "dbc-row-visit", "dbc-predicate", "dbc-project", "dbc-relationship"),
+	"hotfix query":     work("file-read", "sha256"),
 	"warmup":           work("casc-metadata-parse", "file-read", "file-write", "listfile-parse", "sha256", "dbd-parse", "wdc-open", "wdc-row-decode"),
 	"casc diagnose":    work("casc-metadata-parse", "file-read", "sha256"),
 	"casc info":        work("casc-metadata-parse", "file-read"),

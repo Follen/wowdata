@@ -1,0 +1,52 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "end-to-end-performance",
+  "artifacts": [
+    {
+      "path": "analyze/benchmark/calibration-r36-demand/local.json",
+      "hash": "2868659b64cb3719c0b8a4f505e20e9f54132511069faf7ceb63e3ff8a76c6f3",
+      "size": 14014
+    },
+    {
+      "path": "analyze/benchmark/calibration-r36-demand/process-start.json",
+      "hash": "31ccf98fb110b6454926cfa8be2d4c9edae308be9d977f09d3a3c100f6739939",
+      "size": 649
+    },
+    {
+      "path": "analyze/benchmark/chunk-tournament-r36-demand-final/report.json",
+      "hash": "165da60fd9d7fb4f2c8f171a7b8c44b6fe7c849633f09e43ef6e246973ce7cf1",
+      "size": 38339
+    },
+    {
+      "path": "analyze/benchmark/command-matrix-r36/matrix.json",
+      "hash": "bc66c637cc7dcc515f295a2aec002d2798846e2f8ea263af9bda6ef38efd6e4e",
+      "size": 104683
+    },
+    {
+      "path": "analyze/benchmark/large-range-tournament-r36-demand-final/report.json",
+      "hash": "9ea658f2b8e4cbdeba611cf025ae7ebd28773f571c5c5ec34dcc9e4f719d052a",
+      "size": 53784
+    },
+    {
+      "path": "analyze/benchmark/metadata-tournament-r35-final/report.json",
+      "hash": "3a38b84135d48ab652448daadb9c4411515843c33a1d3067078e7f2c83732afd",
+      "size": 57925
+    },
+    {
+      "path": "analyze/benchmark/network-calibration-r36-demand/report.json",
+      "hash": "144aa9c8cdb0f0400686bfd50565f94e5c38192c7228ae744ec891c74d9f34f5",
+      "size": 32182
+    },
+    {
+      "path": "analyze/benchmark/resume-kill-r36-demand-final/report.json",
+      "hash": "3fecf6e46e13b7c051a16e10270360ef161c570f387690ff0af7568b0bd46242",
+      "size": 2532
+    },
+    {
+      "path": "analyze/benchmark/wowdata-current-r36.exe",
+      "hash": "a8f10073900db695699e12896d244b7a6f50611a1b8134da885a09c79358542a",
+      "size": 12779008
+    }
+  ],
+  "totalBytes": 13083116
+}

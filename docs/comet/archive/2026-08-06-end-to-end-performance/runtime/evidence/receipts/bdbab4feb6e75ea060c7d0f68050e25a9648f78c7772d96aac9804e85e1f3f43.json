@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "end-to-end-performance",
+    "sourceRevision": 26,
+    "contractHash": "d451fd69060e8702944b867536b07bee5e851ffc805a8bdd1543a701d6fdd9f9",
+    "scopeHash": "75d77a88f58f98ec342b126c06debc93e37722f5073153909fbc3d97007a31d3",
+    "snapshotHash": "23a5fca39a627c5901e06b9d922cbea3334a07930c85c3ea8878fc6b301894cd",
+    "artifactHash": "bd21fa6193b30096e57cbd3a6ed1a84ec47230197ea332a323cd692e49c23471"
+  },
+  "acceptanceIds": [
+    "acceptance-7920b26a0a5c7554aa9fb993c043e51662ef6794383bf2e205f2816d3bb2dada"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-06T16:30:18.117Z",
+  "evidence": {
+    "steps": [
+      "核对验收项：Catalog 必须以 Build 和 DBD revision 选择 schema，不得跨 Build 静默复用解码计划。字段新增、删除、类型或数组长度变化必须使旧计划失效并重新编译；未知但不影响请求 projection 的字段不得迫使…"
+    ],
+    "observations": [
+      "2026-08-06 已核对 r44 offline 正式报告（1240/1240 passed）、go test ./...（exit 0）及对应实现测试；命令、哈希、literal summary 与回滚记录见 analyze/comet-verify-offline-fixes/verification.json。"
+    ]
+  },
+  "receiptHash": "bdbab4feb6e75ea060c7d0f68050e25a9648f78c7772d96aac9804e85e1f3f43"
+}

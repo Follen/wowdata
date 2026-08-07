@@ -1,0 +1,22 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "end-to-end-performance",
+  "artifacts": [
+    {
+      "path": "analyze/benchmark/local-selected-repeat-r38/report.json",
+      "hash": "400cc66f16f8066d427806a0bc43811e244aecb2697b4b13c07cf04b1ac1d954",
+      "size": 1147154
+    },
+    {
+      "path": "analyze/benchmark/local-selected-repeat-r38/report.md",
+      "hash": "56c354d6957be1c9b88bf9716a8909ada445df33ade2d8b4b56fb3112e600243",
+      "size": 2451
+    },
+    {
+      "path": "analyze/benchmark/local-selected-repeat-r38/summary.json",
+      "hash": "3885dadaad875d09515060a5bb42b64fcc6dd568fca561148d7b041464499ea1",
+      "size": 2686
+    }
+  ],
+  "totalBytes": 1152291
+}

@@ -1,0 +1,6 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "sql-effective-db2-hotfix",
+  "artifacts": [],
+  "totalBytes": 0
+}

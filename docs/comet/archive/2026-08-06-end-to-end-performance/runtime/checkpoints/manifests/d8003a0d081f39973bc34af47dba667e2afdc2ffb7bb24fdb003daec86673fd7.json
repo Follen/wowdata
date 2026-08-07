@@ -1,0 +1,57 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "end-to-end-performance",
+  "artifacts": [
+    {
+      "path": "analyze/benchmark/build-progress-evidence-sha256.json",
+      "hash": "4008cc36b8f47656a42113ce3f93dd150037cc0b1125bf23e148bdc0a33ea771",
+      "size": 3189
+    },
+    {
+      "path": "analyze/benchmark/build-progress-report.json",
+      "hash": "32543d2481d260a61992168ed309eef741f9449401166ad2e7118055fb545cb6",
+      "size": 7633
+    },
+    {
+      "path": "analyze/benchmark/build-r3-checks/report.json",
+      "hash": "3740f3f7d43aa1aaee8fdce94f3e8aa68f862138d37f04ec88874d6792b6deb7",
+      "size": 1720
+    },
+    {
+      "path": "analyze/benchmark/build-r3-fuzz-final/report.json",
+      "hash": "8c7fdc4e8d18eeb2aebc5a73763e2cf20398546901495fe0f6f7ee124e841195",
+      "size": 1067
+    },
+    {
+      "path": "analyze/benchmark/cache-usage-build-r3-final.json",
+      "hash": "e7f1ccba6ac2b7bc01608ce38d349fd5b905a51c0a22fef5e7e151d166cf5ebd",
+      "size": 703
+    },
+    {
+      "path": "analyze/benchmark/db2-build-r3-final-timings.json",
+      "hash": "41917faebab9b277ff2c0631eb3b625d5fa7f9848eb3fe4d9c3a5ec2628025bd",
+      "size": 8201
+    },
+    {
+      "path": "analyze/benchmark/live-encounter-build-r3-final/report.json",
+      "hash": "adf70f320a7e751a814dfb54508d088401b4ad5af584e445d84de686889ef9f8",
+      "size": 11655
+    },
+    {
+      "path": "internal/casc/resumable.go",
+      "hash": "d6e7f64b8ca7b240fb1117e53efba8c535a22f5e4dba17a038a2589f4caceada",
+      "size": 7898
+    },
+    {
+      "path": "internal/db2/wdc.go",
+      "hash": "3b59fdffc84be291abdbd45ec900bb471bae8cc946a64417a59a8d6d01790e29",
+      "size": 32616
+    },
+    {
+      "path": "internal/storage/cache.go",
+      "hash": "ed8c7e548ca6c91fb96218fe66c2e279992b814c3ce149cec04ad9c8fc7d9408",
+      "size": 8694
+    }
+  ],
+  "totalBytes": 83376
+}

@@ -1,0 +1,191 @@
+{
+  "schema": "wowdata.sql-hotfix-benchmark.v1",
+  "generated_at": "2026-08-07T03:57:56.5147964Z",
+  "mode": "local-functional",
+  "target": {
+    "home": "D:\\Code\\wow\\wowdata\\analyze\\benchmark\\local-db2-r37\\home",
+    "path": "D:\\Game\\World of Warcraft",
+    "region": "cn",
+    "product": "wow",
+    "build": "68887",
+    "locale": "zhCN"
+  },
+  "cases": [
+    {
+      "id": "point",
+      "query": "SELECT ID, Name_lang FROM SpellName WHERE ID=1",
+      "samples": [
+        {
+          "mode": "functional",
+          "duration_ns": 223082100,
+          "exit_status": 0,
+          "stdout_bytes": 1696,
+          "result_hash": "979fa76bd494d210c720caee302218fd1a655b014453bd2118a23b3933efe095"
+        }
+      ],
+      "p50_ns": 223082100,
+      "p95_ns": 223082100,
+      "result_equivalent": true
+    },
+    {
+      "id": "batch",
+      "query": "SELECT ID, Name_lang FROM SpellName WHERE ID IN (1,2,3) ORDER BY ID",
+      "samples": [
+        {
+          "mode": "functional",
+          "duration_ns": 232765100,
+          "exit_status": 0,
+          "stdout_bytes": 2034,
+          "result_hash": "92218295b018581edac77bae5ca6cf8b5af097484dbaa2592cdc498fac7bd208"
+        }
+      ],
+      "p50_ns": 232765100,
+      "p95_ns": 232765100,
+      "result_equivalent": true
+    },
+    {
+      "id": "relationship",
+      "query": "SELECT ID, SpellID, EffectIndex FROM SpellEffect WHERE SpellID=100 ORDER BY EffectIndex",
+      "samples": [
+        {
+          "mode": "functional",
+          "duration_ns": 715708800,
+          "exit_status": 0,
+          "stdout_bytes": 2090,
+          "result_hash": "e92b03c97ad52b4ea8cbedda20a85a091283131d5ed084f2a6418c96f716925f"
+        }
+      ],
+      "p50_ns": 715708800,
+      "p95_ns": 715708800,
+      "result_equivalent": true
+    },
+    {
+      "id": "projection",
+      "query": "SELECT ID, EffectIndex FROM SpellEffect WHERE ID IN (1,2,3)",
+      "samples": [
+        {
+          "mode": "functional",
+          "duration_ns": 317690500,
+          "exit_status": 0,
+          "stdout_bytes": 1820,
+          "result_hash": "90148a0748a21c360556a143a386290b5aba7c8be9852b2fc2ac644c80f73157"
+        }
+      ],
+      "p50_ns": 317690500,
+      "p95_ns": 317690500,
+      "result_equivalent": true
+    },
+    {
+      "id": "selective-scan",
+      "query": "SELECT ID FROM SpellEffect WHERE EffectIndex=0 LIMIT 100",
+      "samples": [
+        {
+          "mode": "functional",
+          "duration_ns": 318480800,
+          "exit_status": 0,
+          "stdout_bytes": 4317,
+          "result_hash": "6a597e87a9e549d162fd00292a141bdbc00eee652f15e4ae35b8eec314550079"
+        }
+      ],
+      "p50_ns": 318480800,
+      "p95_ns": 318480800,
+      "result_equivalent": true
+    },
+    {
+      "id": "bounded-scan",
+      "query": "SELECT ID FROM SpellEffect LIMIT 100",
+      "samples": [
+        {
+          "mode": "functional",
+          "duration_ns": 317242700,
+          "exit_status": 0,
+          "stdout_bytes": 5001,
+          "result_hash": "13867a9154edcd49dcd726f771b2d3aece1ee1640838627b1770567e841b76cc"
+        }
+      ],
+      "p50_ns": 317242700,
+      "p95_ns": 317242700,
+      "result_equivalent": true
+    },
+    {
+      "id": "join",
+      "query": "SELECT se.ID, sn.Name_lang FROM SpellEffect se JOIN SpellName sn ON sn.ID=se.SpellID WHERE se.ID IN (1,2,3) ORDER BY se.ID",
+      "samples": [
+        {
+          "mode": "functional",
+          "duration_ns": 680358600,
+          "exit_status": 0,
+          "stdout_bytes": 2880,
+          "result_hash": "04a8b58883a214446a5812f97bfdb7946621bfdf84cf25d1931890cbca4c432e"
+        }
+      ],
+      "p50_ns": 680358600,
+      "p95_ns": 680358600,
+      "result_equivalent": true
+    },
+    {
+      "id": "aggregate",
+      "query": "SELECT SpellID, COUNT(*) AS n FROM SpellEffect WHERE ID IN (1,2,3,4,5,6,7,8) GROUP BY SpellID ORDER BY SpellID",
+      "samples": [
+        {
+          "mode": "functional",
+          "duration_ns": 318442300,
+          "exit_status": 0,
+          "stdout_bytes": 2258,
+          "result_hash": "d8ae3fff4c7af405c1fcd01400d6101bfc4c71fae9e42c03d858351dd1cd7aef"
+        }
+      ],
+      "p50_ns": 318442300,
+      "p95_ns": 318442300,
+      "result_equivalent": true
+    },
+    {
+      "id": "distinct",
+      "query": "SELECT DISTINCT EffectIndex FROM SpellEffect WHERE ID IN (1,2,3,4,5,6,7,8) ORDER BY EffectIndex",
+      "samples": [
+        {
+          "mode": "functional",
+          "duration_ns": 321950700,
+          "exit_status": 0,
+          "stdout_bytes": 2137,
+          "result_hash": "c8ca356e41b99df599cc85452b3aa0a274a642e702716a282ddf142f1139921c"
+        }
+      ],
+      "p50_ns": 321950700,
+      "p95_ns": 321950700,
+      "result_equivalent": true
+    },
+    {
+      "id": "top-k",
+      "query": "SELECT ID, EffectIndex FROM SpellEffect ORDER BY EffectIndex, ID DESC LIMIT 10",
+      "samples": [
+        {
+          "mode": "functional",
+          "duration_ns": 2772341900,
+          "exit_status": 0,
+          "stdout_bytes": 2575,
+          "result_hash": "a9ec751cdeeb06b1f94d43af7138c5e028b476746617ca77f419f4c9be4e9f39"
+        }
+      ],
+      "p50_ns": 2772341900,
+      "p95_ns": 2772341900,
+      "result_equivalent": true
+    },
+    {
+      "id": "streaming",
+      "query": "SELECT ID, EffectIndex FROM SpellEffect WHERE EffectIndex=0 LIMIT 100",
+      "samples": [
+        {
+          "mode": "functional",
+          "duration_ns": 323620900,
+          "exit_status": 0,
+          "stdout_bytes": 13349,
+          "result_hash": "ff3cd47af5112ce2b977debdc48ef4e4cd4c168d69c5e700b94d1dc63f5fc759"
+        }
+      ],
+      "p50_ns": 323620900,
+      "p95_ns": 323620900,
+      "result_equivalent": true
+    }
+  ]
+}

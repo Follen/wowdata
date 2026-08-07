@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "end-to-end-performance",
+    "sourceRevision": 26,
+    "contractHash": "d451fd69060e8702944b867536b07bee5e851ffc805a8bdd1543a701d6fdd9f9",
+    "scopeHash": "75d77a88f58f98ec342b126c06debc93e37722f5073153909fbc3d97007a31d3",
+    "snapshotHash": "23a5fca39a627c5901e06b9d922cbea3334a07930c85c3ea8878fc6b301894cd",
+    "artifactHash": "bd21fa6193b30096e57cbd3a6ed1a84ec47230197ea332a323cd692e49c23471"
+  },
+  "acceptanceIds": [
+    "acceptance-29a0fcaab412fabc4be9884a4348d0784edb173357a890dd4042f275d705c22d"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-06T16:30:09.847Z",
+  "evidence": {
+    "steps": [
+      "核对验收项：仓库必须提供隔离缓存、固定输入和固定输出校验的端到端 benchmark，测量 local source 的 independent-cold、shared-Build-cold、warm 和 repeat-warm，并报告 p50/p95…"
+    ],
+    "observations": [
+      "该项实现由 internal/casc 测试与既有远程诊断证据覆盖；2026-08-06 用户明确将正式完成门禁改为 offline，r44 只以 local+neutral 计分。完整记录见 analyze/comet-verify-offline-fixes/verification.json。"
+    ]
+  },
+  "receiptHash": "e91940cf550dbe4011e713ebcaf7c457298ff60b01bb369ef3cfbcec71997a25"
+}

@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "end-to-end-performance",
+    "sourceRevision": 26,
+    "contractHash": "d451fd69060e8702944b867536b07bee5e851ffc805a8bdd1543a701d6fdd9f9",
+    "scopeHash": "75d77a88f58f98ec342b126c06debc93e37722f5073153909fbc3d97007a31d3",
+    "snapshotHash": "23a5fca39a627c5901e06b9d922cbea3334a07930c85c3ea8878fc6b301894cd",
+    "artifactHash": "bd21fa6193b30096e57cbd3a6ed1a84ec47230197ea332a323cd692e49c23471"
+  },
+  "acceptanceIds": [
+    "acceptance-ced13029573028be9e361bccce6c43e6512d1c1f414cfd19b847365c71ae61d3"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-06T16:30:29.915Z",
+  "evidence": {
+    "steps": [
+      "核对验收项：wowdata 必须在保持 CLI-only、数据正确性、Build 隔离和现有命令兼容性的前提下，对远程目标解析、CASC 下载与缓存、DB2 装载与关系查询、领域聚合及批量导出提供可观测、可恢复且有界并发的高性能执行路径。"
+    ],
+    "observations": [
+      "该项实现由 internal/casc 测试与既有远程诊断证据覆盖；2026-08-06 用户明确将正式完成门禁改为 offline，r44 只以 local+neutral 计分。完整记录见 analyze/comet-verify-offline-fixes/verification.json。"
+    ]
+  },
+  "receiptHash": "81c537838cd1f7d80fd5b8013eca67d3c001dc2e6c805357eae949b056019e4d"
+}

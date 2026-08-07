@@ -1,0 +1,61 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-effective-db2-hotfix",
+    "sourceRevision": 6,
+    "contractHash": "57d5607304a202cf427249097ad27467357305e743ab49ef8e976770f7372c6c",
+    "scopeHash": "1f0da628d5f5a365ad927a0c19144ed13d644269d35ddb87570a73d2bf34921c",
+    "snapshotHash": "1b9b36ca94b7ec0c4591aaeb38f001cdab5ed248cb2ae3adc9179e8a8409fcfe",
+    "artifactHash": "1e7d80b4d9cb3467cc2c2809d4ff6d249f07b73e1225e46a78cd1cd5922cc007"
+  },
+  "acceptanceIds": [
+    "acceptance-a407c70d426f89b74fe5a4874a6f659dfb2e0e01699f32e456c1c6d7f3bf83f9",
+    "acceptance-b55f5394de60f71fefd7dce3f1bd42c30532612a07c2dc64203c02d98e5d4dc1",
+    "acceptance-bdf19b31c4310ab99c345c0e113cdb214d4766b94ada3f3b35731d234b2eba8b",
+    "acceptance-c092a9df17375df43d78ad99e4c8408a60e95936e29b76e4cecf198cf296a8ab",
+    "acceptance-c12f422d93ae2e4c4f4ae24bba18987f185e54818beebca110943bccc5444393",
+    "acceptance-c1314e6ac9a90b851ffe21d6176ee47d037d79d5867ca54a00d0a083e1efab85",
+    "acceptance-c2960c9666b63ea405219248553610b2b986af663fe9b69144b2c606b32fb16e",
+    "acceptance-c61f5256fb4e012501f202d12bebd791d14a300da184e574773ae17d53e52289",
+    "acceptance-d51198eaeeafaaaea7219abccc4d0bd814026da79476573ec3feece4dfa1c70b",
+    "acceptance-dd1045b5a2ca2c1fd49c7923933763efa9f82a1ec6377859053d7b88031a0f05",
+    "acceptance-de41437107b0bcfdb9e7aa0742220f0b98ce6498698a9df5321765d8388c9d13",
+    "acceptance-e448ef74bda7fe6a80bd79c03d81f006e225cdec720e1de12c6fc29983307103",
+    "acceptance-e5dd60cd08aa432d03ee97c1fa3d12d9a0b38e9486e5fca0b9a7db2bf605ab49",
+    "acceptance-e8c4744b3f7d748dacca39091c0511c84a196759c617b37529e9e3c94bb4b130",
+    "acceptance-f3a6155e3ba5de1b2f7142ae22d36bf7b2f94e9919f513f05f1e5b863de6657c"
+  ],
+  "actor": "native-runtime:command:python.exe",
+  "issuedAt": "2026-08-07T04:29:44.896Z",
+  "evidence": {
+    "executable": "python.exe",
+    "args": [
+      "analyze/sql-effective-db2-hotfix-build/verify_reports.py"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 120000,
+    "startedAt": "2026-08-07T04:29:44.849Z",
+    "endedAt": "2026-08-07T04:29:44.896Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "9a7176d2e5e0b3f4692686896f25a7dae8ff8aca",
+      "afterCommit": "9a7176d2e5e0b3f4692686896f25a7dae8ff8aca"
+    },
+    "afterFence": {
+      "snapshotHash": "1b9b36ca94b7ec0c4591aaeb38f001cdab5ed248cb2ae3adc9179e8a8409fcfe",
+      "scopeHash": "1f0da628d5f5a365ad927a0c19144ed13d644269d35ddb87570a73d2bf34921c",
+      "matched": true
+    },
+    "outputHash": "5cd3a92f8b47b98a31f3d94ad2bb85cda9c2fac07d3e7cadb82c4a1d4932f59d",
+    "outputSummary": "{\"reports\": 5, \"performance_cases\": 11, \"performance_samples\": 440, \"functional_cases\": 11, \"failures\": 0}",
+    "outputTruncated": false
+  },
+  "receiptHash": "44dc7502b12f9b95f8baf97eb49908a58a5eedfa62bff1b663831a8ca9f820cd"
+}

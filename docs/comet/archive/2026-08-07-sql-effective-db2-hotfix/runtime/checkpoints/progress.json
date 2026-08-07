@@ -1,0 +1,15 @@
+{
+  "schema": "comet.native.progress-checkpoint.v1",
+  "id": "cbec3ed6-54e7-4003-a594-f1c207d3d939",
+  "change": "sql-effective-db2-hotfix",
+  "phase": "build",
+  "previousRevision": 4,
+  "stateRevision": 5,
+  "summary": "Build revision 4 progress: real Wago response-page-1/2 copied into internal/hotfix/testdata/wago-hotfix-offline with SHA-256 manifest and parser regression against page 1/680096 total 17002386; generated local-db2 functional/performance manifest binding real db2-corpus-r31-final and local Build 68887/DBD hashes. Hotfix tests pass including corpus, DBCache, sidecar, Wago, decoder and fallback.",
+  "nextAction": "Implement benchmark/corpus runners and remaining SQL edge coverage; then add verification evidence and transition Build only after all artifacts are complete.",
+  "inputHash": "7561fe465033d48d27acd817371d02ca4e47b6b9bc029bb20211978df1e584ab",
+  "manifestHash": "8179a16a444a9770a9d0e94f3eef0be05b06812f571818c4571feab18cfcfce8",
+  "manifestRef": "runtime/checkpoints/manifests/8179a16a444a9770a9d0e94f3eef0be05b06812f571818c4571feab18cfcfce8.json",
+  "artifactCount": 0,
+  "createdAt": "2026-08-07T03:20:06.117Z"
+}

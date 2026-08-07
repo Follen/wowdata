@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "end-to-end-performance",
+    "sourceRevision": 26,
+    "contractHash": "d451fd69060e8702944b867536b07bee5e851ffc805a8bdd1543a701d6fdd9f9",
+    "scopeHash": "75d77a88f58f98ec342b126c06debc93e37722f5073153909fbc3d97007a31d3",
+    "snapshotHash": "23a5fca39a627c5901e06b9d922cbea3334a07930c85c3ea8878fc6b301894cd",
+    "artifactHash": "bd21fa6193b30096e57cbd3a6ed1a84ec47230197ea332a323cd692e49c23471"
+  },
+  "acceptanceIds": [
+    "acceptance-0502a84e84120086c6888ff6a565ff93344370807b9539b547b91feb169bdf9a"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-06T16:30:07.057Z",
+  "evidence": {
+    "steps": [
+      "核对验收项：未显式配置 workers 时，CLI 必须根据可用 CPU、内存和任务类型采用自适应高性能并发预算。下载、DB2 装载和图片解码必须使用独立 worker pool，并受统一的全局并发和内存上限约束。用户显式设置的 workers 必须覆…"
+    ],
+    "observations": [
+      "2026-08-06 已核对 r44 offline 正式报告（1240/1240 passed）、go test ./...（exit 0）及对应实现测试；命令、哈希、literal summary 与回滚记录见 analyze/comet-verify-offline-fixes/verification.json。"
+    ]
+  },
+  "receiptHash": "3795ea0aef52da4ba0ad9aa30add7fa5c632128f98653305a426831c5188e78d"
+}

@@ -1,0 +1,48 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "npm-trusted-publishing",
+    "sourceRevision": 3,
+    "contractHash": "fdded82af7b28bd020721a3b6e31c78193c7630a8f750a3dfc4f7fea6de4c574",
+    "scopeHash": "af7b0e8f964d43648deb44bbd7c4ab5d478c1b6265027d06940ae23bf3a1827b",
+    "snapshotHash": "191911fe15420e0ee0633bb175f9baaeb5f85efed8d993496fecd5042e1f6dda",
+    "artifactHash": "e352892a56dd1014305c647d193063af198aded906c5627444172715c31ae239"
+  },
+  "acceptanceIds": [
+    "acceptance-453a3e8648ddf62da26c2d7d93ca1a2e22bea1d624b08a4bcc85e5c593eeddd4",
+    "acceptance-bb8ae8a5e20e6ad8685e9130c0ebb2b44dd7dc2bb46cc89b121394f89f676c38"
+  ],
+  "actor": "native-runtime:command:npm.cmd",
+  "issuedAt": "2026-08-02T17:31:47.331Z",
+  "evidence": {
+    "executable": "npm.cmd",
+    "args": [
+      "test"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 120000,
+    "startedAt": "2026-08-02T17:31:46.596Z",
+    "endedAt": "2026-08-02T17:31:47.331Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "0c617eb1c825dfa76722cac695310803b1a31a51",
+      "afterCommit": "0c617eb1c825dfa76722cac695310803b1a31a51"
+    },
+    "afterFence": {
+      "snapshotHash": "191911fe15420e0ee0633bb175f9baaeb5f85efed8d993496fecd5042e1f6dda",
+      "scopeHash": "af7b0e8f964d43648deb44bbd7c4ab5d478c1b6265027d06940ae23bf3a1827b",
+      "matched": true
+    },
+    "outputHash": "fd5124d8c062a777c112667ce6364d29c8f814bb1577ddbfcf4e4d78d10289a7",
+    "outputSummary": "> @follenfang/wowdata@0.0.1 test\n> node --test npm/test/*.test.js\n\n✔ installs binary and Skill, backs up unknown Skill, and uninstalls data (72.2611ms)\n✔ uses cmd.exe to launch npm.cmd on Windows (0.8217ms)\n✔ accepts only latest or exact semantic versions (0.2162ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 158.119",
+    "outputTruncated": false
+  },
+  "receiptHash": "a788f86fa7fc6cdd044a23b90d50fe94821394a0139b356d391e49310ab3326f"
+}

@@ -1,0 +1,15 @@
+{
+  "schema": "comet.native.progress-checkpoint.v1",
+  "id": "838780ce-46b6-4863-ac34-878aa040ed8d",
+  "change": "end-to-end-performance",
+  "phase": "verify",
+  "previousRevision": 25,
+  "stateRevision": 26,
+  "summary": "r44 offline 正式矩阵运行中：149/1240 candidate stdout 已落盘，scope 75d77a88f58f98ec342b126c06debc93e37722f5073153909fbc3d97007a31d3，定向复验 28/28 通过。",
+  "nextAction": "等待 cell 20 完成；读取 r44 report.json，要求 1240/1240 通过、0 timeout、0 network violation、0 baseline/golden/output/cache violation，再生成 verification.md。",
+  "inputHash": "28fce7e2c9f182b950f0dbc21465c4a5a4ed25cafd7b3a61f6f14ade73433d4f",
+  "manifestHash": "d7a002fee7a9780fb2c268cb41d6ff62ae685b314fd25fe146c1ccd4e55b6ba7",
+  "manifestRef": "runtime/checkpoints/manifests/d7a002fee7a9780fb2c268cb41d6ff62ae685b314fd25fe146c1ccd4e55b6ba7.json",
+  "artifactCount": 2,
+  "createdAt": "2026-08-06T16:10:19.216Z"
+}

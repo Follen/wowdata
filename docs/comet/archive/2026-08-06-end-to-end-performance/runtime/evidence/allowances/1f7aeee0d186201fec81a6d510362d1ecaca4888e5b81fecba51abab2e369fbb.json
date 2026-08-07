@@ -1,0 +1,13 @@
+{
+  "schema": "comet.native.partial-allowance.v1",
+  "change": "end-to-end-performance",
+  "scopeHash": "75d77a88f58f98ec342b126c06debc93e37722f5073153909fbc3d97007a31d3",
+  "scopeIds": [
+    "scope:5e06d3d0416d15438f27b6b7838991d7c7f6bdc094da1e259cc43499606731bf"
+  ],
+  "reason": "复用已确认的同类 scope-detail-overflow：顶层实现目录已完整声明，Runtime 仅因详情预算折叠 91 条已归属变更，未归属数为 0。",
+  "confirmedSummary": "离线修复完成：顶层实现目录完整声明，Go 测试、runner smoke、Encounter 4/4 与管理缓存 24/24 定向复验通过。",
+  "sourceRevision": 24,
+  "confirmedAt": "2026-08-06T16:05:59.242Z",
+  "allowanceHash": "1f7aeee0d186201fec81a6d510362d1ecaca4888e5b81fecba51abab2e369fbb"
+}

@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "end-to-end-performance",
+    "sourceRevision": 26,
+    "contractHash": "d451fd69060e8702944b867536b07bee5e851ffc805a8bdd1543a701d6fdd9f9",
+    "scopeHash": "75d77a88f58f98ec342b126c06debc93e37722f5073153909fbc3d97007a31d3",
+    "snapshotHash": "23a5fca39a627c5901e06b9d922cbea3334a07930c85c3ea8878fc6b301894cd",
+    "artifactHash": "bd21fa6193b30096e57cbd3a6ed1a84ec47230197ea332a323cd692e49c23471"
+  },
+  "acceptanceIds": [
+    "acceptance-54134ea22390a6b69cddf7828f33c3705e3aea78f3f9c22790c304cb5cda68c9"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-06T16:30:13.873Z",
+  "evidence": {
+    "steps": [
+      "核对验收项：HTTP transport 必须复用连接，支持 HTTP/2 时启用多路复用，并对超时、429、5xx 和短读使用有上限的指数退避。下载、BLTE 解压、WDC 解析、BLP 解码和写出必须组成带背压的流水线，避免各阶段顺序物化完整中间结…"
+    ],
+    "observations": [
+      "2026-08-06 已核对 r44 offline 正式报告（1240/1240 passed）、go test ./...（exit 0）及对应实现测试；命令、哈希、literal summary 与回滚记录见 analyze/comet-verify-offline-fixes/verification.json。"
+    ]
+  },
+  "receiptHash": "0d26e8b21690728a9a0d742c30f8fc1d7203d86b89a6b17d6af7129283eacd9f"
+}

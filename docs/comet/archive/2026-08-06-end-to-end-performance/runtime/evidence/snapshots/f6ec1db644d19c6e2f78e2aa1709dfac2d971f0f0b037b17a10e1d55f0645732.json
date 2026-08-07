@@ -1,0 +1,1673 @@
+{
+  "schema": "comet.native.content-snapshot-projection.v1",
+  "origin": "explicit",
+  "capture": {
+    "provider": "git"
+  },
+  "complete": true,
+  "limits": {
+    "maxFiles": 10000,
+    "maxFileBytes": 268435456,
+    "maxTotalBytes": 268435456,
+    "maxManifestBytes": 1048576,
+    "maxDurationMs": 60000
+  },
+  "policy": {
+    "schema": "comet.native.snapshot-policy.v1",
+    "include": [
+      "**/*"
+    ],
+    "exclude": [
+      ".agents/skills/**",
+      ".amazonq/skills/**",
+      ".augment/skills/**",
+      ".bob/skills/**",
+      ".claude/skills/**",
+      ".cline/skills/**",
+      ".codebuddy/skills/**",
+      ".continue/skills/**",
+      ".cospec/skills/**",
+      ".crush/skills/**",
+      ".cursor/skills/**",
+      ".factory/skills/**",
+      ".forge/skills/**",
+      ".gemini/skills/**",
+      ".github/skills/**",
+      ".iflow/skills/**",
+      ".junie/skills/**",
+      ".kilocode/skills/**",
+      ".kimi-code/skills/**",
+      ".kiro/skills/**",
+      ".lingma/skills/**",
+      ".mimocode/skills/**",
+      ".opencode/skills/**",
+      ".pi/skills/**",
+      ".qoder/skills/**",
+      ".qwen/skills/**",
+      ".roo/skills/**",
+      ".trae-cn/skills/**",
+      ".trae/skills/**",
+      ".windsurf/skills/**",
+      ".zcode/skills/**"
+    ],
+    "hash": "1b4c47ee1cdc72323c591ca8b9c7a7a8c123dfe64880b6c65dc768e2bb965385"
+  },
+  "entries": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "hash": "e32acf957ca737dae2b3142a65bdba79c8c4b6416325e3b7876829236782b571",
+      "size": 2119,
+      "type": "file"
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "hash": "9bfa832ab9e87f7c20c05922253de2ecfe0386cba99dae52d1eb72c207b7300a",
+      "size": 3030,
+      "type": "file"
+    },
+    {
+      "path": ".gitignore",
+      "hash": "fe8da06efb4ccbf01c2e5cec17a4cdc7276ff949987fe70b3484794b72165fe2",
+      "size": 88,
+      "type": "file"
+    },
+    {
+      "path": "LICENSE",
+      "hash": "15f6dd821b5168f3bd725e05386afb336fae43fb1d21cb3125f3b5f2db6467a8",
+      "size": 420,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "hash": "1b4ead38562a9309726c8646a6fd65ceebd78cdd74df3059d405836c80c811e6",
+      "size": 12629,
+      "type": "file"
+    },
+    {
+      "path": "cmd/wowdata/encounter_export.go",
+      "hash": "1e57a6b779db143f2f1653bf0940acbb510b19a0ab58e0ad43e2be1be5ccca34",
+      "size": 15748,
+      "type": "file"
+    },
+    {
+      "path": "cmd/wowdata/encounter_export_test.go",
+      "hash": "97267200bdd06381ca9b609fc37000a4c8677e4f2611800bae677b9b7772ba19",
+      "size": 4125,
+      "type": "file"
+    },
+    {
+      "path": "cmd/wowdata/main.go",
+      "hash": "f08d6e2d0ad959f238fa87319efe7e08376052539c893b09b122570bf8853d9d",
+      "size": 34035,
+      "type": "file"
+    },
+    {
+      "path": "cmd/wowdata/main_test.go",
+      "hash": "97c7712b39102e48aae002783b5e4b191c580e35c06ab92acfae5cfaec551c71",
+      "size": 5916,
+      "type": "file"
+    },
+    {
+      "path": "cmd/wowdata/management.go",
+      "hash": "642e777c37e71967d2b974049922fa74c7b54571bd55a3211694a5860db4f8c7",
+      "size": 16292,
+      "type": "file"
+    },
+    {
+      "path": "cmd/wowdata/management_test.go",
+      "hash": "0ed678b839abbdcc3620a2e316641aab6b13ba0f442134c3a6faa32e44b6c332",
+      "size": 1659,
+      "type": "file"
+    },
+    {
+      "path": "cmd/wowdata/target.go",
+      "hash": "039aa4bdf5ef6114cb2b2fdba4ae86607dcfc48020011c7e7c138db0159c28e8",
+      "size": 7838,
+      "type": "file"
+    },
+    {
+      "path": "cmd/wowdata/target_test.go",
+      "hash": "addd4fba015b1b5e567184b05826489721b07eb2666d633088e1b8c3d11e0d0c",
+      "size": 5065,
+      "type": "file"
+    },
+    {
+      "path": "docs/wowdata/golden-fixtures.md",
+      "hash": "02c899e3110da444cd78cb02b98bb2b457d8c4bc26d50cc908f54ce1ac52c42b",
+      "size": 2744,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/cache/help.json",
+      "hash": "a61be57142d7c9ab4fdee987baae0252ca307788fa3eb20f4554b4c7a591e00f",
+      "size": 1873,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/casc/diagnose-remote-classic-era.json",
+      "hash": "f56881e9c1c2520f3b5a3622b4b6428a530a6f18c3a5d675c4b9f0a5153ebfb8",
+      "size": 2016,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/casc/info-without-warmup.json",
+      "hash": "fb12d815724598f537d998f1a515e31ba7d72a6bc9f8e9b03b16a4a518be6524",
+      "size": 531,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/casc/products-remote-us.json",
+      "hash": "b15c443d5fa5be1a0ba3d3ecda3fef9c091993d4f2247196f93ab3b525ba6dc1",
+      "size": 7368,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/creature/display-21-classic-era.json",
+      "hash": "406630585e905df9800a8f34eaf9a1e5c2b3983cc3a51beec0ec64c212081f90",
+      "size": 803,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/creature/display-without-warmup.json",
+      "hash": "5014ed2e395ab20582f58cfd5ca22d4df0addd59c51bb1677f417d066d538b43",
+      "size": 583,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/creature/model-124578-classic-era.json",
+      "hash": "5ea1814a975c72d2662f738eb943e4338e6c9a2f9471b21886a607ee81b4b2c9",
+      "size": 2039,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/db2/foreign-key-spelleffect-spell-1-classic-era.json",
+      "hash": "fe60fc03f2fc4318626fd54e08036cad268190a4cbb21f866718d38000c7f3c2",
+      "size": 2099,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/db2/rows-spellname-id-1-classic-era.json",
+      "hash": "5ce808e1cc845666dabf3b44083ad9f1f76701703d7e98c4908530bdf0ff39f9",
+      "size": 833,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/db2/schema-spellname-classic-era.json",
+      "hash": "27c3e9d01e43fadfdbe9ff129fd9a15dee3c9d554a8c5c491d046ef269ccc14d",
+      "size": 762,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/db2/schema-without-warmup.json",
+      "hash": "b0df93fd862e9167e19cd12217b5b8c8f4a2cc9477ca46fc621dcc6916914f54",
+      "size": 551,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/db2/search-spellname-attack-classic-era.json",
+      "hash": "3b78f34e7aa30441c75bf4485f74548ffb7a71b23a7dc0b84fc2cd7cb216e9ae",
+      "size": 1081,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/db2/stream-spelleffect-limit-3-classic-era.json",
+      "hash": "d4b9ba4277554e677728252ebe1ec4fefd5abd20fdcdd5da51cce60b104977cf",
+      "size": 4679,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/decor/get-80-retail.json",
+      "hash": "464e6aba6dbc7671aa5e12de9efe1f1603d48be26ebe7fa1bc996fb6fbec301e",
+      "size": 794,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/decor/get-model-6033663-retail.json",
+      "hash": "0eaab8a86a2c99271438ef32a61e847fea6edf595d242e62bf0f2a13fb14c0a4",
+      "size": 826,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/decor/list-classic-era.json",
+      "hash": "94f21511be063ce7f26824df6a2dbb5d7e63815990567cd980c88386822d9cec",
+      "size": 636,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/decor/list-without-warmup.json",
+      "hash": "bcdb88ff8d07191c02c1259fec5d48d2e2e944cd92785f69086fbe6dfbc5869e",
+      "size": 534,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/doctor/help.json",
+      "hash": "42aad5a40d9c055377fcc38f9956576ebfe48104f56e94767652d6798b5d4f57",
+      "size": 1489,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/encounter/export-help.json",
+      "hash": "6ebdef8ab2f8f30ebb464ab52d81cb02915c2678755c6591da270ef1d2ceb198",
+      "size": 1962,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/encounter/get-1-classic-era.json",
+      "hash": "225fd422f8638587152c46085ec776bd7d0ba3db3e8da9b73cf928eabebef95d",
+      "size": 764,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/encounter/get-132-retail.json",
+      "hash": "00da7a2ea7a10730b8e79f277f14c6dbe3d8d35c86502246ddb2581ec9b80c05",
+      "size": 10164,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/encounter/get-without-warmup.json",
+      "hash": "4f9fb921917582d9938c84422a092c5ff293ca064bced61e42fbcb6ffc60491e",
+      "size": 584,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/errors/file-lookup-without-warmup.json",
+      "hash": "62f8fc480b438a7ab65219e65a0942f42b76c427e1966fddcd18b9bffd4616c5",
+      "size": 577,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/file/encoding-134400-classic-era.json",
+      "hash": "a854810f48cfebeb6bff1c6cdf79a0618d024441431152d2d2eca867da172c75",
+      "size": 965,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/file/exists-134400-classic-era.json",
+      "hash": "4552cc93a60b5a51ca17cfd5ac2c2711c9d288976f2cf8aa77db83dbe007d66a",
+      "size": 662,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/file/export-134400-classic-era.blp",
+      "hash": "294097a0b2cde0e08fda4609cd397d2f2e6d93d4ec16908bff72a8afbb4a9d72",
+      "size": 3916,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/file/export-134400-classic-era.json",
+      "hash": "b0d7399f321eb352e671c601293d304a70fcd60de016b2d370fd93d041406369",
+      "size": 1160,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/file/extension-blp-classic-era.json",
+      "hash": "6c5e591f2f504f691f50eba192be98497b2d580a7515b4645fde51a1ab0a88bf",
+      "size": 1046,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/file/get-134400-classic-era.json",
+      "hash": "16ca5d82101b936478c806cf34ab8ef735c2b7d6fc8baa6dc584d7b516ef4193",
+      "size": 765,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/file/lookup-134400-classic-era.json",
+      "hash": "d101753e66b847794d79f4fc169aacb36ca311e67aea191442897342cdd74f30",
+      "size": 767,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/file/search-interface-icons-classic-era.json",
+      "hash": "a642227c936a6e3b397dd36041116693bccf13a55f8d5dd9bc277fa204dd988c",
+      "size": 1160,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/file/search-without-warmup.json",
+      "hash": "6ca1a6e7f4105b70a9653ae3ece7952447edf1e640cf2eb24ffdaf9e31aa9268",
+      "size": 575,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/icon/export-134400-classic-era.png",
+      "hash": "c62eeb0ead29df40cab7da5d3264287f241c3f1d1dad6e0393f53c8168c6ff0d",
+      "size": 2265,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/icon/export-134400-classic-era.webp",
+      "hash": "73319e6020a5e5ee3360fe4c19751c69238882bb5b423730e12dd5ae7b16430a",
+      "size": 2214,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/icon/export-134400-png-classic-era.json",
+      "hash": "218b5abdff4f61f297f605e63ebb876c87f9c3beab5cf0f426130f411209406c",
+      "size": 1364,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/icon/export-134400-webp-classic-era.json",
+      "hash": "22871962d46fb058f8113483383677af5f9a4d635db092a40d65bdaec583b4f9",
+      "size": 1372,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/icon/extract-134400-classic-era.json",
+      "hash": "58af999ce8517ea5e5a72130252332b7a577fbdd75645e5869f321438f740880",
+      "size": 1225,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/icon/extract-without-warmup.json",
+      "hash": "eb8eb4969abee472fa3bbdde3396721a945c19125cba50da667e11f9cb57fab4",
+      "size": 614,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/item/geosets-25-classic-era.json",
+      "hash": "3f2f2bf2387c3bf729576d5f26b0f3bffb2a83bf46ce4bd0a36a601df996e6b6",
+      "size": 928,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/item/get-25-classic-era.json",
+      "hash": "cd3e5e9e810c0980c72d53ebd94a632e30638ee00966a47a4528adc065fb42e2",
+      "size": 783,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/item/get-without-warmup.json",
+      "hash": "e005b3423ace0d62c60d9e31ddb38600bb89a1e4ec5ad5d4c9990a3a09bf97c8",
+      "size": 558,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/item/models-25-classic-era.json",
+      "hash": "16a6d330fa2244c9154d1bf0044a05afd79730ef56e16c7d2899c215fa30f455",
+      "size": 1198,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/item/textures-7517-classic-era.json",
+      "hash": "ac52e11819e2452fd834e3019179950930ed05de128a611842b9647cbcb8afda",
+      "size": 1073,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/profile/help.json",
+      "hash": "d9494e26232714564e7193717c2577fc4075a0c1e09a1b33995870bc8001e02e",
+      "size": 1886,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/spell/auras-spell-1-classic-era.json",
+      "hash": "329a7270c5313dbe9016f4b4370b50f22628af51e82941f2625645e3bd6d7cd4",
+      "size": 670,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/spell/info-100-classic-era.json",
+      "hash": "cf0e6122a468529f04f85a776bccd17de7295f172266add4b0701ea744463969",
+      "size": 5406,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/spell/info-without-warmup.json",
+      "hash": "328034498db22fdd3ecc9b28ad5f485015bacebbaaa706efc028bc5b2423c05a",
+      "size": 591,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/spell/summons-513-npc-329-classic-era.json",
+      "hash": "17f4fdba89159296dd94eef3cb3e78596f71d1770fcb5b6e35e5bc12b1a60969",
+      "size": 2232,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/uninstall/help.json",
+      "hash": "4a3719ae3953fb16e86089dd3147fffb6220d096a2b839dff415a9f5f027604c",
+      "size": 1568,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/update/help.json",
+      "hash": "1c202fb915c2a359e43f5c62f274eeb6e270dbf202c2feffff90af6439ccdcd2",
+      "size": 1540,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/video/demux-minimal-vp9.json",
+      "hash": "35ec9d16fb8faf6aa48a5360b05faab7ddd31d9e4587ff6e8abe4e872ac444be",
+      "size": 763,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/warmup/local-wow-cn.json",
+      "hash": "8225aef0580fae7da057c6d82acce9c6e182590845cd09d0c888e0246d39a897",
+      "size": 692,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/warmup/prompt-no-args.json",
+      "hash": "5073b993ddd14002aa0847f7f658b813a4817fea5cbca5248ec5147e317b43ce",
+      "size": 515,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/go/warmup/remote-classic-era.json",
+      "hash": "a2175e9298ffe3a936eda31a25295a9b82950bb78e537cae712cb6f6f86aba16",
+      "size": 1488,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/inputs/ItemSparse-classic-era.db2",
+      "hash": "20930902d7f9a474900c123ccdec87cf74ad60238da517e2c90cc8f14b42da0a",
+      "size": 10566360,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/inputs/JournalEncounterSection-classic-era.db2",
+      "hash": "992c9edb6bdaa11a0001e846d267b89a8477d3fed6fb7b4497c9dc642235c73a",
+      "size": 264,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/inputs/minimal-vp9.avi",
+      "hash": "67871eb07c8904164787eb6327f0e351bf84a44e67cdefe0da0f4af9428ae308",
+      "size": 356,
+      "type": "file"
+    },
+    {
+      "path": "fixtures/golden/manifest.json",
+      "hash": "2c9d91989b6e004edb191f08e39589e6bec6e4ae75edb27663c145d7fefd7b63",
+      "size": 36036,
+      "type": "file"
+    },
+    {
+      "path": "go.mod",
+      "hash": "3d404181761df147882d34662cc51140eea2f0dbac76443d3f755a7fba001911",
+      "size": 280,
+      "type": "file"
+    },
+    {
+      "path": "go.sum",
+      "hash": "69ff9c87a86510f51c36df8552548caf4c8c59f50ad9875a256aa17a942b7463",
+      "size": 1256,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/commands.go",
+      "hash": "7d4462189cb32eaa8699abe88df716ab9b3e4776ab55625c46fa2089446dff68",
+      "size": 19462,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/commands_test.go",
+      "hash": "f3daf1d8aa7dbf9256cfdb35751cf632f3b2f9fb062f71962dedcefa399170bd",
+      "size": 740,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/creature_handler.go",
+      "hash": "593b785e60b6b8c86415237613433a2c48e5e301cb881623b85dea56ba539927",
+      "size": 2649,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/db2_handler.go",
+      "hash": "4e3f7c1e78e45591df2e86f341ec49924c507c219bbb8282251b4e6d296511f2",
+      "size": 9182,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/decor_handler.go",
+      "hash": "f04645df5716f468a0cd5d4afed7f1c651e4180245bbd0c35d4313645406925d",
+      "size": 2001,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/encounter_handler.go",
+      "hash": "dd76f7e9d8bb38a523be718ed3f158cc8d12b060756efb538980a147e06b80eb",
+      "size": 793,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/file_handler.go",
+      "hash": "61911e9e65cd7c19d211ba4fd21a4a999db241c47d29d8c57c9b1537e5fe0c3f",
+      "size": 6934,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/golden_handler.go",
+      "hash": "4698e27cfa35925ae5bb142f48369a32994134e909f3758c999c78a736c1259f",
+      "size": 9253,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/golden_handler_test.go",
+      "hash": "d504f7fb859a8b648c126983102adba7211e61fc7e5364c0fb1eeb9951817fd9",
+      "size": 10002,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/icon_video_handler.go",
+      "hash": "80375c85a1c8a29fff9d7e1a118cb68429cbc910ada94baa29141c5d84dccaba",
+      "size": 3079,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/item_handler.go",
+      "hash": "27c638190cf5be88f969c78319bd1be3f72c9ac58634a1fc972d4e50cfc5daa5",
+      "size": 4626,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/output.go",
+      "hash": "c87e3158da12f784c73352016e4145a30d65055971b04c69bc9f9b862d2e6657",
+      "size": 2020,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/root.go",
+      "hash": "4a433465c98f6a5c0865185ec1870c79fbd54f291b55b5c516dfec0f5ed07e36",
+      "size": 2830,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/root_test.go",
+      "hash": "5fdd8f1dc24ab82662452d86fdc5928019042f4022545f809a3e0613b5ec1fe6",
+      "size": 6984,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/runtime_handlers_test.go",
+      "hash": "738c2dc0e9012d20ad27230f6dc3f0d25fb89bbcc49d3924dddbc3de37d431c3",
+      "size": 16610,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/spell_handler.go",
+      "hash": "1be6b1c8bcdd2ed99fefbac9e229b04e156073d301d9fbeabb5a3d54a94c050b",
+      "size": 2693,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/testutil_test.go",
+      "hash": "c62118460a08f9b2e50cb514e6e694577448098c157fcf39031555eec8360950",
+      "size": 1043,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/truthful_handlers_test.go",
+      "hash": "eb086472cb0ade2090508b95409983c68d36c1bab8bffa4a9043641d35a38416",
+      "size": 2972,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/warmup_handler_test.go",
+      "hash": "14788280fbfda4d0d8982f51fb2659c32d7880d948f81900d9355a4283d69201",
+      "size": 413,
+      "type": "file"
+    },
+    {
+      "path": "internal/blp/blp.go",
+      "hash": "e42c175af348e697f7d5bd6cb03c2a9c131c2fa7bdc1e70fdea701850b188300",
+      "size": 9041,
+      "type": "file"
+    },
+    {
+      "path": "internal/blp/blp_test.go",
+      "hash": "0506f9acb6da1cef1e8a7ba35310fadaf6adb352ab49a959a038cb93a5bf965e",
+      "size": 5751,
+      "type": "file"
+    },
+    {
+      "path": "internal/blte/range_reader.go",
+      "hash": "02b1c5e5ab6b6a633fa1988c71ee9ad4acc9c939340e3eca579ee04fdce329bf",
+      "size": 9469,
+      "type": "file"
+    },
+    {
+      "path": "internal/blte/range_reader_test.go",
+      "hash": "d6f05809291fb87ad541ad736dc03b3d7126c89b7ac6f253fd5f0c404739ebc9",
+      "size": 5963,
+      "type": "file"
+    },
+    {
+      "path": "internal/blte/reader.go",
+      "hash": "bfccead349ef40c81166d222059e13b4c04f3c9ed5dd54c5ef4a076158a5f01c",
+      "size": 15793,
+      "type": "file"
+    },
+    {
+      "path": "internal/blte/reader_test.go",
+      "hash": "7aed40f28ff3729c3b4c98fc28c93d3d61506089c321bdcb2892b15c79561ebc",
+      "size": 12962,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/cache.go",
+      "hash": "89b11be9be16f7db133ac341094097cc864ce8dd966e5abf066c3094f6ab5f34",
+      "size": 249,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/casc.go",
+      "hash": "b6f572288dd86b418200e2f148a33e66da5afc667a6bace7d0ae3716b7adfb21",
+      "size": 21908,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/casc_test.go",
+      "hash": "7c33276d0bbc862f88bdec255d7c788c4378a023fce6b6431a00cfbb0fc62d2c",
+      "size": 10532,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/cdnconfig.go",
+      "hash": "d4ea86623228e6daf3df59de6c880642ba09ba26ed237b96bffce43ebb4adbe6",
+      "size": 1079,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/contentflags.go",
+      "hash": "8241b39c17845bce9768b73da585613892e4928be33753b561377a3f4585e6c2",
+      "size": 187,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/datacache.go",
+      "hash": "200d69f6444c401b91c64ffcde33b8abe9a03c48b618fd32cf45184a77033c9a",
+      "size": 8602,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/datacache_test.go",
+      "hash": "61c23933c5017f9ecaac2dfd32990eba7d1dd9c1e7f2934f85591a3621ad8867",
+      "size": 6457,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/file.go",
+      "hash": "25b60e50ec766d2d2b788f3ddec1e362931abdc81249843b4e40d5dc9f2a9d56",
+      "size": 2171,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/file_test.go",
+      "hash": "bca3189857c7e240cabe81dbad32d8689de8a7bdddedc33667332e3bdefa7490",
+      "size": 937,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/http_metrics.go",
+      "hash": "99f3cd56219b3c9d912e60a1c701146d65c04dc5df9f60edfc1b039fa9c5a054",
+      "size": 6604,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/http_metrics_test.go",
+      "hash": "1d35b9426883348bdfd7bf85bb8db7da2c7477437918390daab00a7f37b115b5",
+      "size": 2559,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/localeflags.go",
+      "hash": "88ffd87afcb15982ab351cbf8c92d46f0d102acbc61d1a4196f24ddc7549c1c3",
+      "size": 1339,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/localsource.go",
+      "hash": "5ae01ceec919d13c71a62cbab41d1f4d77f91b35ddfcc2f497e38061d5a3630a",
+      "size": 7256,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/localsource_test.go",
+      "hash": "354e71bf35fdc6d5832d00ed3d6f0c0113261f0efef030d605c92aadfadd3fe0",
+      "size": 3143,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/locator.go",
+      "hash": "972d490e934c11c83ea2ff72532b3c4148f62cb35ef7d876079393f748dec2be",
+      "size": 27866,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/locator_test.go",
+      "hash": "f6e08e38516e405369e97e2240cb75304d25c284b909722be1e92aca6eed8637",
+      "size": 20178,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/remote_file_test.go",
+      "hash": "1254212b122ba086b75d8e6beba061bde5ef3ae04d20bec9fa051bb94b287f18",
+      "size": 21931,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/remotesource.go",
+      "hash": "d380255f32bb2e42c4ef9babae409a9e58c4444d7fb3c96de43ab11d5e33613a",
+      "size": 33672,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/resource_plan_test.go",
+      "hash": "f05781fcdcb791428e864fa7a011dfd32ae7d14b4d7b69e73d9e5234c9f40616",
+      "size": 818,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/resumable.go",
+      "hash": "c13035c8ba7162e31126bbb3d48b8a8366f7b08fadaaf7561851b407b9ea0ba3",
+      "size": 14027,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/root_range.go",
+      "hash": "49470a0e1c2f368ebb9c40dc4234669be1eba929da333aa80a057b5d469410db",
+      "size": 6910,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/root_range_test.go",
+      "hash": "6f1462aab82ab52cd78c118206d18313a611c5abdc7008005580675279993d31",
+      "size": 5775,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/root_stream.go",
+      "hash": "7a6a9450b2468df4d6a455b30053dec42da556b7f0c96b01c2c57b27f6750c94",
+      "size": 7687,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/source_test.go",
+      "hash": "f883463d8fb8032819ae60a2dc35566db281a7fc1777d68a11cc4dfde61c68b5",
+      "size": 470,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/types.go",
+      "hash": "22dd776e6efd7a585a13d3aa9aeb39103ed2c43707b7cef73dbb643d658918d4",
+      "size": 1026,
+      "type": "file"
+    },
+    {
+      "path": "internal/casc/versionconfig.go",
+      "hash": "651164dabb7d8f7163005c6a4d3998569bfa8d531406f75f391631e9930e56fa",
+      "size": 1812,
+      "type": "file"
+    },
+    {
+      "path": "internal/crypto/salsa20.go",
+      "hash": "cf390c026b52383dead2d1b8c9e672388d31fdba7889065bf0b7e26ec2ce00d2",
+      "size": 6735,
+      "type": "file"
+    },
+    {
+      "path": "internal/crypto/salsa20_test.go",
+      "hash": "ff567b3c2845f068a7e5490fa53f54427b287886b02f13ce4ef312ee5106426b",
+      "size": 4563,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/dbc.go",
+      "hash": "96325d46820d9c065ce59bb815c1f22c50012adac9021e34c9986b4043841b34",
+      "size": 4725,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/dbc_load_test.go",
+      "hash": "bc2d20d1413414eeb8b96347584a4a1baac2145e490c66c4a95c7ab5548d05c4",
+      "size": 1709,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/engine.go",
+      "hash": "9d0da23aa50762040c109e76e77973a9eafd7827de124201612e6f41dbf94a98",
+      "size": 6350,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/engine_bench_test.go",
+      "hash": "5da8f02482c2ece03c716e12e7b88f96b9d7e06685b4364f5591dbad57ccde40",
+      "size": 3660,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/engine_test.go",
+      "hash": "446b0efff8e935c71a58774ad5d4f2c39b980c2803ee99b8d018bb1f4f54c46c",
+      "size": 4776,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/field_type_string.go",
+      "hash": "edb714fcf040fc520dac23f5d9714b42496d661fb314cdfea2774d53c32eb631",
+      "size": 1212,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/query.go",
+      "hash": "01605b5ed0935dba78d57ddd2355befe300918a077548bb67f7eb479ca18503f",
+      "size": 6523,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/query_context.go",
+      "hash": "db726db79d04a15ea851e2a0e88d30599c56343eb83fb7d25ef7f8042dd43e22",
+      "size": 4004,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/query_test.go",
+      "hash": "044443ef022611d21307c8beb79209e0570811dcbceb303af0f131cc14f40ce5",
+      "size": 4099,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/reader_fastpath.go",
+      "hash": "cbc40fa58312a7cf0d1d409f4b77501313916534a980c946991efdfd5dff65a4",
+      "size": 11926,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/reader_fastpath_test.go",
+      "hash": "d31965db3803889f35acc666114917a959eb83749005206fc7542c5c48d12168",
+      "size": 6333,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/reader_fuzz_test.go",
+      "hash": "e86cdf9761c34d28f0a2c3f5316dea2f6aacb9f9f6f5703a97db68c70cfd1ac9",
+      "size": 1138,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/reader_load_test.go",
+      "hash": "ffa8ca0f18d6828fe61886c2fb63f9539b6f3c86a20cfe312638b764e2993de1",
+      "size": 457,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/schema_from_dbd.go",
+      "hash": "0af068ac10c992164da75ed7072ade1196736457dc084b645944a0a33e236659",
+      "size": 1573,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/schema_from_dbd_test.go",
+      "hash": "49aec74866b428592be5871cd1f3996f256c7cd8e12cf2c1d3c2fd2f10feb677",
+      "size": 1453,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/test_fixtures.go",
+      "hash": "961d7963a06704523abb60f43d8c7aa2963b09c38d7f2f62dda2ad3d5802fd44",
+      "size": 2523,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/testdata/fuzz/FuzzWDCReaderCorruptInput/179b8e95f5c426b3",
+      "hash": "179b8e95f5c426b3aca15eb557617177fb185537357282933a5ab38e577006ef",
+      "size": 372,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/testdata/fuzz/FuzzWDCReaderCorruptInput/2a817b5be756afc7",
+      "hash": "2a817b5be756afc7a7e4c53b36cf4397a97ea5b6ed9003cd73fff8c11bae8fb2",
+      "size": 415,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/testdata/fuzz/FuzzWDCReaderCorruptInput/3786414c79027f72",
+      "hash": "3786414c79027f72c82485e37d8cfc9e366c138719252ad0b02f668e4768451e",
+      "size": 496,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/testdata/fuzz/FuzzWDCReaderCorruptInput/deb43e81fcd31543",
+      "hash": "deb43e81fcd31543447040eb6d83e662f3777a7ad1fbdd4de4bda96700a8d96b",
+      "size": 338,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/types.go",
+      "hash": "aaf7e3686be03b853c7412282fb21e4017347c2c7406de0351c4e94131ddb65a",
+      "size": 1870,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/wdc.go",
+      "hash": "078fad029c0cc2c253df7fefc62de81055b69cdb7beba858502d90e94a7c3f20",
+      "size": 35902,
+      "type": "file"
+    },
+    {
+      "path": "internal/db2/wdc_test.go",
+      "hash": "b16c7feb15dd484e938b2ae6d9a5cf6d1e816fa188092d74007152696a16fef5",
+      "size": 12808,
+      "type": "file"
+    },
+    {
+      "path": "internal/dbd/manifest.go",
+      "hash": "3e06aa3be29c4b7ed95f9ca8217486cc6a48272a01bd00f07796af94cba3307f",
+      "size": 1326,
+      "type": "file"
+    },
+    {
+      "path": "internal/dbd/manifest_test.go",
+      "hash": "8677852f072fb7c64181694b8ce220f70bb8c572dace07c817afb422e80f7819",
+      "size": 745,
+      "type": "file"
+    },
+    {
+      "path": "internal/dbd/parser.go",
+      "hash": "88fcfae79ab9c7c5bfd7ab7d40104700749f27a4fff8fefa695c0e7dfabff68f",
+      "size": 5224,
+      "type": "file"
+    },
+    {
+      "path": "internal/dbd/parser_test.go",
+      "hash": "435a9b59b884c19e1010310570d703205ddd607808916366672adff61316474e",
+      "size": 3708,
+      "type": "file"
+    },
+    {
+      "path": "internal/diagnostics/diagnostics.go",
+      "hash": "cb73d0ffaab807406c8d7210f639dea5c0bd660671bc7d9def44506a8a586e09",
+      "size": 4184,
+      "type": "file"
+    },
+    {
+      "path": "internal/diagnostics/diagnostics_test.go",
+      "hash": "4306a0da49d0933a2449404320aadb7f2b6ec34af052e08bc1859fbb67ae65d9",
+      "size": 2540,
+      "type": "file"
+    },
+    {
+      "path": "internal/export/files.go",
+      "hash": "a03965a6dfb89340268ab22e69291dee3367a11e5ea7db3de577af4b03cd5ee4",
+      "size": 1912,
+      "type": "file"
+    },
+    {
+      "path": "internal/export/files_test.go",
+      "hash": "86ee34abc66d72714c29b600b7b2c7244946068ddb4cc77b4aa609fe083cb6a6",
+      "size": 1659,
+      "type": "file"
+    },
+    {
+      "path": "internal/export/icon.go",
+      "hash": "7cd144d28b23cfa364b6ca71ba8ae3eca061e8ca6910a2a4ddf570caebd3d27f",
+      "size": 2719,
+      "type": "file"
+    },
+    {
+      "path": "internal/export/icon_test.go",
+      "hash": "33a9c8a718ed6957e705f703e1f258ecc2b0af508a2ab35800d258c734654c2e",
+      "size": 2731,
+      "type": "file"
+    },
+    {
+      "path": "internal/golden/golden.go",
+      "hash": "f01a666f1efe57465380780a2c876328817178d8195d4fda0d31bd13b495e421",
+      "size": 18208,
+      "type": "file"
+    },
+    {
+      "path": "internal/golden/golden_test.go",
+      "hash": "846202c906ca32317cebad7a4ee70102e25d7dd6c6cd5a3717f565a14ea2d272",
+      "size": 9762,
+      "type": "file"
+    },
+    {
+      "path": "internal/listfile/listfile.go",
+      "hash": "ff716610c6aefb79a25d972663bc3f0df7e5193d191bf69732e7f0badd902ec1",
+      "size": 9760,
+      "type": "file"
+    },
+    {
+      "path": "internal/listfile/listfile_test.go",
+      "hash": "b57d0428f434328a6d76783557c2696601f4cf8f8cb605e0c7bc8566b8c805d8",
+      "size": 8303,
+      "type": "file"
+    },
+    {
+      "path": "internal/listfile/xxhash64.go",
+      "hash": "a24c0b57144124a911a3f06a68ae0f2f432617ccc72668ca21cf53c059dc2507",
+      "size": 2090,
+      "type": "file"
+    },
+    {
+      "path": "internal/resource/budget.go",
+      "hash": "881293fba26e1d3695ab05a92fc926a0f451e6061c9174b41c5a8c7cafd5862b",
+      "size": 4137,
+      "type": "file"
+    },
+    {
+      "path": "internal/resource/budget_test.go",
+      "hash": "4e8a21bbe45ba5198ae7fa3e5bded1c7e3d477de7a0687098ad9e836ec5cecea",
+      "size": 1946,
+      "type": "file"
+    },
+    {
+      "path": "internal/resource/memory_other.go",
+      "hash": "dd74f3e9c3da6b60967b717a55ea91d5f2925fd3dcf264b426955d9789d2bf2b",
+      "size": 456,
+      "type": "file"
+    },
+    {
+      "path": "internal/resource/memory_windows.go",
+      "hash": "4aeb042859eac014f74bfb03f6dfa6379477a48db0857815d95092106f9362dc",
+      "size": 711,
+      "type": "file"
+    },
+    {
+      "path": "internal/resource/scheduler.go",
+      "hash": "3adea83e14594f1d2c2c3c978cc12b1800c089be5600cc0643152302f542b2de",
+      "size": 5331,
+      "type": "file"
+    },
+    {
+      "path": "internal/resource/scheduler_test.go",
+      "hash": "67dcb893ca0230fb1d22369302f64fed6e78a59e76d71d865430eac042de73fc",
+      "size": 2813,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/db2_loader.go",
+      "hash": "67e413326d57cf0b2849999e8dd7e030b169fefbce6028a4b6dc1b77196c280d",
+      "size": 2310,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/db2_loader_test.go",
+      "hash": "b4749463ad3c6a5444ddc3f9e31f84e123173999d623ad8c6f67511b75646627",
+      "size": 1301,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/db2_store.go",
+      "hash": "0b8ae726497b909e6d10e9a1d134093399f667dc2b4fbf43f255b65536c8dfb8",
+      "size": 4860,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/db2_store_test.go",
+      "hash": "bbe817715e3f0a5522ce4d1dc8d5b2d5a420c7721701bae57f725b465a4e7139",
+      "size": 2818,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/dbd_manifest_source.go",
+      "hash": "e47b1440ec40c6aacab50c4705b18d007209bb30b00ddd8d1c2890e0a1242fed",
+      "size": 1745,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/dbd_manifest_source_test.go",
+      "hash": "eadc604ace2378f946d1b00fd3324ade6817679af57c1671441b24b13cb1a2c6",
+      "size": 2189,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/dbd_revision.go",
+      "hash": "a9155538e2f24544bfe00f78f9fbafc8bfc44be525b112ed0c9e28ebd83141ad",
+      "size": 2569,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/dbd_revision_test.go",
+      "hash": "e75206115be004122e3766ffb4342667f578f2a225596760611d441d2d6217fd",
+      "size": 790,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/dbd_source.go",
+      "hash": "6354029056357b1e5d3dafbcf8a90af725386e506a48a68bcdcc0873c95c6bc7",
+      "size": 1507,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/dbd_source_test.go",
+      "hash": "10de93600f052cc2a7c29b70478f91deae35f942499648ee977732e29218cc22",
+      "size": 2084,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/download_progress_test.go",
+      "hash": "c0c3057be7d77f9811e64b50789062709a83135826ebd26495f30d61bf9c553b",
+      "size": 264,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/file_store.go",
+      "hash": "abb3e7fd9f609a50197d26f797ef8309053493bd9e8b7f15cf997f1a2fbdcf56",
+      "size": 4835,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/file_store_test.go",
+      "hash": "148ab83225fdc84f6011dab63ee24608ee4421861aa6a752eb77008d28e03ec2",
+      "size": 3420,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/listfile_source.go",
+      "hash": "66f70c70f2a510cfd607cd3c860ff85b7b3e8176f382f9c4d1e1e0b8e26ea4db",
+      "size": 4950,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/listfile_source_test.go",
+      "hash": "dfffe767aa1997d04eccc1417983b21a2341755fd1794262e007302ad66c0b4b",
+      "size": 8334,
+      "type": "file"
+    },
+    {
+      "path": "internal/runtime/runtime.go",
+      "hash": "9e6ab47bba0eff77b4c15c777e10f559f483c874b804734b50b193d441c73531",
+      "size": 1250,
+      "type": "file"
+    },
+    {
+      "path": "internal/storage/cache.go",
+      "hash": "2064efcb057e021e861fb6c50505ceb7941d2e25d4ca8ffcea144aa4e5e23504",
+      "size": 13125,
+      "type": "file"
+    },
+    {
+      "path": "internal/storage/cache_test.go",
+      "hash": "7b637274ddeb7f9b2c87379c8b6c8d7b3bbde556bf62da37e406c33c2b595a95",
+      "size": 4014,
+      "type": "file"
+    },
+    {
+      "path": "internal/storage/cache_usage_test.go",
+      "hash": "1e97054a6ab0fe557b2af88bf5e1e800c71da0db624fa35529e388fe977044b4",
+      "size": 2175,
+      "type": "file"
+    },
+    {
+      "path": "internal/storage/layout.go",
+      "hash": "b1ea51426941dcd6f84c4218c022fc3ba1f8b2a7d7482d117063b77d2623b9b8",
+      "size": 12380,
+      "type": "file"
+    },
+    {
+      "path": "internal/storage/layout_test.go",
+      "hash": "756c72472b778f1c577bc1d6e31a4514f58d5d30683052fff400f0dc815039e2",
+      "size": 4245,
+      "type": "file"
+    },
+    {
+      "path": "internal/storage/lock.go",
+      "hash": "96e58fc034982b9e017b57c3bba438262b852ade1277bb10996d00336792ac55",
+      "size": 2334,
+      "type": "file"
+    },
+    {
+      "path": "internal/storage/lock_test.go",
+      "hash": "1726764bcb96a5700c728affb2413eda96a9e8dc120c23f991fc9d1558b6eb9c",
+      "size": 1178,
+      "type": "file"
+    },
+    {
+      "path": "internal/storage/process_alive_unix.go",
+      "hash": "44e9f842685d23d55db034de7c58243719c39302574e81b4082738a9f48aa7f4",
+      "size": 298,
+      "type": "file"
+    },
+    {
+      "path": "internal/storage/process_alive_windows.go",
+      "hash": "adada363eeff683c6bd8cc0dda15b55b761552c787be8eb664c87220795fa6e3",
+      "size": 1037,
+      "type": "file"
+    },
+    {
+      "path": "internal/storage/replace_unix.go",
+      "hash": "909a44a94dd665ebab381dcb79499fe5d678901237fb9dbd2cb7ee34a7090fc2",
+      "size": 135,
+      "type": "file"
+    },
+    {
+      "path": "internal/storage/replace_windows.go",
+      "hash": "4d7f7a37fc0a59b2eabd453372fbfa57fc33bcee4698678f9efbf56d253f81d5",
+      "size": 362,
+      "type": "file"
+    },
+    {
+      "path": "internal/tact/keys.go",
+      "hash": "f2c6079107c761d62a7821e9f795b1ae81e6eebe21aa207b253c5bb3366df9a2",
+      "size": 2552,
+      "type": "file"
+    },
+    {
+      "path": "internal/tact/keys_test.go",
+      "hash": "3e1f4f3053b596d364ed056a162d759d48d2d6e829dbc8994aa88ec6dbafce63",
+      "size": 3054,
+      "type": "file"
+    },
+    {
+      "path": "internal/video/vp9_avi_demuxer.go",
+      "hash": "188b4759c0ae3767c783fc728e986a29ad83275051ed65b44bfab25c1061eb80",
+      "size": 4039,
+      "type": "file"
+    },
+    {
+      "path": "internal/video/vp9_avi_demuxer_test.go",
+      "hash": "bc105e563427c101abcb214c5905345e1b56621465fc8ca6698ef215fd522238",
+      "size": 4479,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/creatures.go",
+      "hash": "3413536dec4184c01b02a26af209ea581f1d93ad77eded5997acda61fa27834a",
+      "size": 4739,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/creatures_test.go",
+      "hash": "c6c2fcd5230222658348f4026251e841f3740aaa77da06bdf1e2c736634ac733",
+      "size": 2484,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/db2_helpers.go",
+      "hash": "b2d06c9e2a7c337485a879db64af4580b2ea2899d4d678ccf6b5a1b026562072",
+      "size": 2608,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/decor.go",
+      "hash": "88e525b860150081b0a5657cc81fd998f9d6b0b8c5b020850a4bd0deb706919a",
+      "size": 2538,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/decor_test.go",
+      "hash": "888399dd42203c5d89a591cf67b5cff4fa6aaeb05e891f1cef993f2a11549cdd",
+      "size": 1844,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/encounter.go",
+      "hash": "151fd078eabfe36f447668ae9ef5e9122455cade298cc89714b4f39e1f85bafd",
+      "size": 5451,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/encounter_catalog.go",
+      "hash": "b1cce63a584b9af79d11530c3467915fbb0a38d16e33b44932dd4abf26a261f6",
+      "size": 2249,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/encounter_catalog_test.go",
+      "hash": "d8fa93596e7461aed9660a2d73b3d8b442dcfd802a07a7c7aacb8754eb6c9d34",
+      "size": 887,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/encounter_test.go",
+      "hash": "dc6ce620fee86ff3bd6136b9635dc9f3035bea7a55d99b0192100fe83c7307da",
+      "size": 3616,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/equipment_slots.go",
+      "hash": "fbbb2ddd35786f20519ba5ceb77e5852d5b2a007f9b9a62c7fb22ce6a85a566d",
+      "size": 1401,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/items.go",
+      "hash": "83f54153897a21987369b253f14d2efa95adde29b0d447b15d73fd5d3153012b",
+      "size": 8040,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/items_test.go",
+      "hash": "d9bd458007cdb9e85230e24d8ad17dbfdec746107a6d9ed695126d15bd87eda2",
+      "size": 4561,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/row_store.go",
+      "hash": "3cd66478a0710495cbe7f0d5c5f2130745730fc0a9c584ef0c664d0c1e4f4290",
+      "size": 4340,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/spell.go",
+      "hash": "4608360e79810df3ef5ba13da1bb7e74b5082c8a815e29b583dadc74d76f38ab",
+      "size": 15203,
+      "type": "file"
+    },
+    {
+      "path": "internal/wowdata/spell_test.go",
+      "hash": "eecbb3c95d8630aa58ddb6fe06b3fdf6c3609fd9d47f4632b012751e64b6c925",
+      "size": 4364,
+      "type": "file"
+    },
+    {
+      "path": "npm/bin/wowdata.js",
+      "hash": "00fb1d4b59b580162a4c2c75d22385981fc436fee8e01228886884ba81149479",
+      "size": 2876,
+      "type": "file"
+    },
+    {
+      "path": "npm/lib/fs.js",
+      "hash": "06ba329848e8cd0fb7a61254fb4550f0a5e815c7d76326d4d210941a2f64a132",
+      "size": 788,
+      "type": "file"
+    },
+    {
+      "path": "npm/lib/paths.js",
+      "hash": "f983d11af6cbf17546d19990f56b8c3f83d96a878827d44e09e168a1d0e8059d",
+      "size": 972,
+      "type": "file"
+    },
+    {
+      "path": "npm/scripts/install.js",
+      "hash": "ca997e81d77c2634d9ec0fc84bd875914c2dd29ad6632ced66ac4f804e921b9f",
+      "size": 3407,
+      "type": "file"
+    },
+    {
+      "path": "npm/scripts/uninstall.js",
+      "hash": "70c5a767a1ce41aa5948c88e6a12c4cd98a0b810fbe73b9dd61da1188e6a9a27",
+      "size": 1626,
+      "type": "file"
+    },
+    {
+      "path": "npm/test/install.test.js",
+      "hash": "e599501b9bab0a51b26aef1a7ca8f73cce386b01892abf7c5d4dc52423663a2a",
+      "size": 1669,
+      "type": "file"
+    },
+    {
+      "path": "npm/test/launcher.test.js",
+      "hash": "59d7c4c0c4505a51a3a900774c9225f91391a1adc21f1b8d22554014ec1112ff",
+      "size": 892,
+      "type": "file"
+    },
+    {
+      "path": "package-lock.json",
+      "hash": "ee96d47559ab1d10ed59f235bf9356f11002bbadee8d705e603589e88d5920c6",
+      "size": 386,
+      "type": "file"
+    },
+    {
+      "path": "package.json",
+      "hash": "e2a1bfbc57fbfd1abfb394af3bf9abd7772e83f0becc893b019a16c1bde747a7",
+      "size": 867,
+      "type": "file"
+    },
+    {
+      "path": "skill/wowdata/SKILL.md",
+      "hash": "aa18a458b803594d45eda7918e40bad0107f7afe752d2f36d30ea6b73694e31a",
+      "size": 4527,
+      "type": "file"
+    },
+    {
+      "path": "skill/wowdata/VERSION",
+      "hash": "a5dd346546a384362936b97a4c2f5da2d3d253043ea9679aa7b97d89550dfdbd",
+      "size": 6,
+      "type": "file"
+    },
+    {
+      "path": "skill/wowdata/agents/openai.yaml",
+      "hash": "257e36c5b5453b12028280de291cce4ced96bb93a0893b3adde6eb5a4da01671",
+      "size": 234,
+      "type": "file"
+    },
+    {
+      "path": "skill/wowdata/references/clients.yaml",
+      "hash": "daad17e074ecbf6c41a4e5aececfae25a3646f4c87806a0790240ba564ce8644",
+      "size": 902,
+      "type": "file"
+    },
+    {
+      "path": "skill/wowdata/references/commands.md",
+      "hash": "b742a772a55f060581a5247eb37442b00a57fd865a5b6170241094545c5537df",
+      "size": 4641,
+      "type": "file"
+    },
+    {
+      "path": "skill/wowdata/references/locales.yaml",
+      "hash": "e23bc130be92b8c764d758ef31f52fc66d5ff83f851ab818baf266885d3a1275",
+      "size": 413,
+      "type": "file"
+    },
+    {
+      "path": "skill/wowdata/references/tables.yaml",
+      "hash": "22c3a596945e9cd9a9bd29be3ff4da9a187efc04d27e0d490c486056e3a0d577",
+      "size": 461,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/README.md",
+      "hash": "d08553192a2e7d0cfc98e0c4e07c1a201a909c221b2f6fe2a005c5d45fe3aa85",
+      "size": 12147,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/calibrate/main.go",
+      "hash": "1e970f873e61570cadd121761fab1261f3d7910c5f6159a8118ea70858b7a110",
+      "size": 14203,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/calibrate/main_test.go",
+      "hash": "22372f4fb40ad647b7ba3b59b16f2df609a9fb412f7ba906d5d81ddf9926105c",
+      "size": 2712,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/calibrate/system_other.go",
+      "hash": "c3ef02a1204e28350b81c49141e56e3f80e98d98f0e03c09f68edb27a9aadab2",
+      "size": 680,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/calibrate/system_windows.go",
+      "hash": "9bf577bf8478216247e2071474399a09807345e200827a97c4134facb6ed57f3",
+      "size": 2597,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/coverage/main.go",
+      "hash": "ab604714982aa98c2725f40ba2563640a4c61029b42eec274f3243177ed86dce",
+      "size": 2418,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/floor/main.go",
+      "hash": "e1431459cf40d9b2ad10e9442c8757c74e0877cf31b9302ab90e01e03684d9cf",
+      "size": 17125,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/floor/main_test.go",
+      "hash": "bdb020a49608208c85170a6ecdc51463a731729c8e9435b0e8ff6a65eec41829",
+      "size": 6531,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/floor/matrix_floor.go",
+      "hash": "9256b39b25be68682a4acc821a7bb16fbd36932444a263b5cfd208d787babe37",
+      "size": 20475,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/floor/matrix_floor_test.go",
+      "hash": "48d09b2abcd1eb85d5127f1db0b09bf10c1abe29f3886cb85d04af55a9a0f3b7",
+      "size": 6659,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/generate-command-matrix.ps1",
+      "hash": "a7986b394b4b398d3c2f7964a0dd272e17b116723d45d4087b6abb80e5d22969",
+      "size": 2041,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/manifest/main.go",
+      "hash": "bcd0a203bbb76d3912117b84215fc75961e0523d184434eb4167d1c46d1b3a75",
+      "size": 2162,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/matrix/main.go",
+      "hash": "f7bcd814965feeea204a2bff3f9e55f238bad8c199097ee11d427c7815460dec",
+      "size": 14600,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/matrix/main_test.go",
+      "hash": "d7a6863d6159e6ca212b04154b3cf0bc6fbb3646cc467dd082a8fb9fb124fcee",
+      "size": 5470,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/networkcalibrate/main.go",
+      "hash": "c337be4aba5a4d4aa65ef11e30e00bb8bec5264e43d43a87c0883e701aee0940",
+      "size": 19719,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/networkcalibrate/main_test.go",
+      "hash": "f7dd0894b1647f1e369741dba94377e1519c581cd920a70300fd8d1d90be5b69",
+      "size": 3802,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/processprobe/main.go",
+      "hash": "a8ee1092470348d8dbf606fa40f2ab99a8cbafd8e09f5ff7a7c059a48ca8862e",
+      "size": 3064,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/processprobe/main_test.go",
+      "hash": "9d89cbbf1216491cb712dcc297bc91e6dded7119cdc0becbd0bd6b812068a6e4",
+      "size": 453,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/report/main.go",
+      "hash": "c29a679e8ff60fd69ce849ffe6ce3fce66c51bfed6c5c350e144d8e33badbfe2",
+      "size": 38996,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/report/main_test.go",
+      "hash": "f9cc7b0d14def93692845ed71d138d2115fb4a81ce476c5b48721bfb55202208",
+      "size": 7470,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/run-command-matrix.ps1",
+      "hash": "bf05ed19dbbac79693ed05fa91beaecd50a6ba9c93370926371edb80390c0a3c",
+      "size": 29078,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/run-live.ps1",
+      "hash": "b8b84da2eb16ea4f383405928f27f3115246cb824b7ce6f8abdbb057c6b8ade5",
+      "size": 8177,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/run-network-tournament.ps1",
+      "hash": "a6a2f7f9a58314c5960dafe679a100c92bfa6f3c18c309d2c8fb57430f999a85",
+      "size": 10984,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/run-query.ps1",
+      "hash": "a717592838a3858f1e4da1764107ab933f09d502b1339885dceab7775b63cc7d",
+      "size": 3998,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/run-resume-kill.ps1",
+      "hash": "49c86ecfc308f56fb8826007a0b163cbc66f92080d7ce238685bc3463bf3d3ee",
+      "size": 8106,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/run.ps1",
+      "hash": "6186879e1c4ede970ad9f1fd46402941e42e3c2206c3aa3767d1191bf657cf52",
+      "size": 2411,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/smoke-command-matrix-artifacts.ps1",
+      "hash": "f7e8edfe26477b9cd6e36fcd449bc02640e91d1a7475ce7196906d841b18069a",
+      "size": 4346,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/smoke-command-matrix-cache-identity.ps1",
+      "hash": "742d2be80a6ec8e22b4f1ace64e616d0eab1106ef083f54c4cf04c21ecdd6678",
+      "size": 3485,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/smoke-command-matrix-install-isolation.ps1",
+      "hash": "7b881eefc4c97f2ca1c587ebbf92031d23b27765ace42cd2cf46c734518add3d",
+      "size": 4714,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/smoke-command-matrix-runner.ps1",
+      "hash": "9dc62f0da0cdc79162d9f7c9546e174a87cf3130f7840dbbf0ce95e8a2bcf109",
+      "size": 4344,
+      "type": "file"
+    },
+    {
+      "path": "tools/benchmark/target-inputs.json",
+      "hash": "77ec173be8a7e8cc45919baa56e3b4ec836ffbb63a7153a386d90c0eebd2f92c",
+      "size": 9685,
+      "type": "file"
+    },
+    {
+      "path": "tools/corpus/main.go",
+      "hash": "7ae44b0d4a52ea175f52e47728bd5f3825c50f83f868cd87554ea01282abc0eb",
+      "size": 29165,
+      "type": "file"
+    },
+    {
+      "path": "tools/corpus/main_test.go",
+      "hash": "fe82bc00361476bd005cbbb9f9907545743b14b72bc010bf91ffc0e3a8e9cb88",
+      "size": 6864,
+      "type": "file"
+    },
+    {
+      "path": "tools/golden/run-all.ps1",
+      "hash": "236849366120dd3954a31fbaf52877767ad5e2e49266fd330d7ef605493fbc82",
+      "size": 696,
+      "type": "file"
+    },
+    {
+      "path": "tools/golden/runner/main.go",
+      "hash": "1f080d75650e66dd53ff6dcc93386ef26a58fa6e69459d043845bff7f98f7724",
+      "size": 15187,
+      "type": "file"
+    },
+    {
+      "path": "tools/golden/runner/main_test.go",
+      "hash": "73c1b2df7ccd3a387d6cf27f53332f4f58724bfe342e265531f8df9c21b3091d",
+      "size": 2985,
+      "type": "file"
+    }
+  ],
+  "omitted": [],
+  "omittedCount": 0
+}

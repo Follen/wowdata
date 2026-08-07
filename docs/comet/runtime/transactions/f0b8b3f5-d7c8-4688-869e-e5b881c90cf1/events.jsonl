@@ -1,0 +1,8 @@
+{"sequence":1,"timestamp":"2026-08-06T17:17:20.923Z","type":"prepared"}
+{"sequence":2,"timestamp":"2026-08-06T17:17:21.833Z","type":"operation-started","operationId":"spec-1-wowdata-performance"}
+{"sequence":3,"timestamp":"2026-08-06T17:17:21.931Z","type":"operation-completed","operationId":"spec-1-wowdata-performance"}
+{"sequence":4,"timestamp":"2026-08-06T17:17:22.840Z","type":"operation-started","operationId":"archive-change"}
+{"sequence":5,"timestamp":"2026-08-06T17:17:25.790Z","type":"operation-completed","operationId":"archive-change"}
+{"sequence":6,"timestamp":"2026-08-06T17:17:27.332Z","type":"archive-finalization-started"}
+{"sequence":7,"timestamp":"2026-08-06T17:17:27.392Z","type":"archive-finalized"}
+{"sequence":8,"timestamp":"2026-08-06T17:17:27.429Z","type":"commit"}

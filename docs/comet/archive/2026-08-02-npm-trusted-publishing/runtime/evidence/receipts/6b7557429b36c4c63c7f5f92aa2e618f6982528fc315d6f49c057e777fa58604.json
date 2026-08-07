@@ -1,0 +1,52 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "npm-trusted-publishing",
+    "sourceRevision": 3,
+    "contractHash": "fdded82af7b28bd020721a3b6e31c78193c7630a8f750a3dfc4f7fea6de4c574",
+    "scopeHash": "af7b0e8f964d43648deb44bbd7c4ab5d478c1b6265027d06940ae23bf3a1827b",
+    "snapshotHash": "191911fe15420e0ee0633bb175f9baaeb5f85efed8d993496fecd5042e1f6dda",
+    "artifactHash": "e352892a56dd1014305c647d193063af198aded906c5627444172715c31ae239"
+  },
+  "acceptanceIds": [
+    "acceptance-453a3e8648ddf62da26c2d7d93ca1a2e22bea1d624b08a4bcc85e5c593eeddd4",
+    "acceptance-bb8ae8a5e20e6ad8685e9130c0ebb2b44dd7dc2bb46cc89b121394f89f676c38"
+  ],
+  "actor": "native-runtime:command:powershell.exe",
+  "issuedAt": "2026-08-02T17:31:17.419Z",
+  "evidence": {
+    "executable": "powershell.exe",
+    "args": [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      ".local/verify-package.ps1"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 180000,
+    "startedAt": "2026-08-02T17:31:06.391Z",
+    "endedAt": "2026-08-02T17:31:17.419Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "0c617eb1c825dfa76722cac695310803b1a31a51",
+      "afterCommit": "0c617eb1c825dfa76722cac695310803b1a31a51"
+    },
+    "afterFence": {
+      "snapshotHash": "191911fe15420e0ee0633bb175f9baaeb5f85efed8d993496fecd5042e1f6dda",
+      "scopeHash": "af7b0e8f964d43648deb44bbd7c4ab5d478c1b6265027d06940ae23bf3a1827b",
+      "matched": true
+    },
+    "outputHash": "155450f60ddb1ebdc28032f1b2d7ed726dcf439b9f09685dab55238e432346bd",
+    "outputSummary": "builds=5 package=@follenfang/wowdata@0.0.1 files=22",
+    "outputTruncated": false
+  },
+  "receiptHash": "6b7557429b36c4c63c7f5f92aa2e618f6982528fc315d6f49c057e777fa58604"
+}

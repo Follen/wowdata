@@ -1,0 +1,35 @@
+{
+  "schema": "wowdata.sql-hotfix-benchmark.v1",
+  "generated_at": "2026-08-07T03:56:40.4561935Z",
+  "mode": "wago-offline",
+  "target": {
+    "Home": "",
+    "Path": "",
+    "Region": "",
+    "Product": "",
+    "Build": "",
+    "Locale": ""
+  },
+  "offline": {
+    "cases": [
+      {
+        "id": "wago-retail-page1-build68974-region71-enUS",
+        "last_page": 680096,
+        "page": 1,
+        "records": 5,
+        "sha256": "699b34d2f89e48f9318b863714079cb10a7a0681c738ea70ada6b0b46cb80b0f",
+        "total": 17002386
+      },
+      {
+        "id": "wago-pagination-page2",
+        "last_page": 680111,
+        "page": 2,
+        "records": 0,
+        "sha256": "de2574ba958be267e3ca634405b9b40ff05ac474e34502dd9eb086486aa723bb",
+        "total": 17002775
+      }
+    ],
+    "items": 5,
+    "manifest": "internal\\hotfix\\testdata\\wago-hotfix-offline\\manifest.json"
+  }
+}

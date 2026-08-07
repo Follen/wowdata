@@ -9,6 +9,8 @@ import (
 type Service struct {
 	Warmup    func(cmd *cobra.Command, args []string) error
 	Casc      func(cmd *cobra.Command, args []string) error
+	SQL       func(cmd *cobra.Command, args []string) error
+	Hotfix    func(cmd *cobra.Command, args []string) error
 	DB2       func(cmd *cobra.Command, args []string) error
 	Spell     func(cmd *cobra.Command, args []string) error
 	Encounter func(cmd *cobra.Command, args []string) error
@@ -45,6 +47,24 @@ type commandSpec struct {
 
 func registerCommands(root *cobra.Command, svc *Service) {
 	specs := []commandSpec{
+		{use: "sql [query]", short: "Execute read-only wowdata-sql-v1 against static DB2 tables.", example: "  wowdata sql \"SELECT * FROM SpellEffect WHERE SpellID = :spell_id\" --param spell_id=100", group: "sql",
+			flags: []cmdFlag{
+				{name: "file", typ: "string", desc: "Read SQL from a UTF-8 file"},
+				{name: "stdin", typ: "bool", desc: "Read SQL from stdin"},
+				{name: "param", typ: "stringArray", desc: "Named parameter in name=value form; may be repeated"},
+				{name: "format", typ: "string", dflt: "json", desc: "Output format: json, jsonl, or csv"},
+			}},
+		{use: "hotfix", short: "Query independent Hotfix records.", example: "  wowdata hotfix query --product wow_classic_titan --build 3.80.2.69137 --region 196 --locale zhCN --table SpellPowerDifficulty --latest", group: "hotfix", child: []commandSpec{
+			{use: "query", short: "Query local DBCache or Wago Hotfix records.", example: "  wowdata hotfix query --product wow_classic_titan --build 3.80.2.69137 --region 196 --locale zhCN --table SpellPowerDifficulty --latest", group: "hotfix",
+				flags: []cmdFlag{
+					{name: "product", typ: "string", desc: "Hotfix product"}, {name: "build", typ: "string", desc: "Complete Build/version"}, {name: "region", typ: "uint32", desc: "Numeric region ID"}, {name: "locale", typ: "string", desc: "Locale such as zhCN"},
+					{name: "table", typ: "string", desc: "Table name"}, {name: "table-hash", typ: "uint32", desc: "Numeric DBCache table hash"}, {name: "record", typ: "uint32", desc: "Record ID"}, {name: "push", typ: "int", desc: "Push ID"}, {name: "status", typ: "int", desc: "Raw status"},
+					{name: "from", typ: "string", desc: "Created-at lower bound"}, {name: "to", typ: "string", desc: "Created-at upper bound"}, {name: "search", typ: "string", desc: "Wago candidate search"},
+					{name: "latest", typ: "bool", desc: "Return the complete maximum-PushID batch"}, {name: "source", typ: "string", dflt: "wago", desc: "wago, dbcache, or raidbots"}, {name: "dbcache", typ: "string", desc: "Local DBCache.bin path"}, {name: "raidbots", typ: "string", desc: "Recent Raidbots DBCache snapshot path"}, {name: "dbd", typ: "string", desc: "Build-specific DBD definition for --decoded"}, {name: "raw", typ: "bool", desc: "Include raw payload"}, {name: "decoded", typ: "bool", desc: "Include decoded data when available"},
+					{name: "page", typ: "int", desc: "Wago page (zero means automatic)"}, {name: "limit", typ: "int", desc: "Maximum records"}, {name: "format", typ: "string", dflt: "json", desc: "Output format: json, jsonl, or csv"},
+				},
+			},
+		}},
 		{use: "warmup", short: "Prepare a complete local or remote WoW data target.", example: "  wowdata warmup --source remote --region cn --product wow --build latest --locale zhCN", group: "warmup",
 			flags: []cmdFlag{
 				{name: "source", typ: "string", desc: "Data source: local or remote"},
@@ -283,6 +303,8 @@ func buildCommand(spec commandSpec, svc *Service) *cobra.Command {
 			cmd.Flags().String(f.name, f.dflt, f.desc)
 		case "bool":
 			cmd.Flags().Bool(f.name, f.dflt == "true", f.desc)
+		case "stringArray":
+			cmd.Flags().StringArray(f.name, nil, f.desc)
 		}
 	}
 	for _, child := range spec.child {
@@ -297,6 +319,14 @@ func resolveHandler(spec commandSpec, svc *Service) func(cmd *cobra.Command, arg
 		return handler
 	}
 	switch spec.group {
+	case "sql":
+		if svc.SQL != nil {
+			return svc.SQL
+		}
+	case "hotfix":
+		if svc.Hotfix != nil {
+			return svc.Hotfix
+		}
 	case "warmup":
 		if svc.Warmup != nil {
 			return svc.Warmup

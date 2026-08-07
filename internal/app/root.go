@@ -16,6 +16,7 @@ func NewRootCommandWithService(svc *Service) *cobra.Command {
 			"Data commands prepare their required cache automatically. The optional warmup command prepares data ahead of time.",
 		Example: "  wowdata casc products --source remote --region cn\n" +
 			"  wowdata warmup --source remote --region cn --product wow --build latest --locale zhCN\n" +
+			"  wowdata sql \"SELECT ID, Name_lang FROM SpellName WHERE ID = 123\" --source local --region us --product wow --build latest --locale enUS\n" +
 			"  wowdata db2 rows SpellName --id 123 --source remote --region cn --product wow --build latest --locale zhCN\n" +
 			"  wowdata file lookup --file-data-id 456 --profile retail-cn\n" +
 			"  wowdata icon export --file-data-id 789 --format png --profile retail-cn",

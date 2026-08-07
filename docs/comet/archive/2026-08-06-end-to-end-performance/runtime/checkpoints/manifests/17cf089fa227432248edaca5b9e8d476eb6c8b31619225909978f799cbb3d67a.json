@@ -1,0 +1,12 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "end-to-end-performance",
+  "artifacts": [
+    {
+      "path": "analyze/benchmark/command-matrix-r41d-formal-10x-attempt11/run.ps1",
+      "hash": "51b0cf39413de54273891f43c8b95e19097909aeb113fb27c055ac3861262e4b",
+      "size": 1193
+    }
+  ],
+  "totalBytes": 1193
+}

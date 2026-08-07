@@ -1,0 +1,49 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-effective-db2-hotfix",
+    "sourceRevision": 6,
+    "contractHash": "57d5607304a202cf427249097ad27467357305e743ab49ef8e976770f7372c6c",
+    "scopeHash": "1f0da628d5f5a365ad927a0c19144ed13d644269d35ddb87570a73d2bf34921c",
+    "snapshotHash": "1b9b36ca94b7ec0c4591aaeb38f001cdab5ed248cb2ae3adc9179e8a8409fcfe",
+    "artifactHash": "1e7d80b4d9cb3467cc2c2809d4ff6d249f07b73e1225e46a78cd1cd5922cc007"
+  },
+  "acceptanceIds": [
+    "acceptance-f4d9cce91b170881af80dfacf55c50958066eee9a1e9a5b6fbd8582b7681091a",
+    "acceptance-f8a93e7ee8cfbbab9edc0ffe6ade4cc5dc0bd2786dcb48260210767c0996319f",
+    "acceptance-f90cb62ab745a0ce604116c3cd49972dddd5ad5fb6eaf518d52f168238c9fa3e"
+  ],
+  "actor": "native-runtime:command:python.exe",
+  "issuedAt": "2026-08-07T04:29:46.519Z",
+  "evidence": {
+    "executable": "python.exe",
+    "args": [
+      "analyze/sql-effective-db2-hotfix-build/verify_reports.py"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 120000,
+    "startedAt": "2026-08-07T04:29:46.470Z",
+    "endedAt": "2026-08-07T04:29:46.519Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "9a7176d2e5e0b3f4692686896f25a7dae8ff8aca",
+      "afterCommit": "9a7176d2e5e0b3f4692686896f25a7dae8ff8aca"
+    },
+    "afterFence": {
+      "snapshotHash": "1b9b36ca94b7ec0c4591aaeb38f001cdab5ed248cb2ae3adc9179e8a8409fcfe",
+      "scopeHash": "1f0da628d5f5a365ad927a0c19144ed13d644269d35ddb87570a73d2bf34921c",
+      "matched": true
+    },
+    "outputHash": "5cd3a92f8b47b98a31f3d94ad2bb85cda9c2fac07d3e7cadb82c4a1d4932f59d",
+    "outputSummary": "{\"reports\": 5, \"performance_cases\": 11, \"performance_samples\": 440, \"functional_cases\": 11, \"failures\": 0}",
+    "outputTruncated": false
+  },
+  "receiptHash": "53684442c1f839c96343a4ea4dba5ae6c86e5d294eab51543a33ed6e134ce580"
+}

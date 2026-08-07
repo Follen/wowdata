@@ -1,0 +1,47 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "end-to-end-performance",
+  "artifacts": [
+    {
+      "path": "analyze/benchmark/chunk-tournament-r5/sha256-manifest.json",
+      "hash": "68428779186e421e50cf086224dc1ff640d18fd2d02b9099dd1e3bde431af2cb",
+      "size": 4001
+    },
+    {
+      "path": "analyze/benchmark/locator-r5k-independent-cold/sha256-manifest.json",
+      "hash": "fa9a173f88bc047869d9fb11ff7df51091e24a773bf6ae239e7eaad603074b43",
+      "size": 1696
+    },
+    {
+      "path": "analyze/benchmark/metadata-tournament-r5/sha256-manifest.json",
+      "hash": "c57035708291bf737ae25891a7507bab81f4dbbd86cf697c2c6227180ca0c893",
+      "size": 4075
+    },
+    {
+      "path": "analyze/benchmark/network-selection-r5.json",
+      "hash": "d093ca33b0741c7d6edc154c2106647f429b448a47ef0e2ff9e0d230125d4300",
+      "size": 4512
+    },
+    {
+      "path": "internal/casc/http_metrics.go",
+      "hash": "56a44036a23077df774211a7c92b489ed767d34dc9a0785dcbc7b57f95176b73",
+      "size": 5956
+    },
+    {
+      "path": "internal/casc/locator.go",
+      "hash": "782e415b8330b94fa0ba63e7ad7d022f010b2bace3538b4e57dc29facbe1d68b",
+      "size": 17458
+    },
+    {
+      "path": "internal/casc/resumable.go",
+      "hash": "c13035c8ba7162e31126bbb3d48b8a8366f7b08fadaaf7561851b407b9ea0ba3",
+      "size": 14027
+    },
+    {
+      "path": "internal/resource/scheduler.go",
+      "hash": "d55c7321886862e2a14151dbab786d6e5dedb52183b40c8093f309af672a78bf",
+      "size": 1491
+    }
+  ],
+  "totalBytes": 53216
+}

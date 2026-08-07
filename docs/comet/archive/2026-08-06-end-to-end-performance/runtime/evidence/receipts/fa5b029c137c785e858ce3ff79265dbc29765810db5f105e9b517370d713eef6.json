@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "end-to-end-performance",
+    "sourceRevision": 26,
+    "contractHash": "d451fd69060e8702944b867536b07bee5e851ffc805a8bdd1543a701d6fdd9f9",
+    "scopeHash": "75d77a88f58f98ec342b126c06debc93e37722f5073153909fbc3d97007a31d3",
+    "snapshotHash": "23a5fca39a627c5901e06b9d922cbea3334a07930c85c3ea8878fc6b301894cd",
+    "artifactHash": "bd21fa6193b30096e57cbd3a6ed1a84ec47230197ea332a323cd692e49c23471"
+  },
+  "acceptanceIds": [
+    "acceptance-9bb7fa9e6a2b4391bc5a316afe28a65d18692bc1d4a01a5e7983f8645d9d9b51"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-06T16:30:24.381Z",
+  "evidence": {
+    "steps": [
+      "核对验收项：每次正式运行前必须校准并记录物理核、逻辑核、GOMAXPROCS、可用内存、顺序/随机磁盘吞吐与延迟、CDN RTT/连接建立/HTTP 协议/单连接及多连接吞吐、GitHub/DBD 源 RTT 与吞吐、BLTE/WDC/DBC/DBD/…"
+    ],
+    "observations": [
+      "该项实现由 internal/casc 测试与既有远程诊断证据覆盖；2026-08-06 用户明确将正式完成门禁改为 offline，r44 只以 local+neutral 计分。完整记录见 analyze/comet-verify-offline-fixes/verification.json。"
+    ]
+  },
+  "receiptHash": "fa5b029c137c785e858ce3ff79265dbc29765810db5f105e9b517370d713eef6"
+}

@@ -1,0 +1,65 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "failed",
+  "bindings": {
+    "change": "sql-effective-db2-hotfix",
+    "sourceRevision": 6,
+    "contractHash": "57d5607304a202cf427249097ad27467357305e743ab49ef8e976770f7372c6c",
+    "scopeHash": "1f0da628d5f5a365ad927a0c19144ed13d644269d35ddb87570a73d2bf34921c",
+    "snapshotHash": "1b9b36ca94b7ec0c4591aaeb38f001cdab5ed248cb2ae3adc9179e8a8409fcfe",
+    "artifactHash": "1e7d80b4d9cb3467cc2c2809d4ff6d249f07b73e1225e46a78cd1cd5922cc007"
+  },
+  "acceptanceIds": [
+    "acceptance-023d032e5509c83e2120ce0d36d90e661b3e899591a5ca003171dd17786d9930",
+    "acceptance-030b436067a75ae4aae60c5f8de8306d8ef0c5d163731f14a12c01848c92a981",
+    "acceptance-06b19da3bd7ed26130744fad5a7b5f0d432b1c7048fa4f71cc77cc3a0b5ca720",
+    "acceptance-13300ba5965c5d891dd01f51942550cace09e1dfd10256417f5763c67ecf89bf",
+    "acceptance-140bef1a209701e1590458eb634dadac4464c449c7ec46187d78b88a1d60c314",
+    "acceptance-17b9bfdcacb4f47e2845dc0012b9fc8ce2c54ef50e6d9fb220747bde009337d2",
+    "acceptance-21a6423d4abb5fc9ec59bf06fcdb0f4407467e3a0eabb15efd9bb7e0a7785bd0",
+    "acceptance-329f983e8fe5fe7184b8bed494d2b7b2df030bc56a56c6853f7aeabb96259d9b",
+    "acceptance-37946019597a362446a2245ed5b0f56e0a5a4a5924f0836c209cfd3b3b0d3861",
+    "acceptance-3b578be366ccbcd3c475bf3c0f4691c9f1041ad5277f93572b65137d00e8295a",
+    "acceptance-4039833e0a10095cf4f9445be7174a29fa279ff060166246df6023aec8e71213",
+    "acceptance-4099d6c75fb46efbc57b5007c75533dfd5acc9a30d8ca559f11cefdf48dd6677",
+    "acceptance-4a313bd13d66355373018d4c32e30e3dc9d9be7f57e08778527f2997b676942e",
+    "acceptance-4d246cf431bae5487666de1f6583751470481b587704a500402f5143a184b57a",
+    "acceptance-50fc95d652327236f01ee3a77639fc73ca489d09acbfc1f7f8113edc1f429f84"
+  ],
+  "actor": "native-runtime:command:powershell.exe",
+  "issuedAt": "2026-08-07T04:28:57.045Z",
+  "evidence": {
+    "executable": "powershell.exe",
+    "args": [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "analyze/sql-effective-db2-hotfix-build/verify-reports.ps1"
+    ],
+    "cwd": ".",
+    "exitCode": 1,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 120000,
+    "startedAt": "2026-08-07T04:28:56.816Z",
+    "endedAt": "2026-08-07T04:28:57.045Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "9a7176d2e5e0b3f4692686896f25a7dae8ff8aca",
+      "afterCommit": "9a7176d2e5e0b3f4692686896f25a7dae8ff8aca"
+    },
+    "afterFence": {
+      "snapshotHash": "1b9b36ca94b7ec0c4591aaeb38f001cdab5ed248cb2ae3adc9179e8a8409fcfe",
+      "scopeHash": "1f0da628d5f5a365ad927a0c19144ed13d644269d35ddb87570a73d2bf34921c",
+      "matched": true
+    },
+    "outputHash": "9632e6a30f7de8faaf76509beced2fc04a28a13860ffc5929d9fd00740a96e36",
+    "outputSummary": "Get-FileHash : �޷�����Get-FileHash����ʶ��Ϊ cmdlet���������ű��ļ�������г�������ơ��������Ƶ�ƴд���������·������ȷ\r\n��·����ȷ��Ȼ������һ�Ρ�\r\n����λ�� D:\\Code\\wow\\wowdata\\analyze\\sql-effective-db2-hotfix-build\\verify-reports.ps1:4 �ַ�: 88\r\n+ ... oin-Path $root ($item.path -replace '/','\\');$h=(Get-FileHash -Algori ...\r\n+                                                      ~~~~~~~~~~~~\r\n    + CategoryInfo          : ObjectNotFound: (Get-FileHash:String) [], ParentContainsErrorRecordException\r\n    + FullyQualifiedErrorId : CommandNotFoundException",
+    "outputTruncated": false
+  },
+  "receiptHash": "d7ed5775341ba6109ba6db495b4a0e76bf042b7f4fff6ba215c9c248ada56909"
+}

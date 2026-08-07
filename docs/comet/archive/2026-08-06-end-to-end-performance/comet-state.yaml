@@ -1,0 +1,23 @@
+schema: comet.native.v3
+minimum_runtime_version: 3
+revision: 30
+verification_protocol: legacy-v1
+name: end-to-end-performance
+language: zh-CN
+phase: archive
+brief: brief.md
+approval: confirmed
+approved_contract_hash: d451fd69060e8702944b867536b07bee5e851ffc805a8bdd1543a701d6fdd9f9
+spec_changes:
+  - capability: wowdata-performance
+    operation: create
+    source: specs/wowdata-performance/spec.md
+    base_hash: null
+verification_result: pass
+verification_report: verification.md
+implementation_scope: runtime/evidence/scopes/ec43ca7421f88ccb443eceed956ffcb1f71cc3c3f52aad95e7d06d7cae181d46.json
+verification_evidence: runtime/evidence/verifications/b7b9b24069d81c5c2b02a769b01a764d771309cced64599a1484102c14408699.json
+partial_allowance: null
+archived: true
+created_at: 2026-08-04
+run_id: 4cd84f4a-4d0f-43e9-9c5a-872b77bac2b9

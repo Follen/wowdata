@@ -1,0 +1,11 @@
+{
+  "schema": "comet.native.archive-cas.v1",
+  "operationId": "spec-1-wowdata-performance",
+  "role": "post",
+  "hash": "d81f4054ae806422fee55eb3e816da429be9232bb55e7c2a424776d27c8f42bd",
+  "identity": {
+    "dev": 2421791372,
+    "ino": 3659174697931564,
+    "birthtimeMs": 1786036641862.3103
+  }
+}

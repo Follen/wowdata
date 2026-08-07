@@ -1,0 +1,23 @@
+schema: comet.native.v3
+minimum_runtime_version: 3
+revision: 5
+verification_protocol: legacy-v1
+name: npm-trusted-publishing
+language: zh-CN
+phase: archive
+brief: brief.md
+approval: confirmed
+approved_contract_hash: fdded82af7b28bd020721a3b6e31c78193c7630a8f750a3dfc4f7fea6de4c574
+spec_changes:
+  - capability: npm-trusted-publishing
+    operation: create
+    source: specs/npm-trusted-publishing/spec.md
+    base_hash: null
+verification_result: pass
+verification_report: verification.md
+implementation_scope: runtime/evidence/scopes/af7b0e8f964d43648deb44bbd7c4ab5d478c1b6265027d06940ae23bf3a1827b.json
+verification_evidence: runtime/evidence/verifications/23b2fc219040a2cef316722a502f0cedc4ea1086a728abc98cf5f0f1c6ac988f.json
+partial_allowance: null
+archived: true
+created_at: 2026-08-02
+run_id: 8c531c1e-0eeb-49dd-920b-592c6db6ad36

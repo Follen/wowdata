@@ -1,0 +1,32 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "end-to-end-performance",
+  "artifacts": [
+    {
+      "path": "analyze/benchmark/locator-r5l-duplicate-diagnosis/sha256-manifest.json",
+      "hash": "cf870debbc8aeb62104d556f2d2ecaa901aecc17386d561c9d245b411957393a",
+      "size": 669
+    },
+    {
+      "path": "analyze/benchmark/locator-r5m-zero-duplicate/sha256-manifest.json",
+      "hash": "775badecc8d51f6b281b5fa15081e15622a0276308a14b1634bd50b5c58a5f85",
+      "size": 652
+    },
+    {
+      "path": "analyze/benchmark/network-selection-r6.json",
+      "hash": "aec46ae3cf6a8fa8ccca93b3287cd63dd1758da01e23639c267fa5831f15bc9d",
+      "size": 1337
+    },
+    {
+      "path": "internal/casc/http_metrics.go",
+      "hash": "99f3cd56219b3c9d912e60a1c701146d65c04dc5df9f60edfc1b039fa9c5a054",
+      "size": 6604
+    },
+    {
+      "path": "internal/casc/locator.go",
+      "hash": "6ef94a17f26e0d19fba3d9d27093fed6bd867355e16fb81a8ac75e6db9c4a535",
+      "size": 18898
+    }
+  ],
+  "totalBytes": 28160
+}

@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "end-to-end-performance",
+    "sourceRevision": 28,
+    "contractHash": "d451fd69060e8702944b867536b07bee5e851ffc805a8bdd1543a701d6fdd9f9",
+    "scopeHash": "ec43ca7421f88ccb443eceed956ffcb1f71cc3c3f52aad95e7d06d7cae181d46",
+    "snapshotHash": "23a5fca39a627c5901e06b9d922cbea3334a07930c85c3ea8878fc6b301894cd",
+    "artifactHash": "bd21fa6193b30096e57cbd3a6ed1a84ec47230197ea332a323cd692e49c23471"
+  },
+  "acceptanceIds": [
+    "acceptance-34dd3a78f3f4c96ae02a39c91dea2ed97e23d74e7ba0a23595863d5eedba32fb"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-06T16:49:09.304Z",
+  "evidence": {
+    "steps": [
+      "核对 offline 正式命令矩阵、Go 测试与完整 implementation scope"
+    ],
+    "observations": [
+      "2026-08-06 r44 正式报告记录 31 cases、4 protocols、10 repetitions、1240/1240 passed；revision 28 scope 完整枚举 219 个变化，required static check 扫描 217 个文本文件、计数跳过 2 个二进制文件、0 issues。"
+    ]
+  },
+  "receiptHash": "7bb6ffdd4f41cfd2a6d43d8c0817161eaea06da55e67f3d3447ddc5d38faf727"
+}

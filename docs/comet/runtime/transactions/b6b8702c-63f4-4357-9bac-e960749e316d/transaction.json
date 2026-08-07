@@ -1,0 +1,27 @@
+{
+  "schema": "comet.native.transaction.v2",
+  "id": "b6b8702c-63f4-4357-9bac-e960749e316d",
+  "kind": "archive",
+  "status": "committed",
+  "change": "cli-only-wowdata",
+  "createdAt": "2026-08-02T17:12:12.177Z",
+  "preflightHash": "eafacee9656c34267995b01d38cfcdf9a9d3692c68bdcb7217ce3ce2c857957d",
+  "operations": [
+    {
+      "id": "spec-1-wowdata-cli",
+      "type": "write",
+      "target": "specs/wowdata-cli/spec.md",
+      "staged": "runtime/transactions/b6b8702c-63f4-4357-9bac-e960749e316d/staged/specs/wowdata-cli/spec.md",
+      "expectedTargetHash": null,
+      "stagedHash": "e5b38bb34f9574d7f6f94343af797aa0a2cbbde299f840e97012a88977ba5f4d"
+    },
+    {
+      "id": "archive-change",
+      "type": "move",
+      "source": "changes/cli-only-wowdata",
+      "target": "archive/2026-08-02-cli-only-wowdata",
+      "expectedSourceHash": "95a522c5c27eaf3b8a23196fb8abc724730a53cb65529fd8cd353d45440d03ed",
+      "expectedTargetHash": null
+    }
+  ]
+}

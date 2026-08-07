@@ -1,0 +1,64 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-effective-db2-hotfix",
+    "sourceRevision": 6,
+    "contractHash": "57d5607304a202cf427249097ad27467357305e743ab49ef8e976770f7372c6c",
+    "scopeHash": "1f0da628d5f5a365ad927a0c19144ed13d644269d35ddb87570a73d2bf34921c",
+    "snapshotHash": "1b9b36ca94b7ec0c4591aaeb38f001cdab5ed248cb2ae3adc9179e8a8409fcfe",
+    "artifactHash": "1e7d80b4d9cb3467cc2c2809d4ff6d249f07b73e1225e46a78cd1cd5922cc007"
+  },
+  "acceptanceIds": [
+    "acceptance-007a8f4919474ba5c94c56398eb13ae9513939fbe8eba4cd90f5ec4ff0b7ad0a",
+    "acceptance-0b741a4c51b6da135242a0d23b653afd4030dfea1b4ea4ad630f93275311336a",
+    "acceptance-0e095a540530b8a8c3332c5eb970489a4409de05e6673b3826456dc9bae034a3",
+    "acceptance-0e6bdc797af0cdeef3eb7ff31cc067804fc95ded9692645147fd3c7aed2a1ea4",
+    "acceptance-0e9584f4d8870d9b21f24bb169416d6945be8f27321d68db189378742436d163",
+    "acceptance-0f2c31889dcab226ceaad377a5c10d7f77bb8ba56d62fa3790b30ac755c6fe5b",
+    "acceptance-119d4df84b9ce0603df4a5a54de5adb8dae185489413a91d03725a5828177ba8",
+    "acceptance-12a49963285f4fad4973127fd351f8bff9c736bc99ca4214d405057e7aa0e8f1",
+    "acceptance-13ff0b8ab9325483d8e6c0932d06bd3a0ad5f85398d6969a5e5f7e37c70c1bab",
+    "acceptance-1745938a18cd5a1096f6bac8039a1575fb35c5fa22b8f08928145ce545eb36fa",
+    "acceptance-182fa505a5c1b4301d0adf9a4b121b8efb9b31c1544085ce546b61ffe97729c6",
+    "acceptance-1a6089fefd01cdf7ce73496459b469198ed8e5ca61366739a10f37aa19ac9030",
+    "acceptance-1aaa83f42ac88f4ca4a725268d3c20827a283b44663fe9ff9328d414f3f9a378",
+    "acceptance-1f15c76f5cd9dac51a182d0e240f9f492f54488613192f2faf0e9b76e14ac52b",
+    "acceptance-257f0f62224730b4d642535ab9f5a6fe5b7f9eb7bd03cc6ffa1daaac1fc55388"
+  ],
+  "actor": "native-runtime:command:go",
+  "issuedAt": "2026-08-07T04:27:02.375Z",
+  "evidence": {
+    "executable": "go",
+    "args": [
+      "test",
+      "./internal/hotfix",
+      "./internal/app",
+      "-count=1"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 180000,
+    "startedAt": "2026-08-07T04:26:59.854Z",
+    "endedAt": "2026-08-07T04:27:02.375Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "9a7176d2e5e0b3f4692686896f25a7dae8ff8aca",
+      "afterCommit": "9a7176d2e5e0b3f4692686896f25a7dae8ff8aca"
+    },
+    "afterFence": {
+      "snapshotHash": "1b9b36ca94b7ec0c4591aaeb38f001cdab5ed248cb2ae3adc9179e8a8409fcfe",
+      "scopeHash": "1f0da628d5f5a365ad927a0c19144ed13d644269d35ddb87570a73d2bf34921c",
+      "matched": true
+    },
+    "outputHash": "29483f9f93795b38b5035756bf5fa37b5074cda26a2daa4adb82d20a159e7576",
+    "outputSummary": "ok  \twowdata/internal/hotfix\t0.157s\nok  \twowdata/internal/app\t1.742s",
+    "outputTruncated": false
+  },
+  "receiptHash": "282c785451d70dde2ce8bdc287000889887b6e855d6e90f60a4b9e5865b5cb20"
+}

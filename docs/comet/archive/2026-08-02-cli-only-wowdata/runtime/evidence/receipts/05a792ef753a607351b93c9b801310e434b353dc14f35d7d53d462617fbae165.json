@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "cli-only-wowdata",
+    "sourceRevision": 5,
+    "contractHash": "fd24d3eed314af4c582edfcee8962ee56aacc42c2df36efcdba5a3096640f687",
+    "scopeHash": "bfd05e95f7c5f1450d54e21da81cc455f6aaf58e5c6e4833a34142efc4001ff3",
+    "snapshotHash": "07eaf9717e5f52cd3e9ef21b1383087886b1bec25357916b7d5f7a7564be040e",
+    "artifactHash": "54c4b31e0705905737706d844ff8658beaa81b9c206c3d66a321b40f1d2a767c"
+  },
+  "acceptanceIds": [
+    "acceptance-6791d7b922009f2155b54d88aa8f8a83cce55fa74e9274a12333aeb6f02cf1a7"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-02T17:04:17.286Z",
+  "evidence": {
+    "steps": [
+      "Inspect complete target rule"
+    ],
+    "observations": [
+      "The Skill preserves explicit product selection, asks when ambiguous, and requires an explicit path for local source commands."
+    ]
+  },
+  "receiptHash": "05a792ef753a607351b93c9b801310e434b353dc14f35d7d53d462617fbae165"
+}

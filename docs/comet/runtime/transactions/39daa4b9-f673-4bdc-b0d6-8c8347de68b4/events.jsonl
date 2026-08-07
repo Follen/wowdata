@@ -1,0 +1,8 @@
+{"sequence":1,"timestamp":"2026-08-07T04:31:45.097Z","type":"prepared"}
+{"sequence":2,"timestamp":"2026-08-07T04:31:46.674Z","type":"operation-started","operationId":"spec-1-sql-effective-db2-hotfix"}
+{"sequence":3,"timestamp":"2026-08-07T04:31:46.779Z","type":"operation-completed","operationId":"spec-1-sql-effective-db2-hotfix"}
+{"sequence":4,"timestamp":"2026-08-07T04:31:48.344Z","type":"operation-started","operationId":"archive-change"}
+{"sequence":5,"timestamp":"2026-08-07T04:31:48.918Z","type":"operation-completed","operationId":"archive-change"}
+{"sequence":6,"timestamp":"2026-08-07T04:31:49.220Z","type":"archive-finalization-started"}
+{"sequence":7,"timestamp":"2026-08-07T04:31:49.281Z","type":"archive-finalized"}
+{"sequence":8,"timestamp":"2026-08-07T04:31:49.320Z","type":"commit"}

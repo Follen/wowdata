@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "end-to-end-performance",
+    "sourceRevision": 26,
+    "contractHash": "d451fd69060e8702944b867536b07bee5e851ffc805a8bdd1543a701d6fdd9f9",
+    "scopeHash": "75d77a88f58f98ec342b126c06debc93e37722f5073153909fbc3d97007a31d3",
+    "snapshotHash": "23a5fca39a627c5901e06b9d922cbea3334a07930c85c3ea8878fc6b301894cd",
+    "artifactHash": "bd21fa6193b30096e57cbd3a6ed1a84ec47230197ea332a323cd692e49c23471"
+  },
+  "acceptanceIds": [
+    "acceptance-ef72b769ba9097499fd8985b4fd680674f43c81c62ee1e047d16f7a04fadffbb"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-06T16:30:32.450Z",
+  "evidence": {
+    "steps": [
+      "核对验收项：DBD manifest、Build/CDN config 与 locator 元数据必须在无依赖冲突时并行获取。已知命令依赖作为第一波请求；查询发现的 Spell、Icon 与 FileDataID 组成第二波增量计划。DB2 和资源请求…"
+    ],
+    "observations": [
+      "该项实现由 internal/casc 测试与既有远程诊断证据覆盖；2026-08-06 用户明确将正式完成门禁改为 offline，r44 只以 local+neutral 计分。完整记录见 analyze/comet-verify-offline-fixes/verification.json。"
+    ]
+  },
+  "receiptHash": "203967d4e1b0ee4a35c8a7e97dee7e7fce56a329cd4bc0393176c39c751b078b"
+}

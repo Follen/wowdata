@@ -1,0 +1,37 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "end-to-end-performance",
+  "artifacts": [
+    {
+      "path": "analyze/benchmark/golden-classic-build-r31/evidence-summary.json",
+      "hash": "13f4fda467f8d5238c3f9acaa746c8867c63611de8a8536ce551216482a608e6",
+      "size": 12789
+    },
+    {
+      "path": "analyze/benchmark/golden-classic-build-r31/final-recheck/report.json",
+      "hash": "61c85d3242f3c496bc11db99a76fd6eaecabb8ff04fc40495357b6ee9576fca8",
+      "size": 12668
+    },
+    {
+      "path": "analyze/benchmark/golden-classic-build-r31/full-2/report.json",
+      "hash": "19125047aeb15eed4dd036a607d06ab39e357c5b146614b78269661b49dd5774",
+      "size": 12560
+    },
+    {
+      "path": "analyze/benchmark/golden-classic-build-r31/sha256-manifest.json",
+      "hash": "9a56cf221bb1a659f3822574e6bdcd76cfd27f182dc443c9e984bacd6c478d12",
+      "size": 9761
+    },
+    {
+      "path": "internal/golden/golden.go",
+      "hash": "7bbd6236bd926e626ea74a948204071a5a0ad7853a8d00518ac0521c582ad31a",
+      "size": 18621
+    },
+    {
+      "path": "tools/golden/runner/main.go",
+      "hash": "27bef8bacd7f5d4c7fab707f87cea3c6fb3001bd8f29f51b89479fd42dc138c2",
+      "size": 15796
+    }
+  ],
+  "totalBytes": 82195
+}

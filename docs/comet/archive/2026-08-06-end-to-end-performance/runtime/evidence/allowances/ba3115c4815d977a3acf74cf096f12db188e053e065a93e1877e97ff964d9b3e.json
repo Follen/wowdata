@@ -1,0 +1,13 @@
+{
+  "schema": "comet.native.partial-allowance.v1",
+  "change": "end-to-end-performance",
+  "scopeHash": "9988222ea221441376d91112d8525958de1fe1f3dd483d76c738e52cf2071460",
+  "scopeIds": [
+    "scope:0ed5903c5a3730ad9639ed1ac7ec82890dfa0fbdf235fd16979e09908718abe3"
+  ],
+  "reason": "复用已确认的同类 scope-detail-overflow：顶层实现目录已完整声明，Runtime 仅因详情预算折叠 91 条已归属变更，未归属数为 0。",
+  "confirmedSummary": "正式验证范围已改为 offline（local + neutral），既有实现目录完整归属，未归属变更为 0；runner offline smoke 通过。",
+  "sourceRevision": 21,
+  "confirmedAt": "2026-08-06T15:32:27.698Z",
+  "allowanceHash": "ba3115c4815d977a3acf74cf096f12db188e053e065a93e1877e97ff964d9b3e"
+}

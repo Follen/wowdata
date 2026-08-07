@@ -1,0 +1,28 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "manual-evidence",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "cli-only-wowdata",
+    "sourceRevision": 5,
+    "contractHash": "fd24d3eed314af4c582edfcee8962ee56aacc42c2df36efcdba5a3096640f687",
+    "scopeHash": "bfd05e95f7c5f1450d54e21da81cc455f6aaf58e5c6e4833a34142efc4001ff3",
+    "snapshotHash": "07eaf9717e5f52cd3e9ef21b1383087886b1bec25357916b7d5f7a7564be040e",
+    "artifactHash": "54c4b31e0705905737706d844ff8658beaa81b9c206c3d66a321b40f1d2a767c"
+  },
+  "acceptanceIds": [
+    "acceptance-380978481664064d54536d152ece22d6037996557df2a5c521238777cfa9f776"
+  ],
+  "actor": "native-runtime:manual-evidence",
+  "issuedAt": "2026-08-02T17:11:21.084Z",
+  "evidence": {
+    "steps": [
+      "Inspect CLI-only product surface"
+    ],
+    "observations": [
+      "The command tree, release package, dependencies, tests, and documentation expose only the CLI; MCP stdio, HTTP MCP, ticket, and server entry sources are removed."
+    ]
+  },
+  "receiptHash": "3d1db849ff04728e2f9827966ead67b0b834524ed82669586c29b5bbedf9823f"
+}

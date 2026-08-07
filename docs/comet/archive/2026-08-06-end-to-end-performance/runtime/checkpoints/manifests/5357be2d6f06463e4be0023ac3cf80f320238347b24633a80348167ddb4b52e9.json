@@ -1,0 +1,37 @@
+{
+  "schema": "comet.native.checkpoint-manifest.v1",
+  "change": "end-to-end-performance",
+  "artifacts": [
+    {
+      "path": "analyze/benchmark/calibration-r33/process-start-repeat.json",
+      "hash": "c55fd5c7e7243ebfe7536dd6f7eb1b433591ef61ba5d5a83a3a070d095b2d2eb",
+      "size": 649
+    },
+    {
+      "path": "analyze/benchmark/calibration-r33/process-start.json",
+      "hash": "ba76310d1cfaa0dbbd50fc77628206f0587a1110bd6e67631a80c27e39f0c50e",
+      "size": 648
+    },
+    {
+      "path": "analyze/benchmark/calibration-r33/selection.json",
+      "hash": "4dc818b4efcddec181787793e0552967c821cb8246e55eadca9a72d440358771",
+      "size": 477
+    },
+    {
+      "path": "analyze/benchmark/golden-classic-build-r31/evidence-summary.json",
+      "hash": "13f4fda467f8d5238c3f9acaa746c8867c63611de8a8536ce551216482a608e6",
+      "size": 12789
+    },
+    {
+      "path": "analyze/benchmark/golden-classic-build-r31/sha256-manifest.json",
+      "hash": "9a56cf221bb1a659f3822574e6bdcd76cfd27f182dc443c9e984bacd6c478d12",
+      "size": 9761
+    },
+    {
+      "path": "analyze/benchmark/wowdata-current-r33.exe",
+      "hash": "7571a3b84e67f5b58cef8cf840d9fc55bb4b91115fdb86e33eb918aabc3fc491",
+      "size": 12589056
+    }
+  ],
+  "totalBytes": 12613380
+}

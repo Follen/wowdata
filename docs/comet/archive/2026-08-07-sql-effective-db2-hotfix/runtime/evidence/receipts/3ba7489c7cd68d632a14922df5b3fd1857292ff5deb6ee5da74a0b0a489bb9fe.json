@@ -1,0 +1,64 @@
+{
+  "schema": "comet.native.verification-receipt.v3",
+  "kind": "automated-check",
+  "role": "acceptance-evidence",
+  "status": "passed",
+  "bindings": {
+    "change": "sql-effective-db2-hotfix",
+    "sourceRevision": 6,
+    "contractHash": "57d5607304a202cf427249097ad27467357305e743ab49ef8e976770f7372c6c",
+    "scopeHash": "1f0da628d5f5a365ad927a0c19144ed13d644269d35ddb87570a73d2bf34921c",
+    "snapshotHash": "1b9b36ca94b7ec0c4591aaeb38f001cdab5ed248cb2ae3adc9179e8a8409fcfe",
+    "artifactHash": "1e7d80b4d9cb3467cc2c2809d4ff6d249f07b73e1225e46a78cd1cd5922cc007"
+  },
+  "acceptanceIds": [
+    "acceptance-bb802c83f4843bffbec5389b2330ff9dded452285919a787dea106d1acaeb334",
+    "acceptance-bbcf442d0b89c5b7178ce4c5e42b7fa9451f513112b29e58a7aab33cac44691b",
+    "acceptance-bc4098d7fa68fcc1e03b22355f1d1969dc68dca9618e6e86c6dc87ecdb0e31bd",
+    "acceptance-bd5449d3d301a1b2ed1ecebf76add41e806aaf02449d6cbb89465ae3b4cacc4f",
+    "acceptance-bfa4ad940dacca3499d369de017c5ceac461df90f2395e4c17170e80495ee1e5",
+    "acceptance-bfc9f67d31ffac7a775c2538e45dcd3c6a69920fdb4bd31a8b1dc8a9337a030c",
+    "acceptance-c0544b76768c2b8a1176bf99c6c797f7a1127de356a6fae4f13d5b8a9235fcb1",
+    "acceptance-c12dd68c5dd9cb32fbfe9286c93e57c15ba31d2d7477d7259fef2add89f72ecb",
+    "acceptance-c37819a03da5ae13db31a0e8fc11a9565b9deedefa1a00f5ceb4e073e3cce2e8",
+    "acceptance-c37c40def71f9b442b94adbe04ed6d481073babd31ac8492b43b78f5c436ab55",
+    "acceptance-c5385da7608553e4f8f8c1b30a2b5f1d0c89e87f5933616bb8d0eb4ca584f9f5",
+    "acceptance-c5631648c08838ffb0592c3bde3f94cc9aee02f16d723e14af0d0b53344c621e",
+    "acceptance-c565a6cece0fe7da707ad17474934e492291d35cf5f0146d2a1db67cf31e3cff",
+    "acceptance-c5d42dc7c5fb6eabfefd26d2380ee81748fe0ab972125978589ba8a714168016",
+    "acceptance-c608fb8cf988c64bfdb646f5540e3dc05a54533b256ee36d297f7b691f37120c"
+  ],
+  "actor": "native-runtime:command:go",
+  "issuedAt": "2026-08-07T04:26:43.287Z",
+  "evidence": {
+    "executable": "go",
+    "args": [
+      "test",
+      "./internal/sqlquery",
+      "./internal/runtime",
+      "-count=1"
+    ],
+    "cwd": ".",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "timeoutMs": 180000,
+    "startedAt": "2026-08-07T04:26:41.182Z",
+    "endedAt": "2026-08-07T04:26:43.287Z",
+    "worktree": {
+      "provider": "git",
+      "root": ".",
+      "beforeCommit": "9a7176d2e5e0b3f4692686896f25a7dae8ff8aca",
+      "afterCommit": "9a7176d2e5e0b3f4692686896f25a7dae8ff8aca"
+    },
+    "afterFence": {
+      "snapshotHash": "1b9b36ca94b7ec0c4591aaeb38f001cdab5ed248cb2ae3adc9179e8a8409fcfe",
+      "scopeHash": "1f0da628d5f5a365ad927a0c19144ed13d644269d35ddb87570a73d2bf34921c",
+      "matched": true
+    },
+    "outputHash": "fb7af7272c6fd837331ec69ee6270ae23f43112a902d470c152fca7d22de996e",
+    "outputSummary": "ok  \twowdata/internal/sqlquery\t0.038s\nok  \twowdata/internal/runtime\t1.448s",
+    "outputTruncated": false
+  },
+  "receiptHash": "3ba7489c7cd68d632a14922df5b3fd1857292ff5deb6ee5da74a0b0a489bb9fe"
+}
