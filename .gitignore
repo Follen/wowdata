@@ -2,6 +2,7 @@ output/
 dist/
 .local/
 .codegraph/
+.comet/
 AGENT.md
 AGENTS.md
 *.log
