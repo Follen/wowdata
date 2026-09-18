@@ -268,6 +268,7 @@ type warmupOptions struct {
 	PruneCache      bool
 	MetadataOnly    bool
 	AutoSource      bool
+	ProductAlias    casc.ProductAlias
 }
 
 type warmupStepError struct {
@@ -632,6 +633,9 @@ loadSource:
 		}
 		resource.FinishStage(db2Stage, nil)
 		reportStage("db2-tables")
+	}
+	if err := verifyProductAlias(opts.ProductAlias, opts.Product, selectedBuild); err != nil {
+		return result, warmupStepError{Code: "product_alias_mismatch", Err: err}
 	}
 	rt.Target = target
 	buildRef, err := rt.persistResolvedTarget(opts.Profile, target, selectedBuild)

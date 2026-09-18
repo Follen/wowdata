@@ -18,10 +18,11 @@ Use the `wowdata` executable from `PATH`. This Skill is CLI-only: do not search 
 Resolve the target before reading CASC or DB2 data.
 
 1. If the user gives a Profile, pass only `--profile <name>`; do not combine it with target flags.
-2. Resolve product from the user's words or conversation context. Read [clients.yaml](references/clients.yaml) for aliases. Product has no default; if it remains ambiguous, ask one short product question before running a data command. Treat “硬核服” as a server rule and resolve its actual product from context.
-3. Preserve every explicit source, path, region, product, Build, and locale. Read [locales.yaml](references/locales.yaml) for locale aliases.
-4. If no source or local path is stated, use remote CDN. For an otherwise unspecified remote target, pass `--source remote --region cn --build latest --locale zhCN` plus the resolved product.
-5. For `--source local`, require `--path <client>` and complete the remaining target fields explicitly; never guess missing local-client facts.
+2. Resolve product from the user's words or conversation context. Read [clients.yaml](references/clients.yaml) for aliases. Pass the CDN product ID to `--product`; the aliases under `cliAliases` (`forever`, `classic-plus`) are resolved by the CLI itself and may be passed directly. Product has no default; if it remains ambiguous, ask one short product question before running a data command. Treat “硬核服” as a server rule and resolve its actual product from context.
+3. A product ID names a reusable slot, not a fixed game: `wow_classic_beta` held the MoP Classic beta (5.5.x) before and holds WoW Forever (1.60.x) now, and a region may not list it at all. Never infer content from the product ID alone — read the label from `casc products --source remote --region <region>` and pin the Build when the result must stay reproducible. If a `--product` alias no longer matches the flavor it promised, the CLI fails with `product_alias_mismatch`; follow the label instead of forcing the product.
+4. Preserve every explicit source, path, region, product, Build, and locale. Read [locales.yaml](references/locales.yaml) for locale aliases.
+5. If no source or local path is stated, use remote CDN. For an otherwise unspecified remote target, pass `--source remote --region cn --build latest --locale zhCN` plus the resolved product.
+6. For `--source local`, require `--path <client>` and complete the remaining target fields explicitly; never guess missing local-client facts.
 
 Never rely on CLI target defaults; the CLI intentionally has none. `--build latest` resolves at execution time and must not be hard-coded in this Skill.
 

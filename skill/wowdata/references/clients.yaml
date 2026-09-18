@@ -1,4 +1,12 @@
 schema: wowdata.clients.v1
+# Friendly names for the CDN product the user means. Pass the value straight to
+# --product: the CLI resolves the aliases listed under cliAliases itself.
+#
+# A product ID names a reusable slot, not a fixed game. wow_classic_beta carried the
+# Mists of Pandaria Classic beta (5.5.x) before and carries WoW Forever (1.60.x) now.
+# The CLI therefore verifies an alias against the flavor of the build that actually
+# resolves and fails with product_alias_mismatch rather than answering for a slot that
+# has moved on. When that happens, read the label from `casc products` and follow it.
 clients:
   retail: wow
   ptr: wowt
@@ -12,8 +20,6 @@ clients:
   "怀旧服 PTR": wow_classic_ptr
   怀旧服测试服: wow_classic_ptr
   classic-beta: wow_classic_beta
-  forever: wow_classic_beta
-  classic-plus: wow_classic_beta
   classic-era: wow_classic_era
   怀中怀: wow_classic_era
   "60级": wow_classic_era
@@ -24,6 +30,11 @@ clients:
   泰坦服: wow_classic_titan
   泰坦重铸: wow_classic_titan
   时光服: wow_classic_titan
+cliAliases:
+  # The CLI resolves these to a product and checks the resolved build's flavor, so they
+  # may be passed to --product directly.
+  forever: wow_classic_beta
+  classic-plus: wow_classic_beta
 contextualAliases:
   硬核服:
     type: realm-rule
