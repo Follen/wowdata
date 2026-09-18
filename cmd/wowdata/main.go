@@ -903,7 +903,7 @@ func warmupPrompt(rt *Runtime) map[string]interface{} {
 			{"product": "wow", "label": "Retail"},
 			{"product": "wow_classic", "label": "Classic"},
 			{"product": "wow_classic_ptr", "label": "Classic PTR"},
-			{"product": "wow_classic_beta", "label": "Classic Beta / Forever Beta"},
+			{"product": "wow_classic_beta", "label": "Classic Beta (currently Forever)"},
 			{"product": "wow_classic_titan", "label": "Titan Reforged"},
 			{"product": "wow_classic_era", "label": "Classic Era"},
 			{"product": "wow_classic_era_ptr", "label": "Classic Era PTR"},

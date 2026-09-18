@@ -24,8 +24,10 @@ func TestWarmupProductHintsCoverKnownProducts(t *testing.T) {
 		if label == "" {
 			t.Errorf("empty label for %s", product)
 		}
-		if product == "wow_classic_beta" && !strings.Contains(label, "Forever") {
-			t.Errorf("Classic Beta hint must mention Forever: %q", label)
+		// The beta slot is reused across releases, so the hint must qualify the
+		// current occupant instead of claiming the slot is Forever.
+		if product == "wow_classic_beta" && (!strings.Contains(label, "Forever") || !strings.Contains(label, "currently")) {
+			t.Errorf("Classic Beta hint must qualify the current occupant: %q", label)
 		}
 	}
 	for product := range known {

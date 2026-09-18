@@ -65,10 +65,7 @@ func (l *CASCLocal) Init() error {
 func (l *CASCLocal) GetProductList() []Product {
 	products := make([]Product, 0, len(l.Builds))
 	for i, build := range l.Builds {
-		title := knownProductTitle(build.Product)
-		if title == "" {
-			title = build.Product
-		}
+		title := productTitleWithFlavor(build.Product, build.Version)
 		label := strings.TrimSpace(fmt.Sprintf("%s (%s) %s", title, strings.ToUpper(build.Branch), build.Version))
 		products = append(products, Product{
 			Label: label, BuildIndex: i, Product: build.Product, Region: build.Region,
@@ -574,7 +571,7 @@ func knownProductTitle(product string) string {
 	case "wow_classic_ptr":
 		return "PTR: World of Warcraft Classic"
 	case "wow_classic_beta":
-		return "Beta: World of Warcraft Classic / Forever"
+		return "Beta: World of Warcraft Classic"
 	case "wow_classic_titan":
 		return "World of Warcraft Classic Titan Reforged"
 	case "wow_classic_era":
@@ -586,4 +583,34 @@ func knownProductTitle(product string) string {
 	default:
 		return ""
 	}
+}
+
+// classicBetaFlavor names the release currently parked in a reusable beta slot.
+// wow_classic_beta is a channel rather than a fixed game: it carried the Mists of
+// Pandaria Classic beta (5.5.x) before and carries WoW Forever (1.60.x) now, so the
+// flavor has to come from the version. An unrecognized version returns "" so the
+// label stays version-neutral instead of asserting a flavor we cannot verify.
+func classicBetaFlavor(product, version string) string {
+	if product != "wow_classic_beta" {
+		return ""
+	}
+	switch {
+	case strings.HasPrefix(version, "1.60."):
+		return "Forever"
+	default:
+		return ""
+	}
+}
+
+// productTitleWithFlavor renders the display title for one build, appending a
+// version-derived flavor when the product alone would be ambiguous.
+func productTitleWithFlavor(product, version string) string {
+	title := knownProductTitle(product)
+	if title == "" {
+		title = product
+	}
+	if flavor := classicBetaFlavor(product, version); flavor != "" {
+		title = title + " / " + flavor
+	}
+	return title
 }
