@@ -1,14 +1,15 @@
 schema: wowdata.clients.v1
-# Friendly names for the CDN product the user means. Every name in this file is
-# resolved by the CLI itself, so it may be passed straight to --product; the value on
-# the right is the CDN product ID and is also accepted directly.
+# Friendly names a user may say, and the CDN product to pass to --product.
+#
+# The CLI accepts CDN product IDs only: it does not resolve these names, and a name
+# passed to --product fails as an unknown product. Translate the user's wording to the
+# product on the right yourself, pass that value, and state which product and version
+# you actually used.
 #
 # A product ID names a reusable slot, not a fixed game. wow_classic_beta carried the
-# Mists of Pandaria Classic beta (5.5.x) before and carries WoW Forever (1.60.x) now.
-# Names under flavorAliases claim a specific game rather than a slot, so the CLI checks
-# the resolved build's flavor and fails with product_alias_mismatch instead of
-# answering for a slot that has moved on. Names that only label a slot (classic-beta)
-# accept whatever it currently holds.
+# Mists of Pandaria Classic beta (5.5.x) and carries WoW Forever (1.60.x) now, so never
+# infer content from the ID alone: read the label and version from
+# `casc products --source remote --region <region>` and confirm before reporting.
 clients:
   retail: wow
   ptr: wowt
@@ -21,6 +22,9 @@ clients:
   classic-ptr: wow_classic_ptr
   "怀旧服 PTR": wow_classic_ptr
   怀旧服测试服: wow_classic_ptr
+  # WoW Forever runs on the classic beta slot as of 1.60.x.
+  forever: wow_classic_beta
+  classic-plus: wow_classic_beta
   classic-beta: wow_classic_beta
   classic-era: wow_classic_era
   怀中怀: wow_classic_era
@@ -32,12 +36,14 @@ clients:
   泰坦服: wow_classic_titan
   泰坦重铸: wow_classic_titan
   时光服: wow_classic_titan
-flavorAliases:
-  # These name a game rather than a slot, so the resolved build's flavor is verified.
-  # A region may not carry the slot at all; check `casc products --source remote
-  # --region <region>` before concluding the data is missing.
-  forever: wow_classic_beta
-  classic-plus: wow_classic_beta
+regionalNotes:
+  # Not naming rules, but they explain failures that otherwise look like bad data.
+  wow_classic_titan:
+    regions: [cn]
+    instruction: Listed for cn only. WoWDBDefs has no structure for its Build either, so a DB2 read fails with "no DBD structure for table <table>"; report that as missing definitions, not as missing data.
+  wow_classic_beta:
+    regions: [us]
+    instruction: Not listed for cn. Use --region us, or report that the region does not carry the slot.
 contextualAliases:
   硬核服:
     type: realm-rule

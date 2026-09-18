@@ -1143,7 +1143,10 @@ func (r *CASCRemote) GetProductList() []Product {
 		if build.Product == "" {
 			continue
 		}
-		title := productTitleWithFlavor(build.Product, build.VersionsName)
+		title := knownProductTitle(build.Product)
+		if title == "" {
+			title = build.Product
+		}
 		label := fmt.Sprintf("%s %s", title, build.VersionsName)
 		products = append(products, Product{
 			Label:          strings.TrimSpace(label),

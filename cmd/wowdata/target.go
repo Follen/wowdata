@@ -20,7 +20,6 @@ type targetResolution struct {
 	Target      storage.Target
 	ProfileName string
 	AutoSource  bool
-	Alias       casc.ProductAlias
 }
 
 type targetRequiredError struct {
@@ -64,13 +63,6 @@ func resolveTarget(cmd *cobra.Command, layout storage.Layout) (targetResolution,
 		autoSource = true
 		target.Source = "remote"
 	}
-	// A friendly product name resolves to the CDN product that currently carries it.
-	// The alias is kept so the resolved build can be checked against the expected
-	// flavor once the version is known.
-	alias, aliasFound := casc.ResolveProductAlias(target.Product)
-	if aliasFound {
-		target.Product = alias.Product
-	}
 	env, err := layout.LoadEnv()
 	if err != nil {
 		return targetResolution{}, targetRequiredError{Err: fmt.Errorf("load .env: %w", err)}
@@ -98,21 +90,7 @@ func resolveTarget(cmd *cobra.Command, layout storage.Layout) (targetResolution,
 	if _, ok := casc.LocaleFlagByNameOK(target.Locale); !ok {
 		return targetResolution{}, targetRequiredError{Err: fmt.Errorf("unsupported locale %q", target.Locale)}
 	}
-	return targetResolution{Target: target, ProfileName: profileName, AutoSource: autoSource, Alias: alias}, nil
-}
-
-// verifyProductAlias guards a friendly product name against slot drift. The alias
-// names a flavor rather than a fixed product, so a build that no longer carries it
-// is reported instead of answering for a different game.
-func verifyProductAlias(alias casc.ProductAlias, product string, build casc.VersionEntry) error {
-	if alias.Name == "" {
-		return nil
-	}
-	version := resolvedBuildVersion(build)
-	if alias.Matches(product, version) {
-		return nil
-	}
-	return fmt.Errorf("product alias %q expects the %s flavor of %s, but build %s does not carry it; that slot has moved on. Pass --product %s to query it anyway, or run: wowdata casc products --source remote --region <region>", alias.Name, alias.Flavor, alias.Product, version, alias.Product)
+	return targetResolution{Target: target, ProfileName: profileName, AutoSource: autoSource}, nil
 }
 
 func flagChanged(cmd *cobra.Command, name string) bool {
@@ -161,7 +139,6 @@ func prepareThen(rt *Runtime, handler func(cmd *cobra.Command, args []string) er
 		opts.Locale = resolved.Target.Locale
 		opts.Profile = resolved.ProfileName
 		opts.AutoSource = resolved.AutoSource
-		opts.ProductAlias = resolved.Alias
 		opts.CacheRoot = resolveCacheRoot(opts.CacheRoot, nil)
 		if err := mergeCommandDependencies(cmd, args, &opts); err != nil {
 			if sqlErr, ok := err.(*sqlquery.Error); ok {
@@ -171,9 +148,6 @@ func prepareThen(rt *Runtime, handler func(cmd *cobra.Command, args []string) er
 		}
 
 		fmt.Fprintf(cmd.ErrOrStderr(), "prepare target=%s/%s/%s/%s build=%s\n", opts.Source, opts.Region, opts.Product, opts.Locale, opts.Build)
-		if opts.ProductAlias.Name != "" {
-			fmt.Fprintf(cmd.ErrOrStderr(), "prepare product-alias=%s resolved-product=%s expected-flavor=%s\n", opts.ProductAlias.Name, opts.ProductAlias.Product, opts.ProductAlias.Flavor)
-		}
 		lock, err := rt.Layout.AcquireLock(fmt.Sprintf("%s|%s|%s|%s|%s|%s", opts.Source, opts.Path, opts.Region, opts.Product, opts.Build, opts.Locale), 2*time.Minute)
 		if err != nil {
 			return app.NewResponseWriter(cmd.OutOrStdout()).Error(commandLabel(cmd), "cache_lock_failed", err.Error())

@@ -16,7 +16,7 @@ or a complete target:
 
 Use `--source local --path <client>` plus explicit region, product, Build, and locale for a local client.
 
-`--product` takes either the CDN product ID (for example `wow_classic_beta`) or any friendly name from [clients.yaml](clients.yaml) (for example `retail`, `classic-era`, `forever`), which the CLI resolves itself. Because a product ID names a slot rather than a fixed game, the names listed under `flavorAliases` are verified against the flavor of the build that actually resolves; if the slot has moved on, the CLI fails with `product_alias_mismatch` instead of returning another game's data. When that happens, run `casc products` for the region and pick the product whose label matches the flavor the user asked for.
+`--product` takes the CDN product ID (for example `wow_classic_beta`). The CLI does not resolve friendly names, so translate the user's wording with [clients.yaml](clients.yaml) first. Because a product ID names a slot rather than a fixed game, confirm what the slot currently carries from `casc products` before reporting data.
 
 A remote target is only valid for the region that lists it. Confirm with `casc products --source remote --region <region>` before concluding that data is missing.
 

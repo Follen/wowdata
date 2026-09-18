@@ -1,12 +1,14 @@
 package main
 
 import (
-	"strings"
 	"testing"
 
 	"wowdata/internal/casc"
 )
 
+// The hints are what the CLI offers when a caller has not chosen a product yet, so they
+// must list every product the CLI can actually resolve. Naming a flavor here would go
+// stale, so labels stay factual and the Skill explains what the slots currently carry.
 func TestWarmupProductHintsCoverKnownProducts(t *testing.T) {
 	hints := warmupPrompt(nil)["productHints"].([]map[string]interface{})
 	known := make(map[string]bool)
@@ -15,19 +17,17 @@ func TestWarmupProductHintsCoverKnownProducts(t *testing.T) {
 	}
 	seen := make(map[string]bool)
 	for _, hint := range hints {
-		product := hint["product"].(string)
-		if !known[product] || seen[product] {
-			t.Errorf("unexpected or duplicate product hint: %s", product)
+		product, _ := hint["product"].(string)
+		if !known[product] {
+			t.Errorf("product hint %q is not a known product", product)
+			continue
+		}
+		if seen[product] {
+			t.Errorf("duplicate product hint: %s", product)
 		}
 		seen[product] = true
-		label, _ := hint["label"].(string)
-		if label == "" {
+		if label, _ := hint["label"].(string); label == "" {
 			t.Errorf("empty label for %s", product)
-		}
-		// The beta slot is reused across releases, so the hint must qualify the
-		// current occupant instead of claiming the slot is Forever.
-		if product == "wow_classic_beta" && (!strings.Contains(label, "Forever") || !strings.Contains(label, "currently")) {
-			t.Errorf("Classic Beta hint must qualify the current occupant: %q", label)
 		}
 	}
 	for product := range known {

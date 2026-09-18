@@ -268,7 +268,6 @@ type warmupOptions struct {
 	PruneCache      bool
 	MetadataOnly    bool
 	AutoSource      bool
-	ProductAlias    casc.ProductAlias
 }
 
 type warmupStepError struct {
@@ -634,9 +633,6 @@ loadSource:
 		resource.FinishStage(db2Stage, nil)
 		reportStage("db2-tables")
 	}
-	if err := verifyProductAlias(opts.ProductAlias, opts.Product, selectedBuild); err != nil {
-		return result, warmupStepError{Code: "product_alias_mismatch", Err: err}
-	}
 	rt.Target = target
 	buildRef, err := rt.persistResolvedTarget(opts.Profile, target, selectedBuild)
 	if err != nil {
@@ -905,16 +901,16 @@ func warmupPrompt(rt *Runtime) map[string]interface{} {
 		},
 		"productHints": []map[string]interface{}{
 			{"product": "wow", "label": "Retail"},
-			{"product": "wow_classic", "label": "Classic"},
-			{"product": "wow_classic_ptr", "label": "Classic PTR"},
-			{"product": "wow_classic_beta", "label": "Classic Beta (currently Forever)"},
-			{"product": "wow_classic_titan", "label": "Titan Reforged"},
-			{"product": "wow_classic_era", "label": "Classic Era"},
-			{"product": "wow_classic_era_ptr", "label": "Classic Era PTR"},
-			{"product": "wow_anniversary", "label": "Classic Anniversary"},
 			{"product": "wowt", "label": "PTR"},
 			{"product": "wowxptr", "label": "PTR 2"},
 			{"product": "wow_beta", "label": "Beta"},
+			{"product": "wow_classic", "label": "Classic"},
+			{"product": "wow_classic_ptr", "label": "Classic PTR"},
+			{"product": "wow_classic_beta", "label": "Classic Beta"},
+			{"product": "wow_classic_era", "label": "Classic Era"},
+			{"product": "wow_classic_era_ptr", "label": "Classic Era PTR"},
+			{"product": "wow_anniversary", "label": "Classic Anniversary"},
+			{"product": "wow_classic_titan", "label": "Titan Reforged"},
 		},
 		"connected": connected,
 		"products":  products,

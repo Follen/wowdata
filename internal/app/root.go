@@ -28,7 +28,7 @@ func NewRootCommandWithService(svc *Service) *cobra.Command {
 	cmd.PersistentFlags().String("source", "", "Data source: local or remote (required unless --profile is used)")
 	cmd.PersistentFlags().String("path", "", "Local WoW client path when source=local")
 	cmd.PersistentFlags().String("region", "", "WoW region (required unless --profile is used)")
-	cmd.PersistentFlags().String("product", "", "WoW product ID or alias such as forever (required unless --profile is used)")
+	cmd.PersistentFlags().String("product", "", "WoW product (required unless --profile is used)")
 	cmd.PersistentFlags().String("build", "", "WoW build: latest, version, build ID, or config key (required unless --profile is used)")
 	cmd.PersistentFlags().String("locale", "", "WoW locale, such as zhCN or enUS (required unless --profile is used)")
 	cmd.PersistentFlags().String("profile", "", "Named target profile from ~/.wowdata/profiles")
