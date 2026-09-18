@@ -1,12 +1,14 @@
 schema: wowdata.clients.v1
-# Friendly names for the CDN product the user means. Pass the value straight to
-# --product: the CLI resolves the aliases listed under cliAliases itself.
+# Friendly names for the CDN product the user means. Every name in this file is
+# resolved by the CLI itself, so it may be passed straight to --product; the value on
+# the right is the CDN product ID and is also accepted directly.
 #
 # A product ID names a reusable slot, not a fixed game. wow_classic_beta carried the
 # Mists of Pandaria Classic beta (5.5.x) before and carries WoW Forever (1.60.x) now.
-# The CLI therefore verifies an alias against the flavor of the build that actually
-# resolves and fails with product_alias_mismatch rather than answering for a slot that
-# has moved on. When that happens, read the label from `casc products` and follow it.
+# Names under flavorAliases claim a specific game rather than a slot, so the CLI checks
+# the resolved build's flavor and fails with product_alias_mismatch instead of
+# answering for a slot that has moved on. Names that only label a slot (classic-beta)
+# accept whatever it currently holds.
 clients:
   retail: wow
   ptr: wowt
@@ -30,9 +32,10 @@ clients:
   泰坦服: wow_classic_titan
   泰坦重铸: wow_classic_titan
   时光服: wow_classic_titan
-cliAliases:
-  # The CLI resolves these to a product and checks the resolved build's flavor, so they
-  # may be passed to --product directly.
+flavorAliases:
+  # These name a game rather than a slot, so the resolved build's flavor is verified.
+  # A region may not carry the slot at all; check `casc products --source remote
+  # --region <region>` before concluding the data is missing.
   forever: wow_classic_beta
   classic-plus: wow_classic_beta
 contextualAliases:

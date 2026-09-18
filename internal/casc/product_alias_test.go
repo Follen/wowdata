@@ -73,3 +73,47 @@ func TestProductAliasesTargetKnownProducts(t *testing.T) {
 		}
 	}
 }
+
+// An alias must never shadow a real product ID, or a caller passing the ID would be
+// silently redirected.
+func TestProductAliasesDoNotShadowProducts(t *testing.T) {
+	for _, product := range KnownProducts {
+		if _, ok := ResolveProductAlias(product); ok {
+			t.Errorf("product id %s is shadowed by an alias", product)
+		}
+	}
+}
+
+// Every product the CLI can discover should be reachable by a friendly name, so the
+// Skill's name table and the CLI cannot drift apart.
+func TestEveryKnownProductHasAnAlias(t *testing.T) {
+	covered := make(map[string]bool)
+	for _, name := range AliasNames() {
+		alias, _ := ResolveProductAlias(name)
+		covered[alias.Product] = true
+	}
+	for _, product := range KnownProducts {
+		if !covered[product] {
+			t.Errorf("no friendly alias resolves to %s", product)
+		}
+	}
+}
+
+// classic-beta names the slot, so it must accept whatever the slot holds; forever
+// names a game, so it must not.
+func TestSlotAliasAcceptsDriftButFlavorAliasDoesNot(t *testing.T) {
+	slot, ok := ResolveProductAlias("classic-beta")
+	if !ok {
+		t.Fatal("classic-beta alias is missing")
+	}
+	if !slot.Matches("wow_classic_beta", "5.5.0.62071") {
+		t.Error("classic-beta names the slot and must accept an older occupant")
+	}
+	flavor, ok := ResolveProductAlias("forever")
+	if !ok {
+		t.Fatal("forever alias is missing")
+	}
+	if flavor.Matches("wow_classic_beta", "5.5.0.62071") {
+		t.Error("forever names a game and must reject an older occupant")
+	}
+}
