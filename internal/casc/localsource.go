@@ -574,7 +574,7 @@ func knownProductTitle(product string) string {
 	case "wow_classic_ptr":
 		return "PTR: World of Warcraft Classic"
 	case "wow_classic_beta":
-		return "Beta: World of Warcraft Classic"
+		return "Beta: World of Warcraft Classic / Forever"
 	case "wow_classic_titan":
 		return "World of Warcraft Classic Titan Reforged"
 	case "wow_classic_era":

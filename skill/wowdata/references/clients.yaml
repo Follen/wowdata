@@ -12,6 +12,8 @@ clients:
   "怀旧服 PTR": wow_classic_ptr
   怀旧服测试服: wow_classic_ptr
   classic-beta: wow_classic_beta
+  forever: wow_classic_beta
+  classic-plus: wow_classic_beta
   classic-era: wow_classic_era
   怀中怀: wow_classic_era
   "60级": wow_classic_era
